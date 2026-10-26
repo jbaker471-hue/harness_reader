@@ -50,7 +50,7 @@ var pinHeaderWords = []struct {
 var (
 	pinValue     = regexp.MustCompile(`(?i)^(?:[A-Z]{1,2}[0-9]{0,3}[A-Z]?|[0-9]{1,4}[A-Z]?)$`)
 	reDestPin    = regexp.MustCompile(`(?i)^((?:J|P|X|TB|CN|CON|PL|SK|S|SP|E|GND)[-_]?[0-9]{1,4}[A-Z]?)\s*(?:[-:/.]|\s+PIN\s+|\s+CAV\s+|\s+)\s*([A-Z]{0,2}[0-9]{1,4}[A-Z]?|[A-Z]{1,2})$`)
-	reDestTag    = regexp.MustCompile(`^(?:J|P|X|TB|CN|CON|PL|SK|S|SP|E)[-_]?[0-9]{1,4}[A-Z]?$`)
+	reDestTag    = regexp.MustCompile(`^(?:[A-Z][A-Z0-9]*[-_])*(?:J|P|X|TB|CN|CON|PL|SK|S|SP|E)[-_]?[0-9]{1,4}[A-Z]?$`)
 	reBOMHeading = regexp.MustCompile(`(?i)\b(?:QTY|QUANTITY|PART\s*(?:NUMBER|NO\.?|#)|P/N|ITEM|FIND\s+NO)\b`)
 )
 

@@ -28,3 +28,13 @@ console.log('PASS: synthetic face geometry detection, mirror, missing/unlabeled 
 equal(Array.from(isolate.extractedOccupied({cavityModels:[{tag:'P1',wired:['a'],explicitUnused:[{cavity:'A'}]}],candidates:[{Connector:'P1',Number:'A'}]},'P1')),['a']);
 if(!src.includes('!model?.conflicts?.length')||!src.includes('(model?.explicitUnused||[]).map(u=>u.cavity)'))throw Error('build plan must preserve unused declarations and unresolved source conflicts');
 console.log('PASS: source model occupancy and build-plan conflict safeguards');
+
+const diagnostics={};vm.createContext(diagnostics);
+vm.runInContext(block('function localRecognitionCheck(', 'function showLocalRecognitionCheck('),diagnostics);
+equal(Array.from(diagnostics.localRecognitionCheck(null)),['NO_DRAWING: Open a drawing first.']);
+const privateFixture={words:42,boms:[],wires:[],connectors:[{Name:'UNASSIGNED',Part:'PRIVATE_TEST_VALUE'}],filename:'PRIVATE_TEST_VALUE',engineError:'PRIVATE_TEST_VALUE'};
+const messages=diagnostics.localRecognitionCheck(privateFixture).join('\n');
+if(messages.includes('PRIVATE_TEST_VALUE'))throw Error('diagnostic leaked source content');
+for(const code of ['ENGINE_ERROR','TEXT_PRESENT','BOM_UNRECOGNIZED','CONDUCTORS_UNRECOGNIZED','ASSOCIATION_UNRESOLVED'])if(!messages.includes(code))throw Error('missing diagnostic '+code);
+if(!diagnostics.localRecognitionCheck({words:0}).join('').includes('NO_TEXT'))throw Error('missing no-text diagnostic');
+console.log('PASS: local recognition checks and fixed-message privacy boundary');

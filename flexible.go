@@ -12,7 +12,7 @@ import (
 // one customer's sheet template. Every result remains an unverified candidate.
 var (
 	reConnectPart   = regexp.MustCompile(`(?i)\b(?:D38999/[0-9A-Z-]{7,22}|MS(?:27[0-9]{3}|34[0-9]{2})[A-Z0-9-]{3,20}|(?:[0-9]{1,2}D)[0-9A-Z-]{6,22})\b`)
-	reRefDesignator = regexp.MustCompile(`(?i)\b(?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?\b`)
+	reRefDesignator = regexp.MustCompile(`(?i)\b(?:[A-Z][A-Z0-9]*[-_])*(?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?\b`)
 	reBOMWord       = regexp.MustCompile(`(?i)(?:BILL\s+OF\s+MATERIALS|BOM|PARTS\s+LIST|MATERIAL\s+LIST)`)
 	reNumeric       = regexp.MustCompile(`^[0-9]{1,3}$`)
 )
