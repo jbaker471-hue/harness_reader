@@ -4,6 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - 'Trivex_v2.8_GitHub_Windows_Build.zip'
+      - '**/*.go'
+      - 'vendor/**'
+      - '.github/workflows/windows-build.yml'
 
 permissions:
   contents: read
@@ -11,42 +16,63 @@ permissions:
 jobs:
   windows-x64:
     runs-on: windows-2022
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Go
+
+      - name: Extract v2.8 source bundle (if present)
+        shell: pwsh
+        run: |
+          $zip = 'Trivex_v2.8_GitHub_Windows_Build.zip'
+          if (Test-Path $zip) {
+            Expand-Archive -Path $zip -DestinationPath . -Force
+          }
+          if (!(Test-Path 'main.go')) {
+            throw 'Upload Trivex_v2.8_GitHub_Windows_Build.zip into the repository root, then rerun Actions'
+          }
+          if (!(Test-Path 'vendor/modules.txt')) {
+            throw 'The complete source archive must include vendored dependencies'
+          }
+
+      - name: Set up Go 1.24.7
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.7'
           cache: false
-      - name: Check for application source
+
+      - name: JavaScript UI regression tests
+        shell: pwsh
+        run: node test_ui_regression.js
+
+      - name: Vet and unit tests (offline)
         shell: pwsh
         run: |
-          if (!(Test-Path 'main.go')) { throw 'Application source has not been uploaded to this repository yet' }
-          if (!(Test-Path 'vendor/modules.txt')) { throw 'Vendored dependencies are missing' }
-      - name: Vet and unit test (offline)
-        shell: pwsh
-        run: |
-          $env:GOFLAGS='-mod=vendor'
-          $env:GOPROXY='off'
+          $env:GOFLAGS = '-mod=vendor'
+          $env:GOPROXY = 'off'
+          go version
           go vet ./...
           go test -count=1 ./...
-      - name: Build Windows x64 EXE
+
+      - name: Build Windows x64 standalone executable
         shell: pwsh
         run: |
-          $env:GOFLAGS='-mod=vendor'
-          $env:GOPROXY='off'
-          $env:GOOS='windows'
-          $env:GOARCH='amd64'
-          $env:CGO_ENABLED='0'
+          $env:GOFLAGS = '-mod=vendor'
+          $env:GOPROXY = 'off'
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          $env:CGO_ENABLED = '0'
           go build -trimpath -ldflags='-H=windowsgui -s -w' -o Trivex_Harness_Auditor_v2.8.exe .
-          if (!(Test-Path 'Trivex_Harness_Auditor_v2.8.exe')) { throw 'Executable was not produced' }
-          Get-FileHash 'Trivex_Harness_Auditor_v2.8.exe' -Algorithm SHA256 | Format-List
-      - name: Publish executable
+          if (!(Test-Path 'Trivex_Harness_Auditor_v2.8.exe')) { throw 'EXE missing' }
+          (Get-FileHash 'Trivex_Harness_Auditor_v2.8.exe' -Algorithm SHA256).Hash |
+            Out-File -Encoding ascii Trivex_Harness_Auditor_v2.8.sha256
+
+      - name: Upload runnable Windows application
         uses: actions/upload-artifact@v4
         with:
           name: Trivex_Harness_Auditor_v2.8_Windows_x64
-          path: Trivex_Harness_Auditor_v2.8.exe
+          path: |
+            Trivex_Harness_Auditor_v2.8.exe
+            Trivex_Harness_Auditor_v2.8.sha256
           if-no-files-found: error
           retention-days: 14
