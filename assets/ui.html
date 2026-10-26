@@ -1,0 +1,776 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trivex | Harness Auditor v__APP_VERSION__</title>
+<style>
+:root{--nav:#10253d;--blue:#245c91;--teal:#129e9b;--bg:#f2f5f8;--line:#d4dee7;--muted:#647585;--red:#a23343;--green:#216d53}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:14px/1.5 'Segoe UI',Arial,sans-serif;color:#233549}button,input,textarea,select{font:inherit}button{padding:9px 13px;background:#fff;border:1px solid #b8c8d6;border-radius:7px;color:#294257;cursor:pointer;font-weight:600}button:hover{border-color:#4784ad}button.primary{background:var(--blue);border-color:var(--blue);color:#fff}button.danger{color:#9b303d}button:disabled{opacity:.5;cursor:not-allowed}.app{display:flex;min-height:100vh}.side{background:var(--nav);color:#dce9f4;width:228px;flex:none;padding:23px 15px;position:sticky;top:0;height:100vh}.logo{font-size:24px;letter-spacing:3px;font-weight:800}.logo span{color:#29c1bb}.subbrand{font-size:10px;letter-spacing:2px;color:#aac4d8;margin-bottom:28px}.nav{display:block;width:100%;color:#bbcee0;background:none;text-align:left;border:0;margin:3px 0;padding:12px}.nav.on{background:#274b69;color:white;border-left:3px solid var(--teal)}.version{font-size:11px;color:#acc0d1;position:absolute;bottom:20px;left:18px}.main{flex:1;min-width:0;padding:28px;max-width:1600px;margin:0 auto}.top{display:flex;align-items:start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:19px}h1{font-size:26px;margin:0}h2{font-size:18px;margin:0 0 8px}h3{font-size:15px;margin:8px 0}p{margin:7px 0 12px}.muted,.help{color:var(--muted)}.small{font-size:12px}.panel{background:white;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:15px}.tab{display:none}.tab.on{display:block}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.tri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px;margin:7px 0}.field label{font-size:12px;font-weight:700}.field input,.field textarea,.field select{width:100%;border:1px solid #bbcad9;border-radius:6px;padding:9px;background:white}.field textarea{font:13px/1.6 Consolas,monospace;min-height:104px}.tablebox{max-height:530px;overflow:auto;border:1px solid var(--line);border-radius:7px}table{border-collapse:collapse;width:100%;font-size:12px;min-width:630px}th{text-align:left;background:#eef3f8;position:sticky;top:0;color:#38536d;font-size:11px;text-transform:uppercase;letter-spacing:.5px}td,th{padding:9px;border-bottom:1px solid #e0e7ef;vertical-align:top}td input,td textarea{padding:6px;width:100%;border-radius:4px;border:1px solid #becbd9;min-width:64px}td input[type=checkbox]{width:18px;min-width:0}td button{padding:5px 9px}.tag{border-radius:20px;font-weight:700;font-size:11px;padding:4px 8px;background:#e9f0f5;color:#3c5c72}.tag.bad{background:#fff0f1;color:#963345}.tag.good{background:#e6f4eb;color:#226a50}.tag.warn{background:#fff2d9;color:#8e550d}.callout{border:1px solid #e4ca99;background:#fff9ef;border-radius:6px;padding:11px 13px;color:#71501a;margin:10px 0}.callout.bad{border-color:#ecbec4;background:#fff7f7;color:#85303e}.callout.good{border-color:#b5d8c3;background:#f5fbf7;color:#2b674d}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:white;border:1px solid var(--line);border-radius:8px;padding:15px}.metric strong{display:block;font-size:23px}.metric small{color:var(--muted)}.mono{font:13px/1.7 Consolas,monospace;overflow-wrap:anywhere}.svgbox{overflow:auto;border:1px solid var(--line);background:#fff;border-radius:7px}.codebox{font:12px/1.5 Consolas,monospace;color:#e3edf8;background:#102439;white-space:pre-wrap;max-height:200px;overflow:auto;padding:14px;border-radius:7px}.fileinput{padding:15px;background:#f7fafc;border:2px dashed #aebfd0;border-radius:9px}.check{display:flex;gap:9px;align-items:center;padding:5px}.check input{width:17px;height:17px}.modal{display:none;position:fixed;inset:0;z-index:99;background:#0b172be8;padding:2vw}.modal.on{display:flex;flex-direction:column}.modal iframe{border:0;background:#fff;flex:1}.modal .row{justify-content:space-between;color:white;padding-bottom:10px}.readonly{white-space:pre-wrap;font-family:Consolas,monospace}.actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:950px){.side{width:170px}.split,.tri,.metrics{grid-template-columns:1fr}.main{padding:15px}}@media print{.side,.actions,.no-print{display:none!important}.main{width:100%;padding:0}.tab{display:block!important}.panel{break-inside:avoid}}
+
+.critical-banner{border:2px solid #b9273a;background:#fff0f2;border-radius:8px;color:#81212b;padding:16px 18px;margin-bottom:20px;font-size:14px}
+.critical-banner strong{font-size:18px;display:inline-block;margin-right:18px}.critical-banner button{background:#a52e3f;border-color:#a52e3f;color:#fff}.issue-panel{background:#fff5f6;border:1px solid #dfabb3;border-left:5px solid #a52e3f;border-radius:8px;padding:16px;margin:13px 0}
+
+.tool-start{border-top:4px solid var(--blue)}.tool-details{margin:15px 0}.tool-details>summary{cursor:pointer;user-select:none;background:#e8f0f6;border:1px solid var(--line);border-radius:9px;padding:14px 18px}.tool-details>summary:hover{background:#dfebf4}.tool-details-inside{padding-top:12px}.tool-group{margin:18px 0}.tool-group h3{margin:0 0 8px;font-size:15px}.tool-card{border:1px solid #dce5ed;border-left:4px solid #5790b5;background:white;border-radius:7px;padding:12px 13px;margin:8px 0}.tool-card .tool-title{font-weight:700;font-size:14px}.tool-card .tool-action{font-size:14px;margin:5px 0}.tool-card .tool-source{font-size:11px;color:#647585}.tool-card .tool-status{display:inline-block;margin-top:5px}.tool-card.unresolved{border-left-color:#c68e3c}.tool-card.conflict{border-left-color:#b9273a}.tool-empty{padding:13px;color:#687b8b;border:1px dashed #bbcad9;border-radius:7px}
+.visual-board{position:relative;min-height:190px;max-width:1100px;overflow:hidden;border:2px dashed #b2c4d2;border-radius:9px;background:#f7fafc;margin:10px 0}.visual-board img{display:none;width:100%;height:auto;user-select:none;pointer-events:none}.visual-board:has(img[src]) img{display:block}.visual-board:has(img[src]) #visualPlaceholder{display:none}.visual-board #visualLayer{position:absolute;inset:0;touch-action:none;cursor:crosshair;pointer-events:none}.visual-board:has(img[src]) #visualLayer{pointer-events:auto}.evidence-rect{position:absolute;border:2px solid #d28313;background:#efc46b30;pointer-events:none}.evidence-rect.saved{border-color:#128b89;background:#12afaa16}
+ .embedded-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:12px 0}.embedded-picture{border:1px solid #d4dee7;border-radius:8px;padding:10px;background:#fafcfd}.embedded-picture img{width:100%;height:150px;object-fit:contain;background:white}.embedded-picture button{margin-top:7px;width:100%}
+
+.page-scroll{max-height:78vh;overflow:auto;border:1px solid var(--line);border-radius:9px;background:#e9eef3;margin:10px 0}.page-stage{position:relative;margin:0 auto;background:#fff;width:100%}.page-stage img{display:block;width:100%;height:auto;user-select:none}.page-stage svg{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}#pagePlaceholder{padding:40px;color:var(--muted)}.page-stage:has(img[src]) #pagePlaceholder{display:none}.page-stage img:not([src]){display:none}
+.ov-text{fill:#2a73c710;stroke:#2a73c7;stroke-width:.4}.ov-img{fill:#e3891722;stroke:#d97a0b;stroke-width:1.2}.ov-insert{fill:none;stroke:#159b62;stroke-width:1.4;stroke-dasharray:4 2}.ov-vec{stroke:#b03ab5;stroke-width:.5;fill:none;opacity:.7}.ov-ev{fill:#12afaa18;stroke:#128b89;stroke-width:1.2}.ov-pending{fill:#efc46b33;stroke:#d28313;stroke-width:1.4}.ov-hl{fill:none;stroke:#c3182d;stroke-width:2.2;stroke-dasharray:6 3}.ov-label{font:8px Segoe UI,Arial;fill:#7a4a06}
+.region-box{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0;background:#fbfdfe}.chip{display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;border-radius:14px;background:#e9f0f5;border:1px solid #c8d6e2;font-size:12px;cursor:pointer}.grid-table td,.grid-table th{padding:4px 6px;font-size:11px}.grid-table select{font-size:11px;padding:2px}.grid-table tr.hdr td{background:#eef3f8;font-weight:700}.cat{font-size:10px;letter-spacing:.4px}
+.embedded-picture .raw{margin-top:6px;border-top:1px dashed #ccd8e2;padding-top:6px}.embedded-picture .raw img{height:90px}
+
+.facebox{border:1px solid var(--line);border-radius:10px;padding:12px;margin:14px 0;background:#fbfdff}.facebox svg{display:block;max-width:460px;width:100%;margin:auto}.face-cavity{cursor:help;outline:none}.face-cavity:focus circle,.face-cavity:hover circle{stroke:#10253d;stroke-width:3}.face-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:8px 0}.face-legend span:before{content:'●';margin-right:5px}.face-detail{background:#eaf2f8;padding:8px;border-radius:6px;min-height:32px}.face-table{max-height:260px;overflow:auto}.face-table table{font-size:12px}.face-table tr:focus-within{background:#eaf2f8}
+</style></head><body><div class="app"><aside class="side"><div class="logo">TRI<span>VEX</span></div><div class="subbrand">HARNESS ENGINEERING</div><button class="nav on" data-id="intake">Drawing intake</button><button class="nav" data-id="connectors">Connectors & cavities</button><button class="nav" data-id="evidence">Page review & evidence</button><button class="nav" data-id="nets">Conductor / net map</button><button class="nav" data-id="bom">BOM review</button><button class="nav" data-id="kit">Kitting checklist</button><button class="nav" data-id="buildplan">Build plan</button><button class="nav" data-id="tooling">Required tooling</button><button class="nav" data-id="alerts">Drawing alerts <span id="issueCountNav"></span></button><button class="nav" data-id="reports">Reports & QA</button><div class="version">v__APP_VERSION__ · PDFium page review<br>Local only · DRAFT until verified</div></aside>
+<main class="main"><header class="top"><div><h1 id="heading">Drawing intake</h1><p class="muted" id="description">One harness can contain any number of connector and junction endpoints.</p></div><div class="actions"><button onclick="saveProject()">Save project</button><button onclick="document.getElementById('projectUpload').click()">Open project</button><button class="danger" onclick="exitApplication()" title="Shut down the application and its local backend">Exit application</button><input hidden type="file" accept=".json" id="projectUpload" onchange="loadProject(this.files[0])"></div></header>
+<div id="drawingAlertBanner" style="display:none" class="critical-banner no-print"></div><section class="tab on" id="tab-intake"><div class="panel"><h2>Import a harness drawing</h2><p class="help">Select a PDF. Every sheet is interpreted on this PC by the bundled PDFium engine in the orientation a PDF viewer shows (page rotation, mirrored/flipped placements and nested forms included). It does not OCR pictures or outlined lettering; use Page review for those. Nothing leaves this PC. Every candidate assignment requires review against the source.</p><div class="fileinput row"><input type="file" id="pdfUpload" accept=".pdf"><button class="primary" onclick="scan()">Read PDF</button><button onclick="viewPDF()">View original PDF</button><span id="scanStatus" class="muted">No drawing loaded</span></div><div class="row"><button onclick="document.getElementById('reattach').click()">Reattach / verify source</button><input hidden id="reattach" type="file" accept=".pdf" onchange="reattach(this.files[0])"><span class="small muted" id="fingerprint">No checksum</span></div></div><div class="metrics"><div class="metric"><strong id="metricPages">—</strong><small>PDF pages</small></div><div class="metric"><strong id="metricWords">—</strong><small>Decoded text fragments</small></div><div class="metric"><strong id="metricConnectors">—</strong><small>Recognized endpoints</small></div><div class="metric"><strong id="metricCandidates">—</strong><small>Unverified cavity readings</small></div></div><div class="panel"><h2>Interpretation status</h2><div id="interpretStatus" class="callout">No drawing loaded</div>
+<p class="help">Per-sheet diagnostics are structural only: no drawing text, part numbers, file name or checksum. "Copy categorical summary" produces the same information as text; share it only if your organization's CUI policy permits.</p>
+<div class="tablebox"><table><thead><tr><th>Sheet</th><th>Rotation / view</th><th>Text decoded</th><th>Recognizer frame</th><th>Pictures (stored flipped)</th><th>Vector objects · insert views</th><th>Records wiring / BOM</th><th>Status</th><th></th></tr></thead><tbody id="diagRows"><tr><td colspan="9">No drawing loaded</td></tr></tbody></table></div>
+<div class="row" style="margin-top:10px"><button onclick="copyCategorical()">Copy categorical summary</button><button onclick="showProbe()">Recognition probe (preview)</button><button onclick="runSelfTest()">Run built-in orientation self-test</button><button onclick="clearDrawing()">Close drawing (clear from memory)</button><span id="selfTestStatus" class="help"></span></div><div id="selfTestRows"></div></div>
+<div class="panel"><h2>Source issues</h2><div id="sourceWarnings" class="codebox">No scan yet</div></div><div class="panel"><h2>Per-sheet extraction coverage</h2><p class="help">Detected conductor counts are drafts. Sheets marked as wiring but showing zero rows require review before production.</p><div class="tablebox"><table><thead><tr><th>Sheet</th><th>Text units</th><th>Conductor candidates</th><th>BOM items</th><th>Classification</th></tr></thead><tbody id="coverageRows"><tr><td colspan="5">Open a PDF to view coverage</td></tr></tbody></table></div></div><div class="panel"><h2>Recognition evidence</h2><p class="help">Review connector identifiers independently. Part number, designation, and contact sex are different attributes.</p><div class="tablebox"><table><thead><tr><th>Detected designator</th><th>Part number</th><th>Contact type</th><th>Family</th><th>Page</th><th>Disposition</th></tr></thead><tbody id="detectedRows"></tbody></table></div></div></section>
+<section class="tab" id="tab-evidence"><div class="panel" id="pageReviewPanel"><h2>Page review: rendered sheet with extracted evidence</h2>
+<p class="help">Each sheet is rendered on this PC by the bundled PDFium engine, in the orientation a PDF viewer shows. Overlays show what the engine extracted. Drag a box around a BOM, a pinout/wire list or a connector view, then read it into the normal connector, net and BOM workflows. Rendered images are never saved in project files or sent anywhere.</p>
+<div class="row"><label for="evidencePage">Sheet</label><select id="evidencePage" onchange="changeEvidencePage()"><option value="1">1</option></select><button onclick="stepPage(-1)" title="Previous sheet">&#9664;</button><button onclick="stepPage(1)" title="Next sheet">&#9654;</button>
+<label for="pageZoom">Zoom</label><select id="pageZoom" onchange="loadPageView()"><option value="fit">Fit width</option><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select>
+<label class="check"><input type="checkbox" id="ovText" checked onchange="drawOverlay()"> Text</label><label class="check"><input type="checkbox" id="ovImages" checked onchange="drawOverlay()"> Pictures</label><label class="check"><input type="checkbox" id="ovInserts" checked onchange="drawOverlay()"> Insert views</label><label class="check"><input type="checkbox" id="ovVectors" onchange="drawOverlay()"> Vector lines</label><label class="check"><input type="checkbox" id="ovEvidence" checked onchange="drawOverlay()"> Marked evidence</label>
+<button onclick="openPdfViewerAt(Number($('evidencePage').value)||1)">Open in PDF viewer</button></div>
+<div id="pageMeta" class="small muted">No drawing loaded</div>
+<div class="page-scroll" id="pageScroll"><div class="page-stage" id="pageStage"><div id="pagePlaceholder">Read a drawing to review its sheets here.</div><img id="pageImage" alt="Rendered drawing sheet" draggable="false"><svg id="pageOverlay" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
+<div class="row"><span class="help" id="selectedRegion">Drag on the sheet to select a region.</span><label for="regionKind">Selection is</label><select id="regionKind"><option value="bom">a BOM / parts list</option><option value="pinout">a pinout or wire list</option><option value="connector">a connector view / callout</option><option value="text">other text</option></select><button class="primary" onclick="readRegion()">Read selection</button><button onclick="clearEvidenceRegion()">Clear selection</button></div>
+<div id="regionResult"></div>
+<h3 style="margin-top:16px">Record evidence for the selection (or the whole sheet)</h3>
+<div class="split"><div class="field"><label>Evidence type</label><select id="evidenceKind"><option value="Connector view">Connector view / physical end</option><option value="Pinout">Pinout / cavity diagram</option><option value="BOM">BOM row / callout</option><option value="Backshell">Backshell / assembly detail</option><option value="Wire path">Wire / graphic path</option><option value="Other">Other feature</option></select></div><div class="field"><label>Connector / endpoint designator (if shown)</label><input id="evidenceTag" placeholder="P1, J2, X3, USB_DN1, etc."></div></div>
+<div class="split"><div class="field"><label>Part number (only if explicitly supported)</label><input id="evidencePart" placeholder="Exact part number or blank"></div><div class="field"><label>Observation / description</label><input id="evidenceNote" placeholder="Connector illustration next to P1 callout, view orientation etc."></div></div>
+<div class="row"><button class="primary" onclick="addVisualEvidence()">Add evidence for review</button><button onclick="createConnectorFromEvidence()">Add connector candidate from this evidence</button></div>
+<div class="tablebox"><table><thead><tr><th>Page / region</th><th>Type</th><th>Endpoint</th><th>Part</th><th>Observation</th><th>Source</th><th></th></tr></thead><tbody id="visualEvidenceRows"><tr><td colspan="7">No evidence notes yet.</td></tr></tbody></table></div></div>
+
+<div class="panel"><h2>Drawing evidence — not just text</h2><p class="help">Cross-check the BOM, endpoint designators, connector/backshell illustrations, wiring lines and pinout tables. Graphic elements alone <b>do not identify a part number</b>. All evidence stays on this computer and must be checked against the original drawing.</p>
+<div class="tablebox"><table><thead><tr><th>Page</th><th>Text units</th><th>Wiring / BOM candidates</th><th>Graphics</th><th>Placed illustrations</th><th>Source review</th></tr></thead><tbody id="evidencePageRows"><tr><td colspan="6">Read a drawing first.</td></tr></tbody></table></div></div>
+<div class="panel"><h2>Embedded PDF pictures, as displayed on the page</h2><p class="help">Each picture is cut from the rendered sheet, so its orientation is what a PDF viewer shows. The note under each picture says how the stored pixels differ (for example stored bottom-to-top). Pictures may be connector views, logos or other artwork; a picture alone never identifies a part number, contact sex or pin orientation. Vector-drawn connector views are shown as "insert views" in Page review.</p><button onclick="loadEmbeddedImages()">Rescan pictures</button><span id="embeddedStatus" class="help">Read a drawing first</span><div id="embeddedGallery" class="embedded-gallery"></div></div>
+<div class="panel"><h2>Connector / endpoint cross-check</h2><p class="help">The same endpoint may be referenced in a BOM row, on a wiring page, at a physical breakout, and in a separate illustration. These are different sources; do not force two ends or assume connector gender from a symbol.</p><div id="endpointEvidenceRows" class="tablebox"></div></div>
+<div class="panel" id="layoutsPanel"><h2>Learned heading layouts on this PC</h2><p class="help">When you import a table from Page review with "Remember these headings" ticked, the heading words and the roles you chose are stored on this PC. Later drawings that use the same headings are read automatically. <b>Only heading text and roles are stored</b>, never values or part numbers. You can share the exported file within your organization so colleagues' copies read the same drawing standard.</p><div class="row"><button onclick="reanalyzeDrawing()">Re-read current drawing with learned layouts</button><button onclick="exportLayouts()">Export learned layouts</button><button onclick="$('layoutImport').click()">Import learned layouts</button><input hidden type="file" id="layoutImport" accept=".json" onchange="importLayoutsFile(this.files[0])"><span id="layoutsStatus" class="help"></span></div><div class="tablebox"><table><thead><tr><th>Heading text</th><th>Read as</th><th>Taught in</th><th>Taught</th><th></th></tr></thead><tbody id="layoutRows"><tr><td colspan="5">Nothing learned yet.</td></tr></tbody></table></div></div>
+<div class="panel"><h2>Paste a table (last-resort fallback)</h2><p class="help">Prefer Page review above. If a table still cannot be read, copy its rows <b>inside the approved computer</b>, paste below and import them as <b>DRAFT</b>. Nothing is transmitted outside your computer.</p>
+<div class="row"><label for="pasteKind">Table type</label><select id="pasteKind"><option value="net">Conductor / netlist</option><option value="bom">Bill of materials</option></select><button onclick="importLocalTable()">Import selected rows as draft</button></div>
+<div class="field"><label>Tab-separated data with a header row</label><textarea id="pasteTable" rows="6" spellcheck="false" placeholder="Connector&#9;Cavity&#9;Signal&#9;End&#9;End cavity
+P1&#9;54&#9;VBUS&#9;USB_DN1&#9;1"></textarea></div><div class="callout" id="pasteResult">Importing does not mean the original PDF was fully recognized. Review every imported row against its page before use.</div>
+</div></section>
+<section class="tab" id="tab-connectors"><div class="panel"><div class="row" style="justify-content:space-between"><div><h2>Connector inventory</h2><p class="help">Any designator, any contact arrangement. Add connectors, terminal blocks or other endpoints. A connector is NOT defined by being PA/SA or left/right.</p></div><button class="primary" onclick="addConnector()">+ Add connector</button></div><div id="connectorCards"></div></div><div class="panel"><h2>Import manufacturer cavity inventory</h2><p class="help">CSV columns: <code>connector_tag,part_number,cavity_id</code>. Either connector_tag or part_number can identify the target. Every cavity must be explicitly listed and matched to a catalog-confirmed contact count. Lettered labels are supported.</p><div class="row"><input type="file" accept=".csv" id="layoutFile"><button onclick="importLayouts()">Import verified layout</button><button onclick="exportLayoutTemplate()">Download template</button></div></div><div class="panel"><h2>Candidate evidence extracted from PDF</h2><p class="help">Candidates are not automatically accepted. Unknown association is shown as UNASSIGNED, not forced to a side.</p><div class="tablebox"><table><thead><tr><th>Connector candidate</th><th>Cavity</th><th>Color</th><th>Page</th><th>Status</th></tr></thead><tbody id="candidateRows"></tbody></table></div></div></section>
+<section class="tab" id="tab-nets"><div class="panel"><h2>Conductor / net relationships</h2><p class="help">One net can join two, three or more endpoints; connectors do not need to be in pairs. Example: <code>J1:1, TB1:A, J4:7, @SPL1</code>. Use <code>@</code> for a splice, junction, shield node, or non-cavity endpoint. Never infer branching by row order.</p><div class="row"><button class="primary" onclick="addNet()">+ Add wire/net</button><button onclick="exportNetCSV()">Export netlist CSV</button><span id="netBadge" class="tag warn">Unreviewed</span></div><div class="tablebox"><table><thead><tr><th>Net / wire ID</th><th>Endpoints (comma separated)</th><th>Color</th><th>AWG</th><th>Drawing note</th><th>Reviewed?</th><th></th></tr></thead><tbody id="netRows"></tbody></table></div><div class="callout" id="netErrors">No conductor mappings reviewed.</div></div><div class="panel"><h2>Logical reconstruction</h2><p class="help">Network view uses explicitly reviewed endpoints. Not a mechanical CAD drawing and never an inferred pin-to-pin assignment.</p><div class="svgbox" id="netDrawing"></div></div></section>
+<section class="tab" id="tab-bom"><div class="panel"><h2>BOM extraction / independent verification</h2><div class="row"><button class="primary" onclick="loadDetectedBOM()">Import detected PDF BOM</button><input type="file" id="bomFile" accept=".csv"><button onclick="importBOM()">Import BOM CSV</button><button onclick="addBOM()">+ Add item</button></div><div class="tablebox"><table><thead><tr><th>Item</th><th>Part number</th><th>Description</th><th>Qty / harness</th><th>Unit</th><th>Evidence</th><th></th></tr></thead><tbody id="bomRows"></tbody></table></div><div class="check"><input id="bomVerified" type="checkbox" onchange="showReport()"><label>All BOM entries, quantities, units, and drawing revisions independently checked</label></div></div></section>
+<section class="tab" id="tab-buildplan"><div class="panel"><h2>Contact, plug and crimp build plan</h2><p class="help">DRAFT ONLY. Quantities are not released for production until cavity inventory, contact selection, manufacturer tooling and drawing notes are independently checked.</p><div class="row"><label for="planPolicy">Unused cavity treatment</label><select id="planPolicy"><option value="contact+plug">Filler contact + sealing plug</option><option value="plug-only">Sealing plug only</option></select><button class="primary" onclick="runBuildPlan()">Calculate build plan</button></div><p class="small muted">Build quantity follows Kitting checklist. An unverified cavity inventory produces unresolved quantities.</p><div id="buildPlanResults" aria-live="polite">Open a drawing, then calculate the build plan.</div></div></section>
+<section class="tab" id="tab-kit"><div class="panel"><h2>Physical kitting checklist</h2><div class="split"><div class="field"><label>Work order / assembly</label><input id="workorder" oninput="showReport()"></div><div class="field"><label>Number of harnesses being built</label><input id="buildQty" type="number" min="1" value="1" onchange="kitReset()"></div><div class="field"><label>Kitted by</label><input id="kitter" oninput="showReport()"></div><div class="field"><label>Independently checked by</label><input id="checker" oninput="showReport()"></div></div><div id="kitSummary" class="callout">No kit verified.</div><div class="tablebox"><table><thead><tr><th>Checked</th><th>Part number</th><th>Qty needed</th><th>Qty pulled</th><th>Lot / serial / trace</th><th>Notes</th></tr></thead><tbody id="kitRows"></tbody></table></div></div></section>
+<section class="tab" id="tab-tooling">
+<div class="panel tool-start">
+<h2>Tooling needed to build this harness</h2>
+<p class="help">After reading a drawing, review the required tools below. <b>No inventory setup is needed.</b> The list distinguishes manufacturer-supported contact crimp setups from assembly methods that still need confirmation.</p>
+<div class="row" style="align-items:flex-end">
+<div class="field" style="flex:1;min-width:230px;margin:0"><label for="quickToolPart">Look up a contact part number (optional)</label><input id="quickToolPart" placeholder="e.g. M39029/56-348 or 43030-0001" onkeydown="if(event.key==='Enter'){event.preventDefault();quickToolLookup()}"></div>
+<button class="primary" onclick="quickToolLookup()">Find required tools</button>
+<button onclick="exportRequirements()">Export tooling checklist</button>
+</div>
+<div id="quickToolMessage" class="help small" aria-live="polite"></div>
+<div id="toolingOverview" aria-live="polite"></div>
+</div>
+<div class="panel" id="accessoryPanel"><h2>Connector accessories vs BOM</h2><p class="help">For each connector, the app works out what it needs (backshell size from the shell size, catalog contacts, sealing plugs for unused cavities, bands and their tool) from sourced reference data, and compares that with the BOM currently in this project, whether extracted, imported or typed. <b>MISMATCH</b> = the BOM contradicts the reference; <b>MISSING</b> = not found in the BOM; <b>VERIFY</b> = cannot be decided yet (e.g. populated cavities not documented). Nothing here approves a part.</p><div id="accessorySummary" class="small muted">No connectors yet.</div><div class="tablebox"><table><thead><tr><th>Connector</th><th>Check</th><th>Status</th><th>Expected (reference)</th><th>Found in BOM</th><th>Detail</th><th>Tooling</th><th>Source</th></tr></thead><tbody id="accessoryRows"><tr><td colspan="8">No connectors yet.</td></tr></tbody></table></div></div>
+<details class="tool-details"><summary><b>Show detailed manufacturer tables and optional manual inputs</b> <span class="muted small">DMC cross-references, specialty contacts and backing evidence</span></summary><div class="tool-details-inside">
+
+<div class="panel"><h2>Required Assembly Tooling — from this drawing</h2>
+<p class="help">Automatic requirements list generated from recognized connectors, exact contact P/Ns, backshell/banding materials, and drawing process notes. <b>Exact tool numbers are shown only when the reference names an exact applicable contact/part.</b> Verify manufacturer instructions before use.</p>
+<div class="row"><button class="primary" onclick="exportRequirements()">Export complete tooling requirements CSV</button><button onclick="renderRequiredTools()">Refresh from drawing</button></div>
+<div id="requiredToolSummary" class="callout">Open a drawing to generate tooling requirements.</div>
+<div class="tablebox"><table><thead><tr><th>Applies to</th><th>Required operation</th><th>Tool / tool combination</th><th>Source and verification status</th></tr></thead><tbody id="requirementsRows"></tbody></table></div></div>
+<div class="panel"><h2>Connector part number → contact → tooling</h2>
+<p class="help">Uses exact manufacturer contact mappings for supported Series III 38999 arrangements. The contact is a <b>catalog candidate</b> until the actual supplied/required contact and wire application are confirmed. Non-standard contacts and unsupported arrangements are not guessed.</p>
+<div class="tablebox"><table><thead><tr><th>Drawing connector</th><th>Manufacturer contact candidate</th><th>Configuration</th><th>Mapping evidence / restriction</th></tr></thead><tbody id="connectorContactRows"><tr><td colspan="4">Open a drawing.</td></tr></tbody></table></div></div>
+<div class="panel"><h2>DMC contact-specific crimp setups</h2><p class="help" id="toolDbStatus">Loading offline M39029 contact reference...</p>
+<p class="help">Identifies M39029 contacts from the manufacturer connector cross-reference and any explicit drawing/BOM contacts. Contact mapping is a manufacturer-backed candidate, not a released work instruction.</p>
+<div class="field"><label>Additional contact part numbers (optional, if specified separately)</label><textarea id="toolParts" placeholder="M39029/58-360" oninput="toolEdited()"></textarea></div>
+<div class="row"><button onclick="findContacts()">Re-scan drawing/BOM for contacts</button><button onclick="document.getElementById('toolImport').click()">Import contact-tool catalog CSV</button><input type="file" hidden id="toolImport" accept=".csv" onchange="importTooling(this.files[0])"></div>
+<div class="tablebox"><table><thead><tr><th>Contact</th><th>Size / wire range</th><th>Frame and positioner/die options</th><th>Insertion / removal</th><th>Reference / restrictions</th></tr></thead><tbody id="toolRows"></tbody></table></div>
+</div>
+<div class="panel"><h2>Specialty crimp tooling and multi-operation contacts</h2>
+<p id="specialtyCount" class="help">Loading Harwin, Molex, Twinax, Quadrax, coax, and terminal/splice reference data...</p>
+<div class="field"><label>Additional specialty contact part numbers (optional)</label><textarea id="specialtyParts" placeholder="M39029/113-625&#10;M80-0130005&#10;39000121" oninput="specialtyChanged()"></textarea></div>
+<div class="row"><button onclick="findSpecialtyInDrawing()">Re-scan drawing/BOM for specialty contacts</button></div>
+<div class="tablebox"><table><thead><tr><th>Contact / family</th><th>Wire / cable</th><th>Required crimp operations</th><th>Insertion / removal</th><th>Manufacturer evidence</th></tr></thead><tbody id="specialtyRows"></tbody></table></div>
+<div id="specialtyGuidance" style="display:none"></div>
+</div>
+<div class="panel"><h2>Assembly-tool references</h2><p class="help">Connector holding, backshell wrenching, banding, sealing and cable preparation references. Exact compatibility and torque must be confirmed against the connector/accessory part numbers.</p>
+<div class="tablebox"><table><thead><tr><th>Drawing items</th><th>Tool / requirement</th><th>Application</th><th>Status</th></tr></thead><tbody id="assemblyRows"></tbody></table></div>
+</div>
+<div class="panel"><div class="check"><input id="toolVerified" type="checkbox" onchange="showReport()"><label>Independent review completed: each required tool and unresolved contact/accessory was checked against manufacturer source and drawing requirements</label></div>
+<div class="field"><label>If no contact crimping is required, document the drawing basis (optional)</label><input id="toolNA" placeholder="Factory-terminated cables only; checked drawing callouts" oninput="toolEdited()"></div></div></div></details></section>
+<section class="tab" id="tab-alerts"><div class="panel"><h2>Drawing discrepancies / engineering review</h2><p class="help">Detected conflicts cannot be cleared by changing a checkbox. Resolve in the approved drawing/BOM and import the revised PDF. Automated checks cannot prove a drawing free of errors.</p><div id="drawingIssueList" aria-live="polite"></div><div class="actions"><button onclick="exportDrawingIssues()">Export drawing error log</button><button onclick="viewPDF()">Open source PDF</button></div></div></section>
+<section class="tab" id="tab-reports"><div class="panel"><h2>Readiness and integrity gates</h2><div class="callout bad" id="readiness">DRAFT — NO PRODUCTION RELEASE</div><div id="gates"></div><div class="row"><button class="primary" onclick="exportCavities()">Export ALL connector schedules</button><button onclick="exportNetCSV()">Export netlist</button><button onclick="exportBOM()">Export BOM</button><button onclick="exportKit()">Export kit checklist</button><button onclick="exportTooling()">Export tooling</button><button onclick="printReview()">Print / PDF review package</button></div></div><div class="panel"><h2>Connector summaries</h2><div id="reportConnectors"></div></div></section>
+</main></div><div class="modal" id="probeModal"><div style="background:#fff;border-radius:9px;padding:16px;display:flex;flex-direction:column;height:100%"><div class="row" style="justify-content:space-between"><b>Recognition probe — structure only, review before sharing</b><span><button onclick="copyProbe()">Copy to clipboard</button> <button onclick="$('probeModal').classList.remove('on')">Close</button></span></div><p class="small">Only generic heading words (QTY, PIN, FROM…) are shown. Every other word is replaced by ▢, short numbers by ‹n›, designators by ‹desig›; part numbers appear only as counts per public specification family. Read it yourself and share it only if your CUI policy permits.</p><textarea id="probeText" readonly spellcheck="false" style="width:100%;flex:1;font:12px/1.45 Consolas,monospace"></textarea></div></div><div class="modal" id="pdfModal"><div class="row"><b>Original drawing · local preview</b><button onclick="document.getElementById('pdfModal').classList.remove('on')">Close</button></div><iframe id="pdfFrame" title="Source PDF"></iframe></div>
+<script>
+'use strict';const TOKEN='__SESSION_TOKEN__';const APP_VERSION='__APP_VERSION__';const $=id=>document.getElementById(id);const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let st={raw:null,filename:'Untitled',sourceMatched:false,connectors:[],nets:[],bom:[],tooling:[],importedTools:[],assemblyRefs:[],pdfURL:null,visualEvidence:[],pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,pageView:null,region:null,highlight:null};
+
+async function runBuildPlan(){
+ const target=$('buildPlanResults');target.textContent='Calculating local draft plan…';
+ const connectors=st.connectors.filter(c=>c.part).map(c=>{
+   const wires=[];
+   for(const n of st.nets){for(const endpoint of String(n.endpoints||'').split(',')){
+     const ep=parseEndpoint(endpoint);if(ep?.kind==='cavity'&&ep.tag===String(c.tag).toUpperCase())wires.push({cavity:ep.cavity,awg:n.awg||'',wire:n.wire||n.id||''});
+   }}
+   for(const cav of splitCavs(c.occupied)){if(!wires.some(w=>w.cavity===cav))wires.push({cavity:cav,awg:'',wire:''})}
+   return {tag:c.tag,part:c.part,all:c.labels||[],allSource:c.profile?.source||c.evidence||'manual entry',allVerified:!!(c.verified&&c.labels?.length&&c.labels.length===c.capacity),unused:[],wired:wires,contact:c.contactOverride||''};
+ });
+ const req={policy:$('planPolicy').value,buildQty:Math.max(1,Number($('buildQty').value)||1),connectors,bom:st.bom.map(b=>({item:String(b.item||''),part:String(b.part||''),qty:asRequired(b)?'A/R':String(b.qtyText||b.qty||''),description:String(b.description||'')}))};
+ try{
+ const r=await fetch('/api/build-plan',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(req)});if(!r.ok)throw Error(await r.text());const plan=await r.json();
+ const table=(heads,rows)=>'<div class="tablebox"><table><thead><tr>'+heads.map(x=>'<th>'+safe(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(v=>'<td>'+safe(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+ target.innerHTML='<div class="callout">DRAFT: '+safe(plan.policy)+' · '+safe(plan.buildQty)+' assembly/assemblies. Unresolved entries are not actionable quantities.</div>'+(plan.connectors||[]).map(c=>'<div class="panel"><h3>'+safe(c.tag)+' · '+safe(c.part)+'</h3><p>Contact: '+safe(c.contact||'UNRESOLVED')+' · '+safe(c.contactStatus)+' · '+safe(c.contactSource)+'</p><p>Wired: '+safe(c.wired?.join(', ')||'none')+' · Unused: '+safe(c.unusedComplete?c.unused?.join(', ')||'none':'UNVERIFIED / incomplete')+'</p>'+table(['Part','Operation','Qty per assembly','Notes'],(c.kit||[]).map(k=>[k.part,k.purpose,k.qty<0?'UNRESOLVED':k.qty,k.note]))+table(['AWG','Cavities','Frame','Positioner','Alternatives','Status'],(c.crimp||[]).map(t=>[t.awg,t.cavities?.join(', '),t.frame,t.locator,t.routes?.join(' OR '),t.status+' · '+t.detail]))+'<p class="small">Insert: '+safe(c.insertion||'UNRESOLVED')+' · Remove: '+safe(c.removal||'UNRESOLVED')+' · '+safe(c.toolSource)+'</p>'+(c.issues||[]).map(issue=>'<p class="callout bad">'+safe(issue)+'</p>').join('')+'</div>').join('')+'<h3>Kit totals vs BOM</h3>'+table(['Part','Purpose','Per assembly','For build','BOM','Status','Detail'],(plan.totals||[]).map(t=>[t.part,t.purpose,t.need<0?'UNRESOLVED':t.need,t.needBuild<0?'UNRESOLVED':t.needBuild,t.bomQty,t.status,t.detail]))+(plan.notes||[]).map(n=>'<p class="small muted">'+safe(n)+'</p>').join('');
+ }catch(e){target.innerHTML='<div class="callout bad">Build plan failed: '+safe(e.message)+'</div>'}
+}
+
+function tab(id){if(id==='evidence'&&st.raw&&!st.pageView)setTimeout(()=>loadPageView(Number($('evidencePage').value)||1),0);document.querySelectorAll('.tab').forEach(n=>n.classList.toggle('on',n.id==='tab-'+id));document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('on',n.dataset.id===id));$('heading').textContent=({intake:'Drawing intake',connectors:'Connectors & cavities',evidence:'Page review & evidence',nets:'Conductor / net map',bom:'BOM review',kit:'Kitting checklist',buildplan:'Build plan',tooling:'Required tooling',reports:'Reports & QA',alerts:'Drawing alerts'})[id]}
+document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>tab(b.dataset.id));
+function ID(){return 'C'+Math.random().toString(36).slice(2,11)}
+function sortCav(a,b){return /^\d+$/.test(a)&&/^\d+$/.test(b)?Number(a)-Number(b):a.localeCompare(b,undefined,{numeric:true})}
+function splitCavs(s){return String(s||'').match(/[A-Za-z0-9]+/g)||[]}
+function unique(x){return [...new Set(x)]}
+// Preserve case in cavity IDs: insert arrangements can distinguish A from a.
+// Include BOTH endpoints of each extracted conductor, not only the near end.
+function extractedOccupied(data,tag){
+ const ids=[];const key=String(tag||'').toUpperCase();
+ for(const x of data.wires||[]){
+  for(const [tagField,cavField] of [['connector','cavity'],['end','endCavity']]){
+   if(wv(x,tagField).toUpperCase()!==key)continue;
+   const cav=wv(x,cavField).trim();
+   if(cav&&!ids.includes(cav))ids.push(cav);
+  }
+ }
+ for(const x of data.candidates||[]){
+  if(String(x.Connector||'').toUpperCase()!==key)continue;
+  const cav=String(x.Number??'').trim();if(cav&&!ids.includes(cav))ids.push(cav);
+ }
+ return ids.sort(sortCav);
+}
+function sourceCavityModel(data,tag){return (data.cavityModels||[]).find(m=>String(m.tag||'').toUpperCase()===String(tag||'').toUpperCase())||null}
+
+function resetChecks(){for(const c of st.connectors)c.verified=false;for(const n of st.nets)n.reviewed=false;$('bomVerified').checked=false;$('toolVerified').checked=false}
+function sourcePreview(f){if(st.pdfURL)URL.revokeObjectURL(st.pdfURL);st.pdfURL=f?URL.createObjectURL(f):null;$('pdfFrame').src=st.pdfURL||'about:blank'}
+function viewPDF(){if(!st.pdfURL){alert('Choose a PDF first.');return}$('pdfModal').classList.add('on')}
+async function checksum(f){const h=await crypto.subtle.digest('SHA-256',await f.arrayBuffer());return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function reattach(f){if(!f||!st.raw)return;let match=(await checksum(f))===st.raw.sha256;st.sourceMatched=match;if(match)sourcePreview(f);else{sourcePreview(null);resetChecks()}render();alert(match?'PDF checksum matches. Still visually verify all pages.':'PDF MISMATCH. Source verification and reviews invalidated.')}
+async function apiParse(f){const resp=await fetch('/api/parse',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/pdf'},body:await f.arrayBuffer()});if(!resp.ok)throw Error(await resp.text());return resp.json()}
+async function apiResolve(part){const resp=await fetch('/api/resolve',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify({part})});if(!resp.ok)throw Error(await resp.text());return resp.json()}
+let engineBroken='';
+async function scan(reuse){
+ if(engineBroken)return alert('PDF engine failed to start; reading is disabled.\n\n'+engineBroken);
+ const f=$('pdfUpload').files[0];if(!f)return alert(reuse?'The source PDF is no longer selected; choose it in Drawing intake and read it again.':'Choose a PDF');
+ if(!reuse&&st.raw&&!confirm('Replace the current unsaved project?'))return;
+ $('scanStatus').textContent='Analyzing all drawing sheets locally...';
+ try{
+  const d=reuse?await (async()=>{const r=await fetch('/api/reanalyze',{method:'POST',headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());return r.json()})():await apiParse(f);
+  const sourceSHA=await checksum(f);
+  st={...st,raw:d,filename:f.name,sourceMatched:true,connectors:[],nets:[],bom:[],importedTools:[],visualEvidence:[],pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,pageView:null,region:null,highlight:null};
+  st.raw.sha256=sourceSHA;
+  st.raw.warnings=st.raw.warnings||[];
+  sourcePreview(f);
+  for(const c of d.connectors||[]){
+   st.connectors.push({id:ID(),tag:c.Name,part:c.Part,contactType:c.Side||'',capacity:c.Cavities||(sourceCavityModel(d,c.Name)?.allVerified?sourceCavityModel(d,c.Name).all.length:0),labels:sourceCavityModel(d,c.Name)?.allVerified?sourceCavityModel(d,c.Name).all:(c.Status==='verified-layout'?(c.Labels||[]):[]),occupied:extractedOccupied(d,c.Name).join(', '),verified:false,
+    profile:{part:c.Part,positionCount:c.Cavities,status:c.Status,source:c.Source,warning:c.Warning,family:c.Family,arrangement:c.Arrangement,
+     contactCandidates:c.ContactCandidates||[],contactMappingStatus:c.ContactMappingStatus||'unresolved',contactMappingWarning:c.ContactMappingWarning||''},evidence:'sheet(s) '+(c.Pages||[c.Page]).join(', ')});
+  }
+  // Branch endpoints are distinct, never flattened into an invented PA/SA pair.
+  for(const x of d.branches||[]){
+   if(!x||st.connectors.some(c=>c.tag===x))continue;
+   st.connectors.push({id:ID(),tag:x,part:'UNRESOLVED COTS / BRANCH END',contactType:'',capacity:0,labels:[],occupied:'',verified:false,
+    profile:{part:'',positionCount:0,status:'unresolved',family:'Cable termination / endpoint',warning:'Resolve exact COTS/connector part number and cavity scheme from source'},evidence:'Detected branch label; verify connection type'});
+  }
+  st.bom=(d.boms||[]).map(x=>bomObj({...x,source:'Source sheet '+x.Page+' — UNVERIFIED'}));
+  // v2.6 read PascalCase keys from camelCase JSON, so every detected conductor became "undefined:undefined". wv() accepts both.
+  st.nets=(d.wires||[]).map((x,i)=>wireToNet(x,i,'WIRE-'));
+  $('bomVerified').checked=false;$('toolVerified').checked=false;
+  $('scanStatus').textContent='Analyzed '+d.pages+' sheets — all assignments DRAFT';
+  st.pageView=null;st.region=null;st.highlight=null;
+  if(d.appVersion&&d.appVersion!==APP_VERSION)alert('Version mismatch: window '+APP_VERSION+' vs backend '+d.appVersion+'. Close all Trivex windows and start one executable.');
+  render();
+  loadPageView(1);
+  loadEmbeddedImages();
+  if((d.issues||[]).some(i=>i.Severity==='ERROR'))tab('alerts');else tab('intake');
+ }catch(e){$('scanStatus').textContent='PDF interpretation failed';alert('Drawing interpretation failed: '+e.message)}
+}
+function addConnector(){st.connectors.push({id:ID(),tag:'',part:'',contactType:'',capacity:0,labels:[],occupied:'',verified:false,profile:null,evidence:'Manual, needs verification'});render();tab('connectors')}
+function changeConn(i,k,v){const c=st.connectors[i];if(k==='capacity')v=Math.max(0,Math.round(Number(v)||0));if(c[k]!==v&&['tag','part','capacity','labels','occupied'].includes(k)){for(const n of st.nets)n.reviewed=false;}c[k]=v;c.verified=false;if(k==='part'){c.profile=null;c.labels=[];c.capacity=0}if(k==='capacity')c.labels=[];render()}
+async function resolveConn(i){let c=st.connectors[i];if(!c.part)return alert('Enter part number');try{let p=await apiResolve(c.part);c.profile=p;c.capacity=p.positionCount||0;c.labels=p.status==='verified-layout'?(p.labels||[]):[];c.contactType=p.contactSex||'';c.verified=false;render()}catch(e){alert(e.message)}}
+function removeConn(i){if(!confirm('Remove connector and its cavity review? Existing net endpoints will be flagged.'))return;st.connectors.splice(i,1);render()}
+function takeCandidate(i){const c=st.connectors[i],vals=extractedOccupied(st.raw||{},c.tag);if(!vals.length)return alert('No unambiguous readings assigned to '+c.tag+'. Enter from original drawing.');if(st.raw?.issues?.some(i=>(i.Severity||i.severity)==='ERROR'))return alert('DRAWING ERROR: Candidate import blocked until discrepancies are resolved.');const repeats=vals.filter((x,i)=>vals.indexOf(x)!==i);if(repeats.length)return alert('Detected duplicates '+unique(repeats).join(', ')+'. Cannot import automatically. Review image and enter manually.');if(c.occupied&&!confirm('Replace existing occupied list for '+c.tag+'?'))return;c.occupied=vals.join(', ');c.verified=false;render()}
+function importLayoutsText(text){const rows=parseCSV(text),h=rows.shift().map(x=>x.toLowerCase().trim());let t=h.indexOf('connector_tag'),p=h.indexOf('part_number'),l=h.indexOf('cavity_id');if(l<0||(t<0&&p<0))throw Error('Needs cavity_id plus connector_tag or part_number columns');let changed=0;for(const c of st.connectors){let a=rows.filter(r=>(t>=0&&r[t]?.trim().toUpperCase()===c.tag.toUpperCase())||(p>=0&&r[p]?.trim().toUpperCase()===c.part.toUpperCase()&&(!r[t]||t<0))).map(r=>String(r[l]||'').trim()).filter(Boolean);if(!a.length)continue;if(unique(a).length!==a.length)throw Error(c.tag+': repeated cavity IDs');if(c.profile?.positionCount&&c.profile.positionCount!==a.length)throw Error(c.tag+': imported '+a.length+' positions conflicts with catalog '+c.profile.positionCount);if(!c.profile?.positionCount&&!c.capacity)throw Error(c.tag+': unresolved manufacturer count; no layout imported');if(c.capacity&&c.capacity!==a.length)throw Error(c.tag+': count mismatch');c.labels=a;c.verified=false;changed++}return changed}
+async function importLayouts(){let f=$('layoutFile').files[0];if(!f)return alert('Choose CSV');try{const n=importLayoutsText(await f.text());render();alert(n+' connector layouts imported for review; NOT production approved.')}catch(e){alert(e.message)}}
+function audit(c){let entries=splitCavs(c.occupied),dup=entries.filter((v,i)=>entries.indexOf(v)!==i),invalid=entries.filter(x=>!c.labels.includes(x)),issues=[];if(!c.tag)issues.push('Missing connector designator');if(st.connectors.filter(x=>x.tag.toUpperCase()===c.tag.toUpperCase()).length>1)issues.push('Duplicate designator');if(!c.part)issues.push('Unknown part number');if(!c.capacity||c.labels.length!==c.capacity)issues.push('Cavity inventory not verified or count mismatch');if(c.profile?.positionCount&&c.capacity!==c.profile.positionCount)issues.push('Catalog count conflict');if(dup.length)issues.push('Duplicate occupied IDs: '+unique(dup).join(', '));if(invalid.length)issues.push('Unknown occupied IDs: '+unique(invalid).join(', '));if(!entries.length)issues.push('No occupied cavities documented (confirm empty/unused explicitly)');return {entered:entries,missing:c.labels.filter(x=>!entries.includes(x)).sort(sortCav),issues}}
+
+// A face view is an engineering DRAFT. A mirror of a supplied view is a visualization,
+// not evidence that the drawing identified the opposite side.
+const faceSides={};
+function faceNetRows(tag){
+ const out=new Map(),t=String(tag||'').toUpperCase();
+ for(const n of st.nets||[]){
+  const endpoints=String(n.endpoints||'').split(',').map(v=>v.trim());
+  endpoints.forEach((e,i)=>{const j=e.lastIndexOf(':');if(j<0||e.slice(0,j).toUpperCase()!==t)return;
+   const id=e.slice(j+1);if(!out.has(id))out.set(id,[]);
+   out.get(id).push({wire:n.wire||'',signal:n.signal||n.id||'',awg:n.awg||'',color:n.color||'',far:endpoints.filter((_,k)=>k!==i).join(', '),reviewed:!!n.reviewed});
+  });
+ }
+ return out;
+}
+function faceData(c,requested){
+ const m=sourceCavityModel(st.raw||{},c.tag),views=m?.views||[];
+ const match=views.find(v=>String(v.side||'').toLowerCase().startsWith(requested));
+ const v=match||views.find(x=>(x.positions||[]).length)||null;
+ const actual=String(v?.side||'not stated').toLowerCase();
+ const mirrored=!!v&&((actual.startsWith('front')&&requested==='rear')||(actual.startsWith('rear')&&requested==='front'));
+ const occupied=new Set(splitCavs(c.occupied)),explicit=new Set((m?.explicitUnused||[]).map(x=>String(x.cavity)));
+ const conflicts=new Set((m?.conflicts||[]).flatMap(x=>String(x).match(/\b[A-Za-z]*\d+[A-Za-z]*\b/g)||[]));
+ const all=(m?.allVerified&&m.all?.length?m.all:c.labels||[]).map(String);
+ const labels=new Set(all),viewLabels=new Set();
+ let pts=[],kind='unresolved';
+ if(v?.positions?.length){
+  // Positions are relative to insert outline centre, in PDF display coordinates (Y down).
+  const R=Number(v.r)||Math.max(1,...v.positions.map(p=>Math.hypot(Number(p.x),Number(p.y))+Number(p.r||0)));
+  pts=v.positions.map(p=>({id:String(p.label||''),x:200+(mirrored?-1:1)*Number(p.x)*168/R,y:200+Number(p.y)*168/R,r:Math.max(7,Math.min(16,Number(p.r||0)*168/R||10))}));
+  pts.forEach(p=>{if(p.id)viewLabels.add(p.id)});
+  kind='drawing';
+ }else if(all.length){
+  // Deliberately a numbered grid, not a fabricated physical insert layout.
+  const cols=Math.ceil(Math.sqrt(all.length)),rows=Math.ceil(all.length/cols);
+  pts=all.map((id,i)=>({id,x:35+(i%cols)*330/Math.max(1,cols-1),y:40+Math.floor(i/cols)*315/Math.max(1,rows-1),r:12}));
+  kind='assumed-grid';
+ }
+ const missingPositions=kind==='drawing'?all.filter(id=>!viewLabels.has(id)):[];
+ const unknownPositions=kind==='drawing'?pts.filter(p=>p.id&&!labels.has(p.id)).map(p=>p.id):[];
+ const unlabelledPositions=kind==='drawing'?pts.filter(p=>!p.id).length:0;
+ const repeatedPositions=kind==='drawing'?pts.map(p=>p.id).filter((id,i,a)=>id&&a.indexOf(id)!==i):[];
+ return {m,v,actual,mirrored,kind,pts,occupied,explicit,conflicts,all,missingPositions,unknownPositions,unlabelledPositions,repeatedPositions};
+}
+function faceStatus(d,id,net){
+ if(!id)return 'unresolved';
+ if(d.conflicts.has(id)||(d.explicit.has(id)&&(d.occupied.has(id)||net.has(id))))return 'conflict';
+ if(d.occupied.has(id)||net.has(id))return 'wired';
+ if(d.explicit.has(id))return 'unused';
+ if(d.all.includes(id)&&d.m?.allVerified)return 'unresolved';
+ return 'unresolved';
+}
+function faceDetail(c,id,d,net){
+ const rows=net.get(id)||[],status=faceStatus(d,id,net);
+ return [c.tag+':'+(id||'UNLABELED'),status.toUpperCase(),...rows.map(r=>'Wire '+(r.wire||'not stated')+' | signal '+(r.signal||'not stated')+' | '+(r.awg||'?')+' AWG | '+(r.color||'color not stated')+' | far end '+(r.far||'not stated'))].join(' · ');
+}
+function faceHover(i,id){const c=st.connectors[i],d=faceData(c,faceSides[c.id]||'front'),net=faceNetRows(c.tag),el=$('face-info-'+i);if(el)el.textContent=faceDetail(c,id,d,net)}
+function faceToggle(i,side){const c=st.connectors[i];faceSides[c.id]=side;const target=$('face-view-'+i);if(target)target.innerHTML=renderFaceView(c,i)}
+function renderFaceView(c,i){
+ const requested=faceSides[c.id]||'front',d=faceData(c,requested),net=faceNetRows(c.tag);
+ if(!d.pts.length)return '<div class="facebox"><b>Connector face view</b><p class="help">No drawn face view or documented cavity labels. Physical positions unresolved; no geometry has been invented.</p></div>';
+ const colors={wired:'#168873',unused:'#fff',conflict:'#c94b4b',unresolved:'#e0e8ee'};
+ const dot=d.pts.map((p,j)=>{const id=p.id,status=faceStatus(d,id,net);return `<g class="face-cavity" tabindex="0" role="img" aria-label="${safe(faceDetail(c,id,d,net))}" onmouseenter="faceHover(${i},${JSON.stringify(id).replace(/"/g,'&quot;')})" onfocus="faceHover(${i},${JSON.stringify(id).replace(/"/g,'&quot;')})"><title>${safe(faceDetail(c,id,d,net))}</title><circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${colors[status]}" stroke="${status==='conflict'?'#9d2230':'#426279'}" stroke-width="2"/>${status==='unused'?`<path d="M${p.x-4} ${p.y}h8 M${p.x} ${p.y-4}v8" stroke="#b27d29" stroke-width="2"/>`:''}<text x="${p.x}" y="${p.y+p.r+12}" text-anchor="middle" fill="#1d344b" font-size="10">${safe(id||'?')}</text></g>`}).join('');
+ const complete=!!d.m?.allVerified && d.all.length>0 && !d.missingPositions.length && !d.unknownPositions.length && !d.unlabelledPositions && !d.repeatedPositions.length;
+ const populated=d.all.filter(id=>d.occupied.has(id)||net.has(id)).length;
+ const tableIds=[...new Set([...d.pts.map(p=>p.id).filter(Boolean),...d.all])];
+ const rows=tableIds.map(id=>{const r=(net.get(id)||[])[0]||{};return `<tr><td>${safe(id)}</td><td>${safe(c.profile?.contactCandidates?.[0]?.contactSize||'?')}</td><td>${safe(r.wire||'—')}</td><td>${safe(r.awg||'—')}</td><td>${safe(r.color||'—')}</td><td>${safe(faceStatus(d,id,net))}</td></tr>`}).join('');
+ return `<div class="facebox"><div class="row" style="justify-content:space-between"><b>Connector face view · DRAFT</b><span class="tag ${complete?'warn':'bad'}">${d.m?.allVerified&&d.all.length?`Populated ${populated} of ${d.all.length}${complete?'':' · view incomplete'}`:'Cavity inventory NOT VERIFIED'}</span></div><div class="row"><button type="button" onclick="faceToggle(${i},'front')" ${requested==='front'?'disabled':''}>Front</button><button type="button" onclick="faceToggle(${i},'rear')" ${requested==='rear'?'disabled':''}>Rear</button><span class="small muted">${d.kind==='drawing'?`Drawing sheet ${safe(d.v.page)}: ${safe(d.actual)}${d.mirrored?' · mirrored visualization (not independently drawn)':''}`:'ASSUMED numbered grid — not physical geometry'}</span></div><svg viewBox="0 0 400 400" role="group" aria-label="${safe(c.tag)} connector cavities"><circle cx="200" cy="200" r="183" fill="#f8fafc" stroke="#8ca2b6" stroke-width="2" ${d.kind==='assumed-grid'?'stroke-dasharray="6 5"':''}/>${dot}</svg>${d.kind==='drawing'&&(d.missingPositions.length||d.unknownPositions.length||d.unlabelledPositions||d.repeatedPositions.length)?`<p class="callout bad">Face-view geometry INCOMPLETE: ${safe([d.missingPositions.length+' inventory cavities lack drawn positions',d.unknownPositions.length+' labels not in inventory',d.unlabelledPositions+' unlabeled positions',d.repeatedPositions.length+' duplicated position labels'].join(' · '))}. Do not use visual positions for production.</p>`:''}<div class="face-legend"><span style="color:#168873">Wired</span><span style="color:#b27d29">Explicit unused / plug marker</span><span style="color:#c94b4b">Conflict</span><span style="color:#8ca2b6">Unresolved</span></div><div class="face-detail small" id="face-info-${i}" aria-live="polite">Hover or focus on a cavity for wire, signal, AWG, color and far-end details.</div><details><summary>Cavity details table</summary><div class="face-table tablebox"><table><thead><tr><th>Cavity</th><th>Size</th><th>Wire</th><th>AWG</th><th>Color</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div></details>${d.m?.conflicts?.length?`<p class="callout bad">${safe(d.m.conflicts.join(' · '))}</p>`:''}</div>`;
+}
+
+function renderConnectors(){const cnt=st.connectors;$('connectorCards').innerHTML=cnt.length?cnt.map((c,i)=>{const a=audit(c),ok=!a.issues.length;return `<div class="panel" style="border-left:4px solid ${c.verified&&ok?'#169c73':'#d6a052'}"><div class="row" style="justify-content:space-between"><h3>${safe(c.tag||'New connector')} <span class="tag">${safe(c.contactType||'Contact type unresolved')}</span></h3><button class="danger" onclick="removeConn(${i})">Remove</button></div><div class="split"><div><div class="field"><label>Connector designator</label><input value="${safe(c.tag)}" onchange="changeConn(${i},'tag',this.value.trim().toUpperCase())"></div><div class="field"><label>Connector part number</label><input value="${safe(c.part)}" onchange="changeConn(${i},'part',this.value.trim().toUpperCase())"></div><button onclick="resolveConn(${i})">Resolve manufacturer part</button><div class="field"><label>Documented insert capacity</label><input type="number" min="1" value="${c.capacity||''}" onchange="changeConn(${i},'capacity',this.value)"></div><p class="small muted">${safe(c.evidence)} · ${safe(c.profile?.status||'UNRESOLVED')} · ${safe(c.profile?.source||'No manufacturer citation')}</p>${cavityTable(c)}<div id="face-view-${i}">${renderFaceView(c,i)}</div></div><div><div class="field"><label>Occupied cavity IDs (individual entries, not ranges)</label><textarea spellcheck="false" onchange="changeConn(${i},'occupied',this.value)">${safe(c.occupied)}</textarea></div><div class="row"><button onclick="takeCandidate(${i})">Use draft PDF candidates</button><span class="tag ${ok?'good':'bad'}">${ok?`${a.entered.length} populated / ${a.missing.length} unused`:'NOT READY'}</span></div>${ok?`<p class="mono"><b>Unused:</b> ${safe(a.missing.join(', ')||'None')}</p>`:`<p class="callout bad">${safe(a.issues.join(' · '))}</p>`}<label class="check"><input type="checkbox" ${c.verified?'checked':''} ${ok?'':'disabled'} onchange="st.connectors[${i}].verified=this.checked;showReport()"> Source pin list and insert layout independently checked</label></div></div></div>`}).join(''):'<div class="callout">No connectors. Scan source PDF or add a connector manually.</div>';
+$('candidateRows').innerHTML=(st.raw?.candidates||[]).map(x=>`<tr><td>${safe(x.Connector)}</td><td>${safe(x.Number)}</td><td>${safe(x.Color)}</td><td>${x.Page}</td><td>Draft, verify</td></tr>`).join('')||'<tr><td colspan="5">No evidence</td></tr>'}
+function parseEndpoint(s){s=s.trim();if(!s)return null;if(s.startsWith('@')&&/^@[A-Z0-9_-]+$/.test(s))return {kind:'node',node:s.slice(1)};const k=s.lastIndexOf(':');if(k<1||k===s.length-1)return {error:'Malformed endpoint '+s};return {kind:'cavity',tag:s.slice(0,k).toUpperCase(),cavity:s.slice(k+1)}}
+function validateNets(){
+  const errs=[],ownership=new Map(),netIDs=new Set();
+  for(const n of st.nets){
+    const id=String(n.id||'').trim().toUpperCase();
+    if(!id)errs.push('A net has no identifier');
+    else if(netIDs.has(id))errs.push('Duplicate net ID: '+id);
+    netIDs.add(id);
+    const eps=String(n.endpoints||'').split(',').map(parseEndpoint).filter(Boolean);
+    if(eps.length<2)errs.push(id+': requires at least two endpoints');
+    let seen=new Set();
+    for(const e of eps){
+      if(e.error){errs.push(id+': '+e.error);continue}
+      let key=e.kind==='node'?'@'+e.node:e.tag+':'+e.cavity;
+      if(seen.has(key))errs.push(id+': duplicate endpoint '+key);
+      seen.add(key);
+      if(e.kind==='cavity'){
+        let c=st.connectors.find(x=>x.tag.toUpperCase()===e.tag);
+        if(!c){errs.push(id+': undefined connector '+e.tag);continue}
+        const a=audit(c);
+        if(!c.labels.includes(e.cavity))errs.push(id+': invalid cavity '+key);
+        if(!a.entered.includes(e.cavity))errs.push(id+': cavity '+key+' absent from occupied list');
+        if(ownership.has(key)&&ownership.get(key)!==id)errs.push('Cavity '+key+' belongs to two distinct nets: '+ownership.get(key)+' and '+id);
+        ownership.set(key,id);
+      }
+    }
+    if(!n.reviewed)errs.push(id+': wire/net not independently reviewed');
+  }
+  // An entirely valid-looking subset of nets is NOT a complete drawing.
+  // Every recorded occupied connector cavity must be covered by a reviewed net.
+  for(const c of st.connectors){
+    if(!c.tag)continue;
+    for(const cavity of audit(c).entered){
+      const key=c.tag.toUpperCase()+':'+cavity;
+      if(!ownership.has(key))errs.push('Occupied cavity '+key+' has no conductor/net assignment');
+    }
+  }
+  return unique(errs)
+}
+function addNet(){st.nets.push({id:'NET-'+(st.nets.length+1),endpoints:'',color:'',awg:'',note:'',reviewed:false});renderNets();tab('nets')}
+function netChange(i,k,v){const n=st.nets[i];n[k]=v;if(k!=='reviewed')n.reviewed=false;renderNets();showReport()}
+function netRemove(i){st.nets.splice(i,1);renderNets();showReport()}
+function renderNets(){const errs=validateNets();$('netBadge').textContent=st.nets.length+' net(s) · '+(errs.length?'Needs review':'Crosswalk checked');$('netBadge').className='tag '+(errs.length?'warn':'good');$('netRows').innerHTML=st.nets.map((n,i)=>`<tr><td><input value="${safe(n.id)}" onchange="netChange(${i},'id',this.value.trim().toUpperCase())"></td><td style="min-width:310px"><input value="${safe(n.endpoints)}" onchange="netChange(${i},'endpoints',this.value.trim().toUpperCase())"></td><td><input value="${safe(n.color)}" onchange="netChange(${i},'color',this.value)"></td><td><input value="${safe(n.awg)}" onchange="netChange(${i},'awg',this.value)"></td><td><input value="${safe(n.note)}" onchange="netChange(${i},'note',this.value)"></td><td><input type="checkbox" ${n.reviewed?'checked':''} onchange="netChange(${i},'reviewed',this.checked)"></td><td><button onclick="netRemove(${i})">×</button></td></tr>`).join('')||'<tr><td colspan="7">No nets yet. Add conductor relationships from drawing.</td></tr>';$('netErrors').textContent=errs.length?errs.join(' | '):'Crosswalk endpoint checks passed. Physical routing and complete drawing coverage still need inspection.';$('netErrors').className='callout '+(errs.length?'bad':'good');renderNetworkGraphic()}
+function renderNetworkGraphic(){let nets=st.nets.filter(x=>x.reviewed&&String(x.endpoints).includes(','));if(!nets.length){$('netDrawing').innerHTML='<div class="callout">Review net endpoints to display a logical diagram.</div>';return}const w=1050,rh=85,h=55+rh*nets.length;let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="width:100%;min-width:760px"><rect width="${w}" height="${h}" fill="#fff"/><text x="22" y="27" font-family="Arial" font-size="17" fill="#183652">Trivex | logical harness net reconstruction · DRAFT</text>`;nets.forEach((n,i)=>{let y=70+i*rh,e=n.endpoints.split(',').map(x=>x.trim()).filter(Boolean),span=900/(e.length+1);s+=`<text x="17" y="${y}" font-family="Arial" font-weight="bold" font-size="13" fill="#345" >${safe(n.id)}</text><line x1="130" x2="1000" y1="${y+18}" y2="${y+18}" stroke="#d1dfe8" stroke-width="2"/>`;e.forEach((v,j)=>{let x=130+span*(j+1);s+=`<circle cx="${x}" cy="${y+18}" r="7" fill="#288c9a"/><text text-anchor="middle" x="${x}" y="${y+5}" font-family="Consolas" font-size="13" fill="#183652">${safe(v)}</text>`})});s+='</svg>';$('netDrawing').innerHTML=s}
+function bomObj(x){const raw=String(x.qtyText??x.qty??'').trim().toUpperCase(),ar=raw==='A/R'||raw==='AS REQUIRED';return {item:x.item||'',part:x.part||'',description:x.description||'',reference:x.reference||'',page:x.page||x.Page||0,qty:ar?0:(Number(raw)||0),qtyText:ar?'A/R':raw,kitRequired:'',unit:'EA',source:x.source||'Imported',count:'',trace:'',notes:'',verified:false}}
+function asRequired(r){return String(r.qtyText||'').toUpperCase()==='A/R'}
+function needsPartSelection(r){let p=String(r.part||'').toUpperCase().trim();return !p||p==='VARIOUS'||p.includes(';')||p.startsWith('UNRESOLVED:')}
+function requiredKitQty(r,q){return asRequired(r)?Number(r.kitRequired)||0:r.qty*q}
+function loadDetectedBOM(){if(!(st.raw?.boms||[]).length)return alert('No structured BOM found in PDF. Import CSV or enter manually.');if(st.bom.length&&!confirm('Replace BOM entries?'))return;st.bom=st.raw.boms.map(bomObj);$('bomVerified').checked=false;render();tab('bom')}
+function addBOM(){st.bom.push(bomObj({item:String(st.bom.length+1),part:'',description:'',qty:1,source:'Manual'}));$('bomVerified').checked=false;renderBOM();scheduleAccessoryCheck()}
+function bomChange(i,k,v){let r=st.bom[i];if(k==='qty'){v=String(v).trim().toUpperCase();r.qtyText=v==='A/R'||v==='AS REQUIRED'?'A/R':v;r.qty=asRequired(r)?0:Math.max(0,Number(v)||0);r.kitRequired=''}else r[k]=v;r.verified=false;$('bomVerified').checked=false;renderBOM();renderKit();renderRequiredTools();showReport()}
+function bomRemove(i){st.bom.splice(i,1);$('bomVerified').checked=false;renderBOM();renderKit();scheduleAccessoryCheck()}
+function renderBOM(){$('bomRows').innerHTML=st.bom.map((r,i)=>`<tr><td><input value="${safe(r.item)}" onchange="bomChange(${i},'item',this.value)"></td><td><input value="${safe(r.part)}" onchange="bomChange(${i},'part',this.value)"></td><td><input value="${safe(r.description)}" onchange="bomChange(${i},'description',this.value)"></td><td><input title="Numeric quantity or A/R" value="${safe(asRequired(r)?'A/R':r.qty)}" onchange="bomChange(${i},'qty',this.value)"></td><td><input value="${safe(r.unit)}" onchange="bomChange(${i},'unit',this.value)"></td><td>${safe(r.source)}</td><td><button onclick="bomRemove(${i})">×</button></td></tr>`).join('')||'<tr><td colspan="7">No BOM entries</td></tr>'}
+function kitReset(){for(let b of st.bom)b.verified=false;renderKit();showReport()}
+function kitChange(i,k,v){const r=st.bom[i];r[k]=k==='verified'?!!v:v;if(k!=='verified')r.verified=false;renderKit();showReport()}
+function kitReady(){let q=Math.max(1,Number($('buildQty').value)||1);return st.bom.length>0&&st.bom.every(r=>!needsPartSelection(r)&&requiredKitQty(r,q)>0&&Number(r.count)>=requiredKitQty(r,q)&&r.verified&&r.trace)}
+function renderKit(){const q=Math.max(1,Number($('buildQty').value)||1);let complete=0;$('kitRows').innerHTML=st.bom.map((r,i)=>{const need=requiredKitQty(r,q),ok=Number(r.count)>=need&&need>0&&r.trace&&r.verified;if(ok)complete++;return `<tr><td><input type="checkbox" ${r.verified?'checked':''} ${Number(r.count)<need||!r.trace?'disabled':''} onchange="kitChange(${i},'verified',this.checked)"></td><td>${safe(r.part)}</td><td>${asRequired(r)?`A/R · choose job quantity:<input type="number" min="1" value="${safe(r.kitRequired)}" onchange="kitChange(${i},'kitRequired',this.value)">`:need} ${safe(r.unit)}</td><td><input type="number" min="0" value="${safe(r.count)}" onchange="kitChange(${i},'count',this.value)"></td><td><input value="${safe(r.trace)}" onchange="kitChange(${i},'trace',this.value)"></td><td><input value="${safe(r.notes)}" onchange="kitChange(${i},'notes',this.value)"></td></tr>`}).join('')||'<tr><td colspan="6">No BOM / kit rows</td></tr>';$('kitSummary').textContent=`${complete} / ${st.bom.length} line items physically counted, trace recorded, and checked.`;$('kitSummary').className='callout '+(kitReady()?'good':'')}
+function toolList(){return unique(($('toolParts').value.toUpperCase().match(/(?:M39029\/\d{1,3}-\d{1,4}(?:-[0-9A-Z]+)?|M24308\/\d+-\d+|MS\d{4,6}(?:-[0-9A-Z]+)*)/g)||[]))}
+
+function toolMap(){const map=new Map;for(const t of [...st.tooling,...st.importedTools]){for(const pn of [t.part,...(t.aliases||[])]){if(!map.has(pn))map.set(pn,[]);map.get(pn).push(t)}}return map}
+function drawingExactContacts(){
+ const src=[st.raw?.pdfText||'',...st.bom.map(x=>x.part+' '+x.description)].join(' ').toUpperCase();
+ return unique(src.match(/\bM39029\/\d{1,3}-\d{1,4}\b/g)||[])
+}
+function inferredContactMappings(){
+ const rows=[];
+ for(const c of st.connectors){
+  if(!/^D38999\//i.test(c.part||''))continue;
+  for(const x of c.profile?.contactCandidates||[]){
+   rows.push({tag:c.tag,connectorPart:c.part,contact:x,source:c.profile?.contactMappingSource||x.source||'',mappingStatus:c.profile?.contactMappingStatus||'catalog-candidate'});
+  }
+ }
+ return rows;
+}
+function contactNumbers(){return unique([...toolList(),...drawingExactContacts(),...inferredContactMappings().map(x=>x.contact.part)])}
+function renderConnectorContactMappings(){
+ const el=$('connectorContactRows');if(!el)return;
+ const rows=[];
+ for(const c of st.connectors){
+  if(!/^D38999\//i.test(c.part||''))continue;
+  const recs=c.profile?.contactCandidates||[];
+  if(!recs.length){
+   rows.push(`<tr><td>${safe(c.tag)}<br>${safe(c.part)}</td><td><span class="tag bad">UNRESOLVED</span></td><td>${safe(c.contactType||'Unknown')}</td><td>${safe(c.profile?.contactMappingWarning||'Exact manufacturer contact specification is required.')}</td></tr>`);
+  }else for(const x of recs){
+   rows.push(`<tr><td><b>${safe(c.tag)}</b><br>${safe(c.part)}</td><td><b>${safe(x.part)}</b><br><span class="tag warn">CATALOG CANDIDATE</span></td><td>${safe(x.sex)} · Size ${safe(x.contactSize)} · ${safe(x.qty)} contacts · ${safe(x.cycle)} cycles</td><td>${safe(x.source)}<br><span class="small muted">${safe(x.warning)}</span></td></tr>`);
+  }
+ }
+ el.innerHTML=rows.join('')||'<tr><td colspan="4">No supported military connector identified. Add a connector or scan a drawing.</td></tr>';
+}
+function evaluateTools(){const lib=toolMap();return contactNumbers().map(p=>{
+ const refs=lib.get(p);if(!refs?.length)return {part:p,error:'Exact contact P/N not in local DMC references'};
+ const options=[];for(const ref of refs){for(const path of ref.routes||[]){options.push({path,source:ref.source,status:ref.status,sex:ref.sex,wireRange:ref.wireRange,insertion:ref.insertion,removal:ref.removal})}}
+ return {part:p,ref:refs[0],variants:refs,options,ambiguous:refs.length>1,verified:false,ok:false};
+})}
+
+function toolEdited(){$('toolVerified').checked=false;renderTools();renderSpecialty();renderAssemblyRefs();renderRequiredTools();showReport()}
+function findContacts(){
+ const candidates=drawingExactContacts();$('toolParts').value=unique([...toolList(),...candidates]).join('\n');toolEdited();tab('tooling')
+}
+function renderTools(){const result=evaluateTools();$('toolRows').innerHTML=result.map(r=>r.error?`<tr><td><b>${safe(r.part)}</b></td><td colspan="4"><span class="tag bad">UNRESOLVED</span> ${safe(r.error)}</td></tr>`:`<tr><td><b>${safe(r.part)}</b><br>${r.ambiguous?'<span class="tag warn">Multiple chart contexts</span>':'<span class="tag warn">Source review</span>'}</td><td>${safe(r.ref.contactSize)} / ${safe(r.ref.wireRange)}</td><td>${r.options.map(o=>'<div><b>'+safe(o.path.join(' + '))+'</b> · '+safe(o.sex)+' · '+safe(o.wireRange)+'</div>').join('')||'No tooling route in reference'}</td><td>${r.variants.map(v=>safe(v.insertion||'UNRESOLVED')+' / '+safe(v.removal||'UNRESOLVED')).join('<br>')}</td><td>${r.variants.map(v=>'<span class="small">'+safe(v.source)+' · '+safe(v.status)+'</span>').join('<br>')}<br><span class="tag warn">Verify exact contact application</span></td></tr>`).join('')||'<tr><td colspan="5">No exact M39029 contact P/N was identified. Connector insert size alone cannot establish the crimp frame and positioner.</td></tr>'}
+
+async function loadToolLibrary(){try{const r=await fetch('/api/tooling',{headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());st.tooling=await r.json();$('toolDbStatus').textContent=`Offline library: ${new Set(st.tooling.map(x=>x.part)).size} unique M39029 contacts · ${st.tooling.length} verified/draft application records · source checks required before production`;renderTools();renderRequiredTools()}catch(e){console.error(e)}}
+async function importTooling(f){if(!f)return;try{let rows=parseCSV(await f.text()),h=rows.shift().map(x=>x.toLowerCase().trim());let cols=['contact_part_number','sex','contact_size','wire_range','crimp_routes','insertion','removal','source'];if(cols.some(k=>!h.includes(k)))throw Error('CSV fields missing');let out=rows.map(r=>{let x=Object.fromEntries(h.map((k,i)=>[k,r[i]||'']));if(!/^M39029\/\d{1,3}-\d{1,4}$/.test(x.contact_part_number.toUpperCase()))throw Error('Invalid contact P/N');return {part:x.contact_part_number.toUpperCase(),sex:x.sex,contactSize:x.contact_size,wireRange:x.wire_range,routes:x.crimp_routes.toUpperCase().split('|').map(t=>t.split('+')),insertion:x.insertion.toUpperCase(),removal:x.removal.toUpperCase(),source:x.source,status:'user-imported-unverified'}});st.importedTools=out;toolEdited();alert(out.length+' imported contact mappings remain UNVERIFIED.')}catch(e){alert(e.message)}}
+function issueCat(i){return i.Category||i.category||(['NO_CONNECTORS','NO_CAVITY_ROWS','NO_NATIVE_TEXT','WIRING_PAGE_UNINTERPRETED','PDF_PARSE_INCOMPLETE','TEXT_NOT_DECODABLE','TEXT_AS_GRAPHICS','BOM_NOT_FOUND','LEGACY_ENGINE'].includes(i.Code)?'EXTRACTION_INCOMPLETE':(['CAVITY_OUT_OF_RANGE','DUPLICATE_CAVITY'].includes(i.Code)?'DRAWING_CONFLICT':'REVIEW'))}
+const CAT_LABEL={EXTRACTION_INCOMPLETE:'EXTRACTION INCOMPLETE',DRAWING_CONFLICT:'DRAWING CONFLICT',REVIEW:'REVIEW'};
+function sourceIssues(){let e=[];if(!st.raw)e.push('No source drawing parsed');if(!st.sourceMatched)e.push('Source PDF checksum not verified');if(st.raw?.pageWords?.some(n=>n===0))e.push('One or more PDF pages have no extracted text');if(st.raw?.warnings?.some(x=>x.includes('No trustworthy cavity candidates')||x.includes('COVERAGE GAP')))e.push('Cavity scan coverage incomplete; review every drawing sheet');if(st.raw?.candidates?.some(n=>n.Connector==='UNASSIGNED'))e.push('Unassigned cavity readings require drawing review');if(st.raw?.connectors?.some(c=>c.Name.startsWith('UNIDENTIFIED-')))e.push('Unidentified connector tag');for(const i of st.raw?.issues||[])if(i.Severity==='ERROR')e.push((issueCat(i)==='EXTRACTION_INCOMPLETE'?'EXTRACTION INCOMPLETE: ':(issueCat(i)==='DRAWING_CONFLICT'?'DRAWING CONFLICT CANDIDATE: ':'REVIEW: '))+i.Message);return e}
+function gates(){let g=[];const src=sourceIssues();g.push(['Source identity / extraction coverage',!src.length,src.join('; ')]);let v=st.connectors.length>0&&st.connectors.every(c=>!audit(c).issues.length&&c.verified);g.push(['All connector layouts & cavity audits',v,`${st.connectors.filter(c=>c.verified&&!audit(c).issues.length).length}/${st.connectors.length} reviewed`]);let ne=validateNets();g.push(['Complete, independently reviewed net crosswalk',st.nets.length>0&&!ne.length,ne.slice(0,4).join('; ')]);let bo=st.bom.length>0&&st.bom.every(r=>!needsPartSelection(r)&&(r.qty>0||asRequired(r))&&r.unit)&&$('bomVerified').checked;g.push(['BOM independent review',bo,'All items, approved part selections and quantities checked']);let t=evaluateTools();const unresolvedContact=st.connectors.some(c=>/^D38999\//i.test(c.part)&&!inferredContactForConnector(c).length&&!drawingExactContacts().length);
+const unconfirmedDerived=inferredContactMappings().some(x=>!contactHasExplicitEvidence(x.contact));g.push(['Required assembly tooling reviewed',!unresolvedContact && !unconfirmedDerived && t.every(x=>!x.error) && $('toolVerified').checked,unresolvedContact?'No supported connector/contact cross-reference':(unconfirmedDerived?'Catalog candidate contact P/N has not been confirmed in the drawing/BOM or exact-contact input':(t.some(x=>x.error)?'Unresolved contact/tool combination':'Manufacturer instructions and assembly tooling review required'))]);const specialtyExactSet=new Set(specialtyLibrary.contacts.map(x=>x.part));const specialtyFound=unique([...specialtyIDs(),...specialtyFromSource().filter(x=>!x.startsWith('M39029/')||specialtyExactSet.has(x)||/^M39029\/(?:59|90|91|113|114)-/.test(x))]);const extractionComplete=!!st.raw && !(st.raw.issues||[]).some(i=>issueCat(i)==='EXTRACTION_INCOMPLETE'&&i.Severity==='ERROR');g.push(['Specialty operation/part review',extractionComplete && specialtyFound.length===0, !extractionComplete?'NOT ASSESSED: PDF interpretation is incomplete, so missing specialty items cannot be ruled out':(specialtyFound.length ? specialtyFound.length+' specialty contact(s) detected or entered: manufacturer procedures and engineering authorization required' : 'No specialty items detected in recognized records; verify tooling scope')]);const accBad=accChecks.filter(c=>c.status==='MISMATCH'||c.status==='MISSING'),accOpen=accChecks.filter(c=>c.status==='VERIFY'||c.status==='UNRESOLVED');g.push(['Connector accessories match BOM',st.connectors.length>0&&accChecks.length>0&&!accBad.length&&!accOpen.length,accBad.length?accBad.length+' mismatch/missing: '+accBad.slice(0,3).map(c=>c.connector+' '+c.check).join('; '):(accOpen.length?accOpen.length+' item(s) to verify':(accChecks.length?'All accessory checks OK':'Not run'))]);g.push(['Kit counts & traceability',kitReady(),`${st.bom.filter(r=>r.verified).length}/${st.bom.length} checked`]);g.push(['Work order / separate kit verifier',!!$('workorder').value&&!!$('kitter').value&&!!$('checker').value&&$('kitter').value.trim()!==$('checker').value.trim(),'Kitter and checker must differ']);return g}
+function showReport(){let g=gates(),pass=g.every(x=>x[1]);$('readiness').textContent=pass?'ALL ELECTRONIC CHECKS COMPLETE · STILL REQUIRES QMS APPROVAL':'DRAFT / NOT RELEASED · '+g.filter(x=>!x[1]).length+' OPEN VERIFICATION GATES';$('readiness').className='callout '+(pass?'good':'bad');$('gates').innerHTML=g.map(x=>`<div class="check"><span class="tag ${x[1]?'good':'bad'}">${x[1]?'PASS':'BLOCK'}</span><b>${safe(x[0])}</b> <span class="muted small">${safe(x[2])}</span></div>`).join('');$('reportConnectors').innerHTML=st.connectors.map(c=>{const a=audit(c);return `<div class="panel"><b>${safe(c.tag)}</b> · ${safe(c.part)} · ${c.capacity||'UNKNOWN'} positions · <span class="tag ${c.verified&&!a.issues.length?'good':'warn'}">${c.verified&&!a.issues.length?'Reviewed':'Draft'}</span><p class="mono">Occupied: ${safe(a.entered.join(', '))||'Not entered'}</p><p class="mono">Unused: ${a.issues.length?'BLOCKED: '+safe(a.issues.join(' | ')):safe(a.missing.join(', ')||'None')}</p></div>`}).join('')}
+function renderDrawingIssues(){
+ const issues=st.raw?.issues||[];
+ const errors=issues.filter(i=>i.Severity==='ERROR'||i.severity==='ERROR');
+ $('issueCountNav').textContent=errors.length?'('+errors.length+')':(issues.length?' (review)':'');
+ const banner=$('drawingAlertBanner');
+ if(errors.length){
+   const extractionOnly=errors.every(i=>issueCat(i)==='EXTRACTION_INCOMPLETE');
+   const title=extractionOnly?'PDF INTERPRETATION INCOMPLETE — PRODUCTION HOLD':'DRAWING REVIEW REQUIRED — PRODUCTION HOLD';
+   const count=extractionOnly?errors.length+' recognition gap(s), not drawing errors':errors.length+' issue(s)';
+   banner.style.display='block';
+   banner.innerHTML='<strong>'+title+' · '+safe(count)+'</strong> <button onclick="tab(\'alerts\')">Review findings</button> <button onclick="tab(\'evidence\')">Open page review</button><div>'+errors.map(i=>'<span class="tag '+(issueCat(i)==='DRAWING_CONFLICT'?'bad':'warn')+' cat">'+safe(CAT_LABEL[issueCat(i)])+'</span> '+safe(i.Message)).join('<br>')+'</div>';
+ }else{banner.style.display='none';banner.innerHTML=''}
+ const order={DRAWING_CONFLICT:0,EXTRACTION_INCOMPLETE:1,REVIEW:2};
+ const sorted=[...issues].sort((a,b)=>order[issueCat(a)]-order[issueCat(b)]);
+ $('drawingIssueList').innerHTML=sorted.length?sorted.map(i=>{const c=issueCat(i),pg=Number(i.Pages?.[0])||0,lines=[];
+   if(i.Connector||i.Part)lines.push(`<p class="muted">${safe([i.Connector,i.Part].filter(Boolean).join(' / '))}</p>`);
+   if(i.Expected)lines.push(`<p>Expected: ${safe(i.Expected)}</p>`);
+   if(i.Observed)lines.push(`<p>Observed: ${safe(i.Observed)}</p>`);
+   if((i.Pages||[]).length)lines.push(`<p>Source sheets: ${safe(i.Pages.join(', '))}</p>`);
+   if((i.Cavities||[]).length)lines.push(`<p>Affected cavities: ${safe(i.Cavities.join(', '))}</p>`);
+   return `<div class="issue-panel" style="border-left-color:${c==='DRAWING_CONFLICT'?'#a52e3f':(c==='EXTRACTION_INCOMPLETE'?'#c68e3c':'#5790b5')}"><div class="row"><span class="tag ${c==='DRAWING_CONFLICT'?'bad':(c==='EXTRACTION_INCOMPLETE'?'warn':'')}">${safe(CAT_LABEL[c])}</span><span class="tag">${safe(i.Severity)}</span> <b>${safe(i.Code)}</b></div><p><strong>${safe(i.Message)}</strong></p>${lines.join('')}<p><b>Required action:</b> ${safe(i.Action)}</p>${pg?`<button onclick="viewEvidence(${pg})">Open sheet ${pg} in page review</button>`:''}</div>`}).join(''):'<div class="callout">No automatically detected findings. This does not establish that the PDF was fully parsed or is error-free; verify all sheets before production.</div>';
+}
+function openPdfViewerAt(page){if(!st.pdfURL)return alert('Source PDF must be reattached');$('pdfFrame').src=st.pdfURL+'#page='+page;viewPDF()}
+function viewEvidence(page,box){if(!st.raw)return alert('Read a drawing first');tab('evidence');st.highlight=box?{page,box}:null;if(Number($('evidencePage').value)!==page||!st.pageView){$('evidencePage').value=String(page);loadPageView(page)}else drawOverlay();$('pageReviewPanel').scrollIntoView({behavior:'smooth',block:'start'})}
+function exportDrawingIssues(){const items=st.raw?.issues||[];csv('Trivex_Drawing_Discrepancies.csv',[['Category','Severity','Code','Connector','Part','Drawing Sheets','Cavities','Expected','Observed','Required action'],...items.map(i=>[CAT_LABEL[issueCat(i)],i.Severity,i.Code,i.Connector,i.Part,(i.Pages||[]).join(';'),(i.Cavities||[]).join(';'),i.Expected,i.Observed,i.Action])])}
+function normalizeIssues(raw){for(const i of raw?.issues||[]){for(const [upper,lower] of [['Category','category'],['Severity','severity'],['Message','message'],['Pages','pages'],['Code','code'],['Connector','connector'],['Part','part'],['Cavities','cavities'],['Expected','expected'],['Observed','observed'],['Action','action']]){if(i[upper]===undefined)i[upper]=i[lower]}}}
+
+
+async function loadEmbeddedImages(){
+ if(!st.raw)return;
+ $('embeddedStatus').textContent='Cutting pictures from the rendered sheets…';
+ try{const r=await fetch('/api/embedded-images',{method:'POST',headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());st.embeddedImages=await r.json();const flipped=st.embeddedImages.filter(v=>v.mirrored||v.rotation).length;$('embeddedStatus').textContent=st.embeddedImages.length+' picture(s), shown exactly as placed on the page'+(flipped?' · '+flipped+' stored in a different orientation than displayed (raw thumbnails of these look upside-down or mirrored)':'')+'.';renderEmbeddedGallery()}
+ catch(e){$('embeddedStatus').textContent='Pictures unavailable: '+e.message;st.embeddedImages=[];renderEmbeddedGallery()}
+}
+function renderEmbeddedGallery(){const c=$('embeddedGallery');if(!c)return;
+ c.innerHTML=(st.embeddedImages||[]).length?st.embeddedImages.map((v,i)=>`<div class="embedded-picture"><img src="data:${safe(v.mime)};base64,${v.data}" alt="Picture ${v.id} on sheet ${v.page} as displayed"><div><b>Sheet ${v.page}</b> · ${safe(v.name)} · ${v.width}×${v.height} pt · ${v.pixelWidth}×${v.pixelHeight} px</div><div class="small ${v.mirrored||v.rotation?'':'muted'}">${safe(v.orientation)}</div><div class="small muted">Identity unverified</div><button onclick="useEmbeddedImage(${i})">Locate on sheet</button><button onclick="showRawPicture(${i})">Compare with stored pixels</button><div class="raw" id="rawPic${i}" hidden></div></div>`).join(''):'<p class="help">No pictures on these sheets. Vector-drawn connector views appear as "insert views" in Page review.</p>'
+}
+function useEmbeddedImage(i){const v=st.embeddedImages?.[i];if(!v)return;viewEvidence(v.page,v.box)}
+async function showRawPicture(i){const v=st.embeddedImages?.[i],el=$('rawPic'+i);if(!v||!el)return;if(!el.hidden){el.hidden=true;return}try{const r=await fetch('/api/raw-image?page='+v.page+'&id='+v.id,{headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());const u=URL.createObjectURL(await r.blob());el.innerHTML='<img src="'+u+'" alt="Stored pixels without placement transform"><div class="small muted">Stored pixels WITHOUT the page placement transform (what v2.5/v2.6 showed). Not how the drawing looks.</div>';el.hidden=false}catch(e){alert('Stored pixels unavailable: '+e.message)}}
+
+// Source-backed graphics/evidence layer. No page image bytes are posted, saved or embedded in projects.
+function renderEvidence(){
+ const pages=st.raw?.pageSummary||[], graphics=st.raw?.graphicPages||[];
+ renderEmbeddedGallery();
+ $('evidencePageRows').innerHTML=pages.length?pages.map(p=>{const g=graphics.find(x=>x.page===p.Page)||{};return `<tr><td>${p.Page}</td><td>${p.Words}</td><td>${p.CavityRows} / ${p.BOMRows}</td><td>${g.vectorSegments||0} path segments · ${g.curves||0} circles</td><td>${g.imageObjects||0} pictures · ${g.formObjects||0} forms</td><td><button onclick="changeEvidencePageTo(${p.Page})">Review sheet</button><div class="muted">${safe(g.assessment||'')}</div></td></tr>`}).join(''):'<tr><td colspan="6">Read a drawing first.</td></tr>';
+ const ev=new Map();
+ const get=t=>{const k=String(t||'').toUpperCase().replace(/-/g,'');if(!ev.has(k))ev.set(k,{tag:k,part:'',sources:[],labels:[],bom:[],wiring:'',graphics:[],notes:[],visual:[],status:''});return ev.get(k)};
+ for(const e of st.raw?.endpointEvidence||[]){const q=get(e.tag);Object.assign(q,{part:e.part||'',sources:e.sources||[],labels:e.labels||[],bom:e.bomRows||[],wiring:e.wiringRows?e.wiringRows+' row(s), sheet '+(e.wiringPages||[]).join(', '):'',graphics:e.graphics||[],notes:e.notes||[],status:e.status||''})}
+ for(const c of st.connectors||[]){if(!c.tag)continue;const q=get(c.tag);if(c.part&&!q.part)q.part=c.part}
+ for(const e of st.visualEvidence||[]){if(!e.tag)continue;get(e.tag).visual.push(e)}
+ const rows=[...ev.values()].sort((a,b)=>a.tag.localeCompare(b.tag,undefined,{numeric:true}));
+ const loc=(p,b,label)=>`<a href="#" onclick='viewEvidence(${Number(p)},${JSON.stringify(b||null)});return false'>${safe(label)}</a>`;
+ $('endpointEvidenceRows').innerHTML=rows.length?`<table><thead><tr><th>Endpoint</th><th>Part candidate</th><th>Independent sources</th><th>On the drawing</th><th>BOM</th><th>Wiring / pinout</th><th>Nearby graphics</th><th>Notes</th></tr></thead><tbody>${rows.map(q=>`<tr><td><b>${safe(q.tag)}</b></td><td>${safe(q.part||'Unresolved')}</td><td>${q.sources.map(x=>'<span class="tag">'+safe(x)+'</span>').join(' ')||'—'}<div class="small muted">${safe(q.status)}</div></td><td>${q.labels.slice(0,8).map(l=>loc(l.page,l.box,'sheet '+l.page)).join(', ')||'—'}${q.visual.length?'<div class="small">'+q.visual.map(v=>loc(v.page,v.boxPt||null,'marked: sheet '+v.page+' '+v.kind)).join(', ')+'</div>':''}</td><td class="small">${safe(q.bom.join('; ')||'—')}</td><td class="small">${safe(q.wiring||'—')}</td><td class="small">${q.graphics.map(g=>loc(g.page,g.box,g.kind+' (sheet '+g.page+')')).join('<br>')||'—'}</td><td class="small">${safe(q.notes.join(' ')||'')}</td></tr>`).join('')}</tbody></table>`:'<div class="callout">No endpoint identified automatically. Use Page review to select connector views, BOM and pinout tables.</div>';
+ const sel=$('evidencePage'),before=sel.value;sel.innerHTML=pages.map(p=>`<option value="${p.Page}">Sheet ${p.Page}</option>`).join('')||'<option value="1">Sheet 1</option>';if([...sel.options].some(x=>x.value===before))sel.value=before;else sel.value=sel.options[0].value;
+ $('visualEvidenceRows').innerHTML=st.visualEvidence?.length?st.visualEvidence.map((e,i)=>`<tr><td>${e.box?loc(e.page,e.boxPt||null,'sheet '+e.page+' · region'):'sheet '+e.page+' · page-level'}</td><td>${safe(e.kind)}</td><td>${safe(e.tag||'Unspecified')}</td><td>${safe(e.part||'Unspecified')}</td><td>${safe(e.note||'')}</td><td>${safe(e.source||'Page review')} · <b>DRAFT</b></td><td><button onclick="deleteEvidence(${i})">Remove</button></td></tr>`).join(''):'<tr><td colspan="7">No evidence notes yet.</td></tr>';
+ drawOverlay();
+}
+function changeEvidencePageTo(page){tab('evidence');$('evidencePage').value=String(page);loadPageView(page)}
+function changeEvidencePage(){loadPageView(Number($('evidencePage').value)||1)}
+function stepPage(d){const n=st.raw?.pages||1,p=Math.min(n,Math.max(1,(Number($('evidencePage').value)||1)+d));$('evidencePage').value=String(p);loadPageView(p)}
+let pageLoadSeq=0;
+async function loadPageView(page){
+ if(!st.raw)return;page=page||Number($('evidencePage').value)||1;$('evidencePage').value=String(page);
+ const info=(st.raw.pageInfo||[]).find(x=>x.page===page)||{width:792,height:612,rotation:0};
+ const z=$('pageZoom').value,stage=$('pageStage'),scroll=$('pageScroll');
+ const fitScale=Math.max(0.75,Math.min(3,(scroll.clientWidth||1000)/info.width*(window.devicePixelRatio||1)));
+ const scale=z==='fit'?fitScale:Math.min(4,Number(z)*(window.devicePixelRatio||1)*96/72);
+ stage.style.width=z==='fit'?'100%':Math.round(info.width*Number(z)*96/72)+'px';
+ const seq=++pageLoadSeq;st.pendingRegion=null;
+ $('pageMeta').textContent='Rendering sheet '+page+'…';
+ try{
+  const [img,lay]=await Promise.all([
+   fetch('/api/page-image?page='+page+'&scale='+scale.toFixed(3),{headers:{'X-Trivex-Token':TOKEN}}).then(async r=>{if(!r.ok)throw Error(await r.text());return r.blob()}),
+   fetch('/api/page-layout?page='+page,{headers:{'X-Trivex-Token':TOKEN}}).then(async r=>{if(!r.ok)throw Error(await r.text());return r.json()})]);
+  if(seq!==pageLoadSeq)return;
+  if(st.pageView?.url)URL.revokeObjectURL(st.pageView.url);
+  st.pageView={page,W:lay.width,H:lay.height,layout:lay,url:URL.createObjectURL(img)};
+  $('pageImage').src=st.pageView.url;
+  const d=(st.raw.diagnostics||[]).find(x=>x.page===page)||{};
+  $('pageMeta').textContent=`Sheet ${page} · ${Math.round(lay.width)}×${Math.round(lay.height)} pt as displayed · /Rotate ${lay.rotation}° · ${lay.words.length} text fragments · ${lay.images.length} picture(s) · ${(lay.insertDiagrams||[]).length} insert view candidate(s)`+(d.status?' · '+d.status:'')+(lay.vectorDetailTruncated?' · vector overlay truncated':'')+((lay.notes||[]).length?' · '+lay.notes.join(' '):'');
+  drawOverlay();
+ }catch(e){if(seq===pageLoadSeq)$('pageMeta').textContent='Sheet could not be rendered: '+e.message}
+}
+function drawOverlay(){
+ const svg=$('pageOverlay'),v=st.pageView;if(!svg)return;
+ if(!v){svg.innerHTML='';return}
+ svg.setAttribute('viewBox','0 0 '+v.W+' '+v.H);svg.setAttribute('preserveAspectRatio','none');
+ const L=v.layout,out=[],r=(b,c,t)=>`<rect class="${c}" x="${b.x0}" y="${b.y0}" width="${Math.max(.5,b.x1-b.x0)}" height="${Math.max(.5,b.y1-b.y0)}">${t?'<title>'+safe(t)+'</title>':''}</rect>`;
+ if($('ovVectors').checked&&L.segments?.length){let d='';for(const s of L.segments)d+=`M${s[0]} ${s[1]}L${s[2]} ${s[3]}`;out.push(`<path class="ov-vec" d="${d}"/>`)}
+ if($('ovText').checked)for(const w of L.words)out.push(r(w.box,'ov-text',w.text));
+ if($('ovImages').checked)for(const im of L.images){out.push(r(im.box,'ov-img','Picture '+im.id+': '+im.orientation));out.push(`<text class="ov-label" x="${im.box.x0+2}" y="${im.box.y0+9}">Picture ${im.id}</text>`)}
+ if($('ovInserts').checked)for(const g of L.insertDiagrams||[]){out.push(`<circle class="ov-insert" cx="${g.outline.cx}" cy="${g.outline.cy}" r="${g.outline.r}"><title>${safe(g.note)}</title></circle>`);out.push(`<text class="ov-label" x="${g.box.x0}" y="${g.box.y1+9}">insert view? ${g.cavityCircles} circles${g.nearTag?' · near '+safe(g.nearTag):''}</text>`)}
+ if($('ovEvidence').checked)for(const e of st.visualEvidence||[]){if(e.page!==v.page||!e.box)continue;const b=e.boxPt||{x0:e.box[0]*v.W,y0:e.box[1]*v.H,x1:(e.box[0]+e.box[2])*v.W,y1:(e.box[1]+e.box[3])*v.H};out.push(r(b,'ov-ev',e.kind+' '+(e.tag||'')))}
+ if(st.highlight&&st.highlight.page===v.page&&st.highlight.box){const b=st.highlight.box,p=4;out.push(r({x0:b.x0-p,y0:b.y0-p,x1:b.x1+p,y1:b.y1+p},'ov-hl','Located item'))}
+ if(st.pendingRegion)out.push(r(st.pendingRegion,'ov-pending','Selection'));
+ svg.innerHTML=out.join('');
+ if(st.highlight&&st.highlight.page===v.page&&st.highlight.box){const sc=$('pageScroll'),img=$('pageImage'),f=img.clientWidth/v.W;sc.scrollTo({left:Math.max(0,st.highlight.box.x0*f-60),top:Math.max(0,st.highlight.box.y0*f-60),behavior:'smooth'})}
+}
+function svgPt(evt){const svg=$('pageOverlay'),p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());const v=st.pageView;return [Math.max(0,Math.min(v.W,q.x)),Math.max(0,Math.min(v.H,q.y))]}
+let evidenceDrag=null;
+$('pageOverlay').addEventListener('pointerdown',e=>{if(!st.pageView||e.button!==0)return;evidenceDrag=svgPt(e);$('pageOverlay').setPointerCapture(e.pointerId)});
+$('pageOverlay').addEventListener('pointermove',e=>{if(!evidenceDrag)return;const b=svgPt(e),a=evidenceDrag;st.pendingRegion={x0:Math.min(a[0],b[0]),y0:Math.min(a[1],b[1]),x1:Math.max(a[0],b[0]),y1:Math.max(a[1],b[1])};drawOverlay()});
+$('pageOverlay').addEventListener('pointerup',e=>{if(!evidenceDrag)return;const b=svgPt(e),a=evidenceDrag;evidenceDrag=null;const R={x0:Math.min(a[0],b[0]),y0:Math.min(a[1],b[1]),x1:Math.max(a[0],b[0]),y1:Math.max(a[1],b[1])};if(R.x1-R.x0<4||R.y1-R.y0<4){st.pendingRegion=null;drawOverlay();return}st.pendingRegion=R;st.highlight=null;const n=(st.pageView.layout.words||[]).filter(w=>{const cx=(w.box.x0+w.box.x1)/2,cy=(w.box.y0+w.box.y1)/2;return cx>=R.x0&&cx<=R.x1&&cy>=R.y0&&cy<=R.y1}).length;$('selectedRegion').textContent='Selected '+Math.round(R.x1-R.x0)+'×'+Math.round(R.y1-R.y0)+' pt on sheet '+st.pageView.page+' · '+n+' text fragment(s) inside';drawOverlay()});
+function clearEvidenceRegion(){st.pendingRegion=null;$('selectedRegion').textContent='Drag on the sheet to select a region.';$('regionResult').innerHTML='';st.region=null;drawOverlay()}
+function boxFraction(b){const v=st.pageView;return v&&b?[b.x0/v.W,b.y0/v.H,(b.x1-b.x0)/v.W,(b.y1-b.y0)/v.H]:null}
+function addVisualEvidence(extra){if(!st.raw)return alert('Read a drawing first');const page=st.pageView?.page||Number($('evidencePage').value)||1,tag=$('evidenceTag').value.trim().toUpperCase(),part=$('evidencePart').value.trim().toUpperCase(),kind=$('evidenceKind').value,note=$('evidenceNote').value.trim();if(!tag&&!part&&!note&&!extra)return alert('Provide an endpoint, part number or observation.');const b=st.pendingRegion?{...st.pendingRegion}:null;st.visualEvidence.push({page,kind:extra?.kind||kind,tag:extra?.tag??tag,part:extra?.part??part,note:extra?.note??note,box:boxFraction(b),boxPt:b,source:'Rendered PDF sheet (PDFium) · page review',reviewed:false});if(!extra){$('evidenceNote').value=''}renderEvidence();showReport()}
+// ---- region reading and import into the normal workflows
+async function readRegion(){
+ if(!st.pageView)return alert('Read a drawing first');if(!st.pendingRegion)return alert('Drag a box on the sheet first.');
+ const kind=$('regionKind').value,req={page:st.pageView.page,box:st.pendingRegion,kind};
+ $('regionResult').innerHTML='<div class="callout">Reading selection…</div>';
+ try{const r=await fetch('/api/region',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(req)});if(!r.ok)throw Error(await r.text());st.region={req,res:await r.json()};renderRegionResult()}catch(e){$('regionResult').innerHTML='<div class="callout bad">'+safe(e.message)+'</div>'}
+}
+const ROLE_SETS={pinout:[['','(ignore)'],['from','From connector'],['pin','Pin / cavity'],['signal','Signal / function'],['wire','Wire ID'],['color','Color'],['awg','AWG'],['to','To (conn or conn-pin)'],['topin','To pin']],bom:[['','(ignore)'],['item','Item / find no.'],['qty','Qty'],['part','Part number'],['description','Description'],['vendor','Manufacturer'],['ref','Ref des']]};
+function renderRegionResult(){
+ const R=st.region;if(!R)return;const res=R.res,kind=R.req.kind,importAs=kind==='bom'?'bom':'pinout';
+ const chips=(arr,field)=>arr.map(t=>`<span class="chip" onclick="$('${field}').value=${safe(JSON.stringify(t))}">${safe(t)}</span>`).join('');
+ let h=`<div class="region-box"><div class="callout">${safe(res.note)}</div>`;
+ if(res.graphics.length)h+=`<p class="small"><b>Graphics in selection:</b> ${res.graphics.map(g=>safe(g.kind+' — '+g.detail)).join('; ')}</p>`;
+ if(res.tags.length)h+=`<p class="small"><b>Designators read here</b> (click to use as endpoint): ${chips(res.tags,'evidenceTag')}</p>`;
+ if(res.parts.length)h+=`<p class="small"><b>Part-number-like text</b> (click to use; confirm it is the connector P/N, not a contact or backshell): ${chips(res.parts,'evidencePart')}</p>`;
+ if(res.frame)h+=`<p class="small muted">Text in this selection runs at ${res.frame}°; it was read in that direction.</p>`;
+ const auto=kind==='bom'?res.autoBom:res.autoWires;
+ if(auto&&auto.length)h+=`<p><b>Automatic reading:</b> ${auto.length} ${kind==='bom'?'BOM row(s)':'conductor row(s)'}. <button class="primary" onclick="importRegionAuto()">Import automatic rows as DRAFT</button></p>`;
+ if(res.grid.length&&(kind==='bom'||kind==='pinout')){
+  const set=ROLE_SETS[importAs],cols=res.grid[0].length;
+  h+=`<div class="row"><label>Heading row</label><select id="regionHeader" onchange="renderRegionGridRows()">${res.grid.map((r,i)=>`<option value="${i}" ${i===res.headerRow?'selected':''}>${i+1}: ${safe(r.join(' | ').slice(0,60))}</option>`).join('')}<option value="-1" ${res.headerRow<0?'selected':''}>(no heading row)</option></select>`+(importAs==='pinout'?`<label>Connector for these pins</label><input id="regionConn" style="width:110px" value="${safe(res.tags[0]||'')}" placeholder="e.g. P1">`:'')+`<label class="check" title="Stores only the heading words and the roles you chose, on this PC"><input type="checkbox" id="regionRemember" checked> Remember these headings for future drawings</label><button class="primary" onclick="importRegionGrid('${importAs}')">Import rows as DRAFT</button></div>`;
+  h+=`<div class="tablebox"><table class="grid-table"><thead><tr>${Array.from({length:cols},(_,c)=>`<th><select class="region-role" data-col="${c}">${set.map(([v,l])=>`<option value="${v}" ${(res.roles[c]||'')===v?'selected':''}>${safe(l)}</option>`).join('')}</select></th>`).join('')}</tr></thead><tbody id="regionGridRows"></tbody></table></div>`;
+ }else if(res.lines.length){h+=`<details><summary>Text read from the selection (${res.lines.length} line(s))</summary><pre class="mono small">${safe(res.lines.join('\n'))}</pre></details>`}
+ if(kind==='connector'||kind==='text')h+=`<p class="small">Fill the evidence fields below and press <b>Add evidence for review</b> or <b>Add connector candidate</b>. Do not take a part number, contact sex or pin orientation from appearance alone.</p>`;
+ h+='</div>';$('regionResult').innerHTML=h;
+ const kindMap={bom:'BOM',pinout:'Pinout',connector:'Connector view',text:'Other'};$('evidenceKind').value=kindMap[kind]||'Other';
+ if(res.grid.length&&(kind==='bom'||kind==='pinout'))renderRegionGridRows();
+}
+function renderRegionGridRows(){const res=st.region?.res;if(!res)return;const hdr=Number($('regionHeader').value);$('regionGridRows').innerHTML=res.grid.slice(0,60).map((r,i)=>`<tr class="${i===hdr?'hdr':''}" style="${i<hdr?'opacity:.45':''}">${r.map(c=>`<td>${safe(c)}</td>`).join('')}</tr>`).join('')+(res.grid.length>60?`<tr><td colspan="${res.grid[0].length}">… ${res.grid.length-60} more row(s)</td></tr>`:'')}
+function parseDest(s){s=String(s||'').toUpperCase().trim().replace(/\s+/g,' ');let m=s.match(/^((?:J|P|X|TB|CN|CON|PL|SK|S|SP|E)[-_]?\d{1,4}[A-Z]?)\s*(?:[-:\/.]| PIN | CAV | )\s*([A-Z]{0,2}\d{1,4}[A-Z]?|[A-Z]{1,2})$/);if(m)return [m[1].replace(/[-_]/g,''),m[2]];if(/^(?:J|P|X|TB|CN|CON|PL|SK|S|SP|E)[-_]?\d{1,4}[A-Z]?$/.test(s))return [s.replace(/[-_]/g,''),''];return ['','']}
+function regionProvenance(){const R=st.region.req,b=R.box;return 'Page review: sheet '+R.page+' region '+[b.x0,b.y0,b.x1,b.y1].map(v=>Math.round(v)).join(',')+' pt'}
+function ensureConnector(tag,page){if(!tag||tag==='UNASSIGNED'||st.connectors.some(c=>c.tag===tag))return;st.connectors.push({id:ID(),tag,part:'',contactType:'',capacity:0,labels:[],occupied:'',verified:false,profile:null,evidence:'Page review sheet '+page+' (UNVERIFIED)'})}
+function importRegionGrid(as){
+ const R=st.region;if(!R)return;const P=R.req.page,res=R.res,hdr=Number($('regionHeader').value),roles=[...document.querySelectorAll('.region-role')].map(x=>x.value),prov=regionProvenance();const have=new Set(st.nets.map(n=>String(n.endpoints).toUpperCase().split(',')[0].trim())),haveB=new Set(st.bom.map(b=>String(b.item)+'|'+String(b.part).toUpperCase()));let skipped=0;
+ const col=k=>roles.indexOf(k),cell=(r,k)=>col(k)>=0?String(r[col(k)]||'').trim():'';
+ const rows=res.grid.slice(hdr+1);let n=0;
+ if(as==='pinout'){
+  if(col('pin')<0)return alert('Assign a "Pin / cavity" column.');
+  const fixed=($('regionConn')?.value||'').trim().toUpperCase().replace(/[-_]/g,'');
+  if(col('from')<0&&!fixed)return alert('Enter the connector these pins belong to, or assign a "From connector" column.');
+  for(const r of rows){const pin=cell(r,'pin').toUpperCase();if(!pin||!/^[A-Z]{0,2}\d{0,4}[A-Z]?$/.test(pin))continue;const conn=(cell(r,'from').toUpperCase().replace(/[-_]/g,'')||fixed);let [et,ep]=parseDest(cell(r,'to'));if(cell(r,'topin'))ep=cell(r,'topin').toUpperCase();
+   if(have.has((conn+':'+pin).toUpperCase())){skipped++;continue}
+   st.nets.push(wireToNet({connector:conn,cavity:pin,end:et||'UNRESOLVED ENDPOINT',endCavity:et?ep:'',signal:cell(r,'signal'),wire:cell(r,'wire'),color:cell(r,'color'),awg:cell(r,'awg'),endSignal:et?'':cell(r,'to'),page:P},st.nets.length,'PAGE-'));ensureConnector(conn,P);if(et)ensureConnector(et,P);n++}
+ }else{
+  if(col('part')<0)return alert('Assign a "Part number" column.');
+  for(const r of rows){const part=cell(r,'part');if(!part)continue;const item=cell(r,'item')||String(st.bom.length+1);if(haveB.has(item+'|'+part.toUpperCase())){skipped++;continue}st.bom.push(bomObj({item,qty:cell(r,'qty')||'',part,description:cell(r,'description'),reference:cell(r,'ref'),page:P,source:prov+' — UNVERIFIED'}));n++}
+ }
+ addVisualEvidence({kind:as==='bom'?'BOM':'Pinout',tag:as==='pinout'?(($('regionConn')?.value||'').toUpperCase()):'',part:'',note:n+' row(s) imported from this region ('+prov+')'});
+ if($('regionRemember')?.checked&&hdr>=0){learnHeadings(as==='bom'?'bom':'wire',res.grid[hdr],roles)}
+ resetChecks();render();alert(n+' draft row(s) imported from sheet '+P+(skipped?' · '+skipped+' row(s) skipped because the same connector:cavity (or BOM item) already exists — edit those in place':'')+'. Check each against the rendered sheet before sign-off.');
+}
+function importRegionAuto(){
+ const R=st.region;if(!R)return;const P=R.req.page,res=R.res,prov=regionProvenance();let n=0,skipped=0;const have=new Set(st.nets.map(n=>String(n.endpoints).toUpperCase().split(',')[0].trim())),haveB=new Set(st.bom.map(b=>String(b.item)+'|'+String(b.part).toUpperCase()));
+ if(R.req.kind==='bom'){for(const b of res.autoBom||[]){if(haveB.has(String(b.item)+'|'+String(b.part).toUpperCase())){skipped++;continue}st.bom.push(bomObj({...b,page:P,source:prov+' — UNVERIFIED'}));n++}}
+ else{for(const w of res.autoWires||[]){if(have.has((w.connector+':'+w.cavity).toUpperCase())){skipped++;continue}st.nets.push(wireToNet({...w,page:P},st.nets.length,'PAGE-'));ensureConnector(w.connector,P);n++}}
+ addVisualEvidence({kind:R.req.kind==='bom'?'BOM':'Pinout',tag:'',part:'',note:n+' automatic row(s) imported ('+prov+')'});
+ resetChecks();render();alert(n+' draft row(s) imported'+(skipped?' · '+skipped+' already present and skipped':'')+'. Check each against the rendered sheet before sign-off.');
+}
+function deleteEvidence(i){st.visualEvidence.splice(i,1);renderEvidence();showReport()}
+async function createConnectorFromEvidence(){if(!st.raw)return alert('Read a drawing first');const tag=$('evidenceTag').value.trim().toUpperCase(),part=$('evidencePart').value.trim().toUpperCase(),page=st.pageView?.page||Number($('evidencePage').value)||1;if(!tag||!part)return alert('An explicit designator AND part number are needed. Do not derive the P/N from appearance alone.');if(st.connectors.some(c=>c.tag===tag))return alert('Connector '+tag+' already exists. Add an evidence note instead.');st.connectors.push({id:ID(),tag,part,contactType:'',capacity:0,labels:[],occupied:'',verified:false,profile:null,evidence:'Page review: sheet '+page+(st.pendingRegion?' region':'')+' (UNVERIFIED)'});const idx=st.connectors.length-1;try{const p=await apiResolve(part);st.connectors[idx].profile=p;st.connectors[idx].capacity=p.positionCount||0;st.connectors[idx].contactType=p.contactSex||''}catch(e){}addVisualEvidence();render();tab('connectors')}
+// Users may copy a table from an approved PDF application without any remote transfer.
+function importLocalTable(){if(!st.raw)return alert('Read a source drawing first');const data=$('pasteTable').value.trim();if(!data)return alert('Paste a local table first.');const lines=data.split(/\r?\n/).filter(x=>x.trim()).map(x=>x.includes('	')?x.split('	'):x.split(',').map(y=>y.trim()));if(lines.length<2)return alert('Include a header row and at least one data row');const headings=lines[0].map(x=>x.trim().toLowerCase().replace(/[^a-z0-9]/g,''));function col(...names){return headings.findIndex(x=>names.includes(x))}const page=Number($('evidencePage').value)||1;let count=0;
+if($('pasteKind').value==='net'){const c=col('connector','from','source','fromconnector'),n=col('cavity','pin','position','frompin','sourcepin'),sig=col('signal','net','wirename'),end=col('end','destination','to','toconnection','toconnect'),ep=col('endcavity','endpin','topin','destpin','destinationpin');if(c<0||n<0||end<0) return alert('Netlist needs Connector, Cavity, and End headers. Signal and End Cavity are optional.');for(const r of lines.slice(1)){const tag=String(r[c]||'').trim().toUpperCase(),pin=String(r[n]||'').trim(),dest=String(r[end]||'').trim().toUpperCase();if(!tag||!pin||!dest)continue;st.nets.push({id:'LOCAL-'+ID(),endpoints:tag+':'+pin+', '+(ep>=0&&r[ep]?dest+':'+r[ep]:'@'+dest.replace(/[^A-Z0-9]/gi,'_')),color:'',awg:'',note:'Local pasted source p'+page+' · '+(sig>=0?r[sig]:'')+' · UNVERIFIED',reviewed:false});count++}}
+else{const item=col('item','itemno','line'),qty=col('qty','quantity','qtyperharness'),pn=col('partnumber','partno','pn','part'),desc=col('description','nomenclature','desc'),ref=col('refdes','reference','ref','designator');if(pn<0||qty<0)return alert('BOM needs Qty and Part Number headers.');for(const r of lines.slice(1)){if(!r[pn])continue;st.bom.push(bomObj({item:item>=0?r[item]||'':String(st.bom.length+1),qty:r[qty]||'',part:r[pn],description:desc>=0?r[desc]||'':'',reference:ref>=0?r[ref]||'':'',page,source:'Copied locally from source page '+page+' — UNVERIFIED'}));count++}}
+$('pasteResult').textContent=count+' draft rows imported locally. Check each against source before signoff.';resetChecks();render();tab($('pasteKind').value==='net'?'nets':'bom')}
+
+function wv(x,k){const v=x?.[k]??x?.[k[0].toUpperCase()+k.slice(1)];return v==null?'':String(v)}
+function wireToNet(x,i,prefix){const c=wv(x,'connector')||'UNASSIGNED',cav=wv(x,'cavity'),end=wv(x,'end'),ec=wv(x,'endCavity'),resolved=end&&end!=='UNRESOLVED ENDPOINT';const far=resolved&&ec?end+':'+ec:'@'+String(resolved?end:'UNRESOLVED').replace(/[^A-Z0-9_]/gi,'_')+'_'+(i+1);return {id:(prefix||'WIRE-')+String(i+1).padStart(3,'0'),endpoints:[c+':'+cav,far].join(', '),color:wv(x,'color'),awg:wv(x,'awg'),signal:wv(x,'signal'),wire:wv(x,'wire'),sheet:wv(x,'page'),note:['Sheet '+wv(x,'page'),wv(x,'signal'),wv(x,'wire')?'wire '+wv(x,'wire'):'',wv(x,'endSignal'),'DRAFT'].filter(Boolean).join(' · '),reviewed:false}}
+function cavityTable(c){
+ const tag=String(c.tag||'').toUpperCase();if(!tag)return '';
+ const size=c.profile?.contactCandidates?.[0]?.contactSize||'';
+ const rows=[];
+ for(const n of st.nets){const eps=String(n.endpoints||'').split(',').map(x=>x.trim().toUpperCase());eps.forEach((e,i)=>{const k=e.lastIndexOf(':');if(k<1||e.slice(0,k)!==tag)return;const far=eps.filter((_,j)=>j!==i).join(', ');rows.push({cav:String(n.endpoints).split(',')[i].trim().slice(k+1),wire:n.wire||'',signal:n.signal||'',awg:n.awg||'',color:n.color||'',far,sheet:n.sheet||'',reviewed:n.reviewed})})}
+ const count={};rows.forEach(r=>count[r.cav]=(count[r.cav]||0)+1);
+ rows.sort((a,b)=>sortCav(a.cav,b.cav));
+ const cap=c.capacity||c.profile?.positionCount||0,pop=new Set(rows.map(r=>r.cav)).size;
+ const head=`<div class="row" style="justify-content:space-between"><b>Cavity table</b><span class="small">${cap?`populated — <b>${pop} of ${cap}</b> cavities`:`${pop} populated (insert size unresolved)`}${Object.values(count).some(v=>v>1)?' · <span class="tag bad">repeated cavity</span>':''}</span></div>`;
+ if(!rows.length)return `<details class="tool-details"><summary>${head}</summary><p class="help">No conductor rows for ${safe(tag)} yet. Import a pinout/wire list in Page review.</p></details>`;
+ return `<details class="tool-details"><summary>${head}</summary><div class="tablebox"><table><thead><tr><th>Cavity</th><th>Size</th><th>Wire</th><th>Signal</th><th>AWG</th><th>Color</th><th>Far end</th><th>Sheet</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${safe(r.cav)}</b></td><td>${safe(size?'#'+size:'—')}</td><td>${safe(r.wire||'—')}</td><td>${safe(r.signal||'—')}</td><td>${safe(r.awg||'—')}</td><td>${safe(r.color||'—')}</td><td>${safe(r.far)}</td><td>${safe(r.sheet)}</td><td>${count[r.cav]>1?'<span class="tag bad">REPEATED</span>':(r.reviewed?'<span class="tag good">reviewed</span>':'<span class="tag warn">draft</span>')}</td></tr>`).join('')}</tbody></table></div></details>`;
+}
+function renderInterpretation(){
+ const d=st.raw,el=$('interpretStatus');if(!el)return;
+ if(!d){el.className='callout';el.textContent='No drawing loaded';$('diagRows').innerHTML='<tr><td colspan="9">No drawing loaded</td></tr>';return}
+ const s=String(d.interpretation||'');el.className='callout '+(s.startsWith('FAILED')||s.startsWith('UNRELIABLE')?'bad':(s.startsWith('PARTIAL')?'':'good'));
+ const c=d.compareV26,mine=[(d.connectors||[]).length,(d.wires||[]).length,(d.boms||[]).length];
+ el.innerHTML='<b>'+safe(s||'Interpretation status unavailable (project saved by an older version)')+'</b><div class="small">'+safe(d.engine||'Engine not recorded')+(d.engineError?' · '+safe(d.engineError):'')+'</div>'+(c?'<div class="small">Connectors / conductors / BOM rows — PDFium extraction: <b>'+mine.join(' / ')+'</b> · retired v2.6 extraction through the same recognizers: '+(c.error?'failed ('+safe(c.error)+')':[c.connectors,c.wires,c.bom].join(' / '))+'</div>':'');
+ $('diagRows').innerHTML=(d.diagnostics||[]).map(x=>`<tr><td>${x.page}</td><td>${x.rotation}° · ${safe(x.displayOrientation)}</td><td>${x.characters?x.decodedPercent+'% of '+x.characters:'no text'}</td><td>${x.analysisFrame?x.analysisFrame+'° (sideways text)':'upright'}</td><td>${x.pictures}${x.picturesStoredFlipped?' ('+x.picturesStoredFlipped+')':''}</td><td>${x.vectorObjects} · ${x.insertDiagramCandidates}</td><td>${x.wiringRows} / ${x.bomRows}</td><td><span class="tag ${/RECOGNIZED/.test(x.status)?'good':(/NO READABLE|UNDECODABLE|LEGACY|NO RECORDS/.test(x.status)?'warn':'')}">${safe(x.status)}</span>${(x.notes||[]).length?'<div class="small muted">'+safe(x.notes.join(' '))+'</div>':''}</td><td><button onclick="changeEvidencePageTo(${x.page})">Review</button></td></tr>`).join('')||'<tr><td colspan="9">Diagnostics not available for this project</td></tr>';
+}
+function categoricalSummary(){const d=st.raw;if(!d)return '';const L=['Trivex Harness Auditor '+(d.appVersion||APP_VERSION)+' — categorical interpretation summary (no drawing content)','Interpretation: '+(String(d.interpretation||'').split(' — ')[0]),'Engine: '+(d.engine?.startsWith('PDFium')?'PDFium':'legacy'),'Sheets: '+d.pages,'Connectors recognized: '+((d.connectors||[]).length?'yes':'no'),'Conductor candidates recognized: '+((d.wires||[]).length?'yes':'no'),'BOM rows recognized: '+((d.boms||[]).length?'yes':'no'),'PDFium extraction finds at least as many records of every type as the v2.6 extraction: '+(d.compareV26&&!d.compareV26.error?(((d.connectors||[]).length>=d.compareV26.connectors&&(d.wires||[]).length>=d.compareV26.wires&&(d.boms||[]).length>=d.compareV26.bom)?'yes':'no'):'not available')];for(const x of d.diagnostics||[])L.push(`Sheet ${x.page}: rotation ${x.rotation}, ${x.displayOrientation}, text ${x.characters?(x.decodedPercent>=95?'decoded':(x.decodedPercent>=70?'partly decoded':'mostly undecodable')):'none'}, frame ${x.analysisFrame||0}, pictures ${x.pictures?'yes':'no'}${x.picturesStoredFlipped?' (stored flipped)':''}, insert views ${x.insertDiagramCandidates?'yes':'no'}, outlined text ${x.outlinedTextLikely?'likely':'no'}, status ${x.status}`);L.push('Categories of findings: '+unique((d.issues||[]).map(i=>issueCat(i)+'/'+i.Code)).join(', '));return L.join('\n')}
+async function copyCategorical(){if(!st.raw)return alert('Read a drawing first');const t=categoricalSummary();if(!confirm('This summary contains no drawing text, part numbers, file name or checksum, but it does describe the drawing structure. Share it only if your CUI policy permits. Copy to clipboard?'))return;try{await navigator.clipboard.writeText(t);alert('Copied.')}catch(e){prompt('Copy the summary:',t)}}
+async function showProbe(){if(!st.raw)return alert('Read a drawing first');try{const r=await fetch('/api/probe',{method:'POST',headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());$('probeText').value=await r.text();$('probeModal').classList.add('on')}catch(e){alert('Probe unavailable: '+e.message)}}
+async function copyProbe(){const t=$('probeText').value;try{await navigator.clipboard.writeText(t);alert('Copied.')}catch(e){$('probeText').select();document.execCommand('copy')}}
+async function runSelfTest(){$('selfTestStatus').textContent='Running built-in synthetic drawings…';$('selfTestRows').innerHTML='';try{const r=await fetch('/api/self-test',{method:'POST',headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());const d=await r.json();$('selfTestStatus').innerHTML='<span class="tag '+(d.pass?'good':'bad')+'">'+(d.pass?'SELF-TEST PASS':'SELF-TEST FAIL')+'</span> v'+safe(d.version)+' · '+safe(d.duration);$('selfTestRows').innerHTML='<div class="tablebox"><table><thead><tr><th>Case</th><th>Encoding</th><th>Result</th><th>Detail</th></tr></thead><tbody>'+d.cases.map(c=>`<tr><td>${safe(c.variant)}</td><td class="small">${safe(c.description)}</td><td><span class="tag ${c.pass?'good':'bad'}">${c.pass?'PASS':'FAIL'}</span></td><td class="small">${safe(c.detail)}</td></tr>`).join('')+'</tbody></table></div>'}catch(e){$('selfTestStatus').textContent='Self-test could not run: '+e.message}}
+async function clearDrawing(){if(!confirm('Close the drawing and clear it from application memory? Unsaved review work in this window is lost.'))return;try{await fetch('/api/clear',{method:'POST',headers:{'X-Trivex-Token':TOKEN}})}catch(e){}if(st.pageView?.url)URL.revokeObjectURL(st.pageView.url);sourcePreview(null);st={...st,raw:null,filename:'Untitled',sourceMatched:false,connectors:[],nets:[],bom:[],visualEvidence:[],embeddedImages:[],pendingRegion:null,pageView:null,region:null,highlight:null};$('pageImage').removeAttribute('src');$('regionResult').innerHTML='';$('pdfUpload').value='';$('scanStatus').textContent='No drawing loaded';render();renderEmbeddedGallery()}
+function render(){normalizeIssues(st.raw);renderDrawingIssues();renderInterpretation(); $('metricPages').textContent=st.raw?.pages||'—';$('metricWords').textContent=st.raw?.words||'—';$('metricConnectors').textContent=st.connectors.length+' ('+st.connectors.filter(c=>c.capacity>0).length+' catalog count)';$('metricCandidates').textContent=st.raw?.candidates?.length||0;$('fingerprint').textContent=st.raw?.sha256?'SHA256 '+st.raw.sha256.slice(0,22)+'...'+(st.sourceMatched?' · source matches':' · NEEDS REATTACH'):'No PDF checksum';$('sourceWarnings').textContent=unique([...(st.raw?.warnings||[]),...sourceIssues()]).join('\n')||'No warnings';if($('coverageRows'))$('coverageRows').innerHTML=(st.raw?.pageSummary||[]).map(p=>`<tr><td>${p.Page}</td><td>${p.Words}</td><td>${p.CavityRows}</td><td>${p.BOMRows}</td><td>${safe(p.Category)}</td></tr>`).join('')||'<tr><td colspan="5">No drawing loaded</td></tr>'; $('detectedRows').innerHTML=st.connectors.map(c=>`<tr><td>${safe(c.tag)}</td><td>${safe(c.part)}</td><td>${safe(c.contactType||'Unknown')}</td><td>${safe(c.profile?.family||'Unknown')}</td><td>${safe(c.evidence)}</td><td>Review required</td></tr>`).join('')||'<tr><td colspan="6">No connector identified</td></tr>';renderConnectors();renderEvidence();renderNets();renderBOM();renderKit();renderConnectorContactMappings();renderTools();renderSpecialty();renderAssemblyRefs();renderRequiredTools();scheduleAccessoryCheck();showReport()}
+function parseCSV(text){let rows=[],r=[],cell='',quote=false;for(let i=0;i<text.length;i++){let x=text[i];if(x==='"'){if(quote&&text[i+1]==='"'){cell+='"';i++}else quote=!quote}else if(x===','&&!quote){r.push(cell);cell=''}else if((x==='\n'||x==='\r')&&!quote){if(x==='\r'&&text[i+1]==='\n')i++;r.push(cell);if(r.some(c=>c.trim()))rows.push(r);r=[];cell=''}else cell+=x}r.push(cell);if(r.some(c=>c.trim()))rows.push(r);return rows}
+async function importBOM(){let f=$('bomFile').files[0];if(!f)return;try{const rows=parseCSV(await f.text()),h=rows.shift().map(x=>x.toLowerCase().trim());const idx=(...names)=>h.findIndex(x=>names.includes(x));let p=idx('part','part number','part_number','p/n'),q=idx('qty','quantity');if(p<0||q<0)throw Error('CSV needs part number and quantity');st.bom=rows.map((r,i)=>bomObj({item:r[idx('item')]||String(i+1),part:r[p],qty:r[q],description:r[idx('description')]||'',source:f.name})).filter(x=>x.part&&(x.qty>0||asRequired(x)));$('bomVerified').checked=false;render();tab('bom')}catch(e){alert(e.message)}}
+function csv(name,rows){const s=rows.map(row=>row.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');download(name,new Blob(['\ufeff'+s],{type:'text/csv;charset=utf-8'}))}
+function download(name,blob){let u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000)}
+function exportLayoutTemplate(){csv('Cavity_Layout_Import.csv',[['connector_tag','part_number','cavity_id'],['J1','D38999/26FJ35PA','1'],['J1','D38999/26FJ35PA','2'],['J2','D38999/26FJ35SA','1']])}
+function exportCavities(){if(st.raw?.issues?.some(i=>(i.Severity||i.severity)==='ERROR'))return alert('DRAWING ERROR: Production cavity export BLOCKED. Open Drawing alerts and obtain an engineering resolution/revised source PDF.');if(st.connectors.some(c=>audit(c).issues.length||!c.verified))return alert('At least one connector lacks an independently verified layout and occupied-cavity list; export BLOCKED.');let rows=[['Connector','Part number','Cavity','State','Review']];for(let c of st.connectors){let a=new Set(audit(c).entered);for(let id of c.labels)rows.push([c.tag,c.part,id,a.has(id)?'POPULATED':'UNUSED',c.verified?'Independently checked':'DRAFT'])}csv('Trivex_All_Connectors_Cavities_REVIEWED_NOT_QMS_RELEASED.csv',rows)}
+function exportNetCSV(){csv('Trivex_Network_Crosswalk.csv',[['Net','Endpoints','Color','AWG','Note','Reviewed'],...st.nets.map(n=>[n.id,n.endpoints,n.color,n.awg,n.note,n.reviewed?'yes':'no'])])}
+function exportBOM(){csv('Trivex_BOM.csv',[['Item','Part','Description','Qty per harness','Unit','Source'],...st.bom.map(r=>[r.item,r.part,r.description,asRequired(r)?'A/R':r.qty,r.unit,r.source])])}
+function exportKit(){csv('Trivex_Kitting.csv',[['Part','Description','Qty Required','Qty Pulled','Traceability','Verified','Notes'],...st.bom.map(r=>[r.part,r.description,requiredKitQty(r,Math.max(1,Number($('buildQty').value)||1))||(asRequired(r)?'A/R - UNRESOLVED':0),r.count,r.trace,r.verified?'yes':'no',r.notes])])}
+function exportTooling(){exportRequirements()}
+
+function saveProject(){if(!confirm('The project file contains data derived from the drawing (part numbers, cavity assignments, BOM, evidence locations). Store and transmit it under the same controls as the source drawing (e.g. CUI). Save it now?'))return;let inputs={};for(let id of ['toolParts','specialtyParts','toolNA','workorder','buildQty','kitter','checker'])inputs[id]=$(id).value;download('Trivex_Harness_Project.json',new Blob([JSON.stringify({version:12,filename:st.filename,raw:st.raw,connectors:st.connectors,nets:st.nets,bom:st.bom,visualEvidence:st.visualEvidence,importedTools:st.importedTools,inputs},null,2)],{type:'application/json'}))}
+async function loadProject(f){if(!f)return;try{let d=JSON.parse(await f.text());if(d.version!==12||!Array.isArray(d.connectors))throw Error('Not v1.2 project');st={...st,raw:d.raw,filename:d.filename||'',sourceMatched:false,connectors:d.connectors.map(c=>({...c,verified:false})),nets:(d.nets||[]).map(n=>({...n,reviewed:false})),bom:(d.bom||[]).map(b=>({...b,verified:false})),visualEvidence:(d.visualEvidence||[]).map(e=>({...e,reviewed:false})),pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,importedTools:d.importedTools||[]};for(let [id,v]of Object.entries(d.inputs||{}))if($(id))$(id).value=v;$('bomVerified').checked=false;$('toolVerified').checked=false;sourcePreview(null);render();alert('Project loaded as DRAFT. Reattach source PDF to verify its checksum and repeat sign-offs.')}catch(e){alert('Cannot open project: '+e.message)}}
+function printReview(){tab('reports');window.print()}
+
+// Offline manufacturer reference data served by this executable. NEVER marks tooling approved.
+async function loadAssemblyRefs(){try{const r=await fetch('/api/assembly-library',{headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());st.assemblyRefs=await r.json();renderAssemblyRefs()}catch(e){console.error('Assembly reference load:',e)}}
+function discoveredBandParts(){const raw=[st.raw?.pdfText||'',...st.bom.map(x=>x.part+' '+x.description)].join(' ').toUpperCase();return unique(raw.match(/\bM85049\/128-(?:3|4|7|8)\b/g)||[])}
+function familyMatchesRef(c,r){const fam=(c.profile?.family||'').toUpperCase();const part=(c.part||'').toUpperCase();const f=r.family.toUpperCase();
+ if(f==='MIL-DTL-38999 SERIES III')return fam.includes('38999 SERIES III')||/^D38999\/2[0-9]/.test(part);
+ if(f==='MIL-DTL-38999 SERIES I')return fam.includes('38999 SERIES I/')||fam==='MIL-DTL-38999 SERIES I';
+ if(f==='MIL-DTL-38999 SERIES II')return fam==='MIL-DTL-38999 SERIES II';
+ if(f==='MIL-DTL-38999 SERIES IV')return fam==='MIL-DTL-38999 SERIES IV';
+ return fam.includes(f)||f.includes(fam)&&fam.length>8;}
+function relevantAssemblyRefs(){const bands=discoveredBandParts(),connected=st.connectors||[];return (st.assemblyRefs||[]).map(x=>{
+ let applicable=[];
+ if(x.category==='Banding tool'){
+  if(x.part==='DBS-2100')applicable=bands.filter(p=>/-[34]$/.test(p));
+  if(x.part==='DBS-2200')applicable=bands.filter(p=>/-[78]$/.test(p));
+ }else if(x.category==='Sealing plug'){
+  applicable=connected.filter(c=>(c.profile?.family||'').includes('38999')&&(c.profile?.arrangement||'').endsWith('-35')).map(c=>c.tag||c.part);
+ }else applicable=connected.filter(c=>familyMatchesRef(c,x)).map(c=>c.tag||c.part);
+ return {...x,matches:applicable};}).filter(x=>x.matches.length)}
+function renderAssemblyRefs(){const arr=requiredAssemblyRows();$('assemblyRows').innerHTML=arr.filter(r=>r.group==='assembly').map(r=>`<tr><td>${safe(r.item)}</td><td><b>${safe(r.tool)}</b></td><td>${safe(r.operation)}</td><td><span class="tag warn">${safe(r.status)}</span><br>${safe(r.source)}</td></tr>`).join('')||'<tr><td colspan="4">No applicable assembly requirements recognized. This does not certify no tools are required.</td></tr>'}
+function exportAssemblyRefs(){exportRequirements()}
+
+let specialtyLibrary={contacts:[],guidance:[]};
+// Recognize exact manufacturer contact formats. This is discovery only,
+// not an approved-tooling or BOM-validity determination.
+const specialtyRe=/\b(?:M39029\/[0-9]{1,3}-[0-9]{1,4}|M7928\/[0-9]+-[0-9]+|M81824\/[0-9]+-[0-9]+|M80-[A-Z0-9]{3,12}|M83-[A-Z0-9]{3,12}|M300-[A-Z0-9]{3,12}|SSHL-[0-9A-Z.\-]{5,20}|046[02]-[0-9]{3}-[0-9]{5}|1-66105-9|(?:39-00-[0-9]{4}|43031-[0-9]{4}|43030-[0-9]{4}|[0-9]{8,10})|21-3338[45]-51|21-3390[89]-23|173112[0-9]{4}|20508[9]-1|205090-1|CF-[0-9]{6}-(?:[A-Z0-9-]+))\b/g;
+function specialtyIDs(){const str=($('specialtyParts')?.value||'').toUpperCase();return unique((str.match(specialtyRe)||[]))}
+function specialtyChanged(){renderSpecialty();renderRequiredTools();showReport()}
+function specialtyFromSource(){
+ const raw=[st.raw?.pdfText||'',...st.bom.map(x=>x.part+' '+x.description)].join(' ').toUpperCase();
+ const map=new Set(specialtyLibrary.contacts.flatMap(x=>[x.part,...(x.aliases||[])]));
+ // Numeric parts are considered contacts only when present in the exact library;
+ // a drawing dimension or unrelated supplier P/N must not become a tool requirement.
+ return unique((raw.match(specialtyRe)||[]).filter(x=>map.has(x)||/^(M39029\/|M7928\/|M81824\/|M80-|M83-|M300-|SSHL-|046[02]-|21-3338|21-3390|CF-)/.test(x)));
+}
+function findSpecialtyInDrawing(go=true){$('specialtyParts').value=specialtyFromSource().join('\n');specialtyChanged();if(go)tab('tooling')}
+function evaluateSpecialty(){
+ const map=new Map();for(const r of specialtyLibrary.contacts){for(const pn of [r.part,...(r.aliases||[])]){if(!map.has(pn))map.set(pn,[]);map.get(pn).push(r)}}
+ return unique([...specialtyIDs(),...specialtyFromSource()]).map(part=>{
+ const rs=map.get(part)||[];if(rs.length!==1)return {part,record:null,error:rs.length>1?'AMBIGUOUS exact part':'No exact tooling record'};
+ const r=rs[0];return {part,record:r,steps:(r.steps||[]).map(s=>({...s,options:(s.alternatives||[]).map(path=>({path}))})),unresolved:!(r.steps||[]).length||r.steps.some(s=>!s.alternatives?.length),releaseApproved:false};
+ })
+}
+
+function renderSpecialty(){if(!$('specialtyRows'))return;const rows=evaluateSpecialty();$('specialtyRows').innerHTML=rows.map(x=>!x.record?`<tr><td><b>${safe(x.part)}</b></td><td colspan="4"><span class="tag bad">UNRESOLVED</span> ${safe(x.error)} — verify exact contact manufacturer data.</td></tr>`:`<tr><td><b>${safe(x.part)}</b><br><span class="small muted">${safe(x.record.kind)} · ${safe(x.record.sex)} · ${safe(x.record.manufacturer||'Manufacturer')}</span></td><td>${safe(x.record.family)}<br>${safe(x.record.wireRange)}</td><td>${x.steps.map(o=>'<div style="padding:5px 0;border-bottom:1px solid #ddd"><b>'+safe(o.name)+'</b><br>'+((o.options||[]).map(p=>safe(p.path.join(' + '))).join(' OR ')||'<span class="tag bad">Tooling unresolved</span>')+'</div>').join('')||'<span class="tag bad">Complete tooling sequence not provided</span>'}</td><td>${safe(x.record.insertion||'UNRESOLVED')} / ${safe(x.record.removal||'UNRESOLVED')}</td><td><span class="tag warn">REVIEW REQUIRED</span><br>${safe(x.record.status)}<br><a href="${safe(x.record.source)}" target="_blank" rel="noopener noreferrer">Manufacturer source</a><br>${safe(x.record.notice)}</td></tr>`).join('')||'<tr><td colspan="5">No specialty contacts found in the drawing or entered manually.</td></tr>'}
+
+function exportSpecialtyChecklist(){exportRequirements()}
+
+async function loadSpecialty(){try{let r=await fetch('/api/specialty-tooling',{headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());specialtyLibrary=await r.json();$('specialtyCount').textContent=`${specialtyLibrary.contacts.length} exact-part reference records · ${specialtyLibrary.guidance.length} family-level guides · all require engineering review`; $('specialtyGuidance').innerHTML=specialtyLibrary.guidance.map(g=>'<p><b>'+safe(g.family)+'</b><br><span class="small">'+safe(g.reference)+' · '+safe(g.tools)+'</span><br><a target="_blank" rel="noopener noreferrer" href="'+safe(g.source)+'">Source</a> · <span class="tag warn">REFERENCE ONLY</span></p>').join('');renderSpecialty();renderRequiredTools()}catch(e){$('specialtyCount').textContent='Specialty database failed to load: '+e.message;console.error(e)}}
+
+
+// Drawing-driven requirements (no shop inventory and no assumed contact P/Ns).
+function inferredContactForConnector(c){return c.profile?.contactCandidates||[]}
+function contactHasExplicitEvidence(contact){return drawingExactContacts().includes(contact.part)||toolList().includes(contact.part)}
+function requiredAssemblyRows(){
+ const arr=[],add=(group,item,operation,tool,status,source='Check source drawing and current manufacturer documentation')=>arr.push({group,item,operation,tool,status,source});
+ const bomText=st.bom.map(b=>b.part+' '+b.description).join(' ').toUpperCase();
+ const text=[st.raw?.pdfText||'',bomText].join(' ');
+ const foundBands=unique(text.match(/\bM85049\/128-(?:3|4|7|8)\b/g)||[]);
+ for(const c of st.connectors){
+  if(!/^D38999\//i.test(c.part))continue;
+  if(!inferredContactForConnector(c).length)add('contact',c.tag+' · '+c.part,'Contact termination','Exact contact P/N and manufacturer arrangement table required; no approved crimp tool can be inferred','CONTACT UNRESOLVED',c.profile?.contactMappingWarning||'No manufacturer contact mapping for this connector');
+  add('assembly',c.tag+' · '+c.part,'Connector/backshell assembly','Connector holding fixture and applicable backshell/accessory wrench; exact model requires mating accessory P/N','MODEL UNRESOLVED');
+ }
+ for(const b of st.bom){
+  const p=String(b.part||'').toUpperCase(),desc=String(b.description||'').toUpperCase();
+  if(/^M85049\/(?:20|38|47|49|52|53|56|61|62|63|64|65|66|67|68|69|70|71|72|76|77)/.test(p)||/BACKSHELL|STRAIN RELIEF/.test(desc)){
+   add('assembly',p||b.item,'Backshell/strain relief installation','Holding fixture + correctly sized wrench/torque setup; exact wrench and torque unresolved','VERIFY ACCESSORY','BOM sheet '+String((b.source||''))+' · no exact wrench may be inferred from shell size alone');
+  }
+ }
+ const observedBackshells=unique(text.match(/\bM85049\/(?:20|38|47|49|52|53|56|61|62|63|64|65|66|67|68|69|70|71|72|76|77)-[0-9]{1,3}[A-Z]?\b/g)||[]);
+ for(const pn of observedBackshells){if(st.bom.some(b=>String(b.part).toUpperCase()===pn))continue;add('assembly',pn,'Backshell/accessory installation','Connector holding fixture and backshell wrench/torque tool (model unresolved)','VERIFY ACCESSORY','Identified in drawing text; confirm exact accessory and manufacturer instructions')}
+ for(const band of foundBands){
+  const quarter=/-[34]$/.test(band);add('assembly',band,'Shield-band installation',quarter?'DBS-2100 candidate (0.250-inch band)':'DBS-2200 candidate (0.125-inch band)','REFERENCE ONLY','Verify band part number, buckle style and manufacturer application procedure');
+ }
+ const flags=new Set(st.raw?.assemblyFeatures||[]);
+ if(flags.has('WIRE_STRIPPING'))add('assembly','Cable / conductors','Jacket and conductor stripping','Diameter-appropriate jacket stripper and conductor stripping tooling; verify cable construction','SIZE TO CABLE');
+ if(flags.has('SHIELD_PREPARATION'))add('assembly','Shielded cable','Shield/braid preparation','Shield trimming/preparation tools suitable for specified braid and jacket','SIZE TO CABLE');
+ if(flags.has('SOLDERING'))add('assembly','Soldered assembly features','Solder terminations / drains / splices','Temperature-controlled soldering station and specified inspection aids','VERIFY PROCESS');
+ if(flags.has('HEAT_SHRINK'))add('assembly','Sleeving / boots','Heat-shrink and sleeving installation','Controlled heat source with specified nozzle/temperature','VERIFY PROCESS');
+ if(flags.has('TERMINAL_CRIMPING'))add('assembly','Ring/terminal/splice','Terminal or splice crimping','Exact terminal/splice P/N and manufacturer-approved die/frame must be resolved','CONTACT NOT IDENTIFIED');
+ if(flags.has('LABELING'))add('assembly','Harness labels','Labeling and marker installation','Printer/marker and consumables to meet drawing requirements','VERIFY LABEL SPEC');
+ return arr;
+}
+function allRequirementRows(){
+ const rows=requiredAssemblyRows();
+ const inferred=inferredContactMappings(),grouped=new Map();
+ for(const x of inferred){if(!grouped.has(x.contact.part))grouped.set(x.contact.part,[]);grouped.get(x.contact.part).push(x)}
+ for(const r of evaluateTools()){
+  const sourceConnectors=grouped.get(r.part)||[];
+  const targets=sourceConnectors.length?sourceConnectors:[null];
+  for(const src of targets){
+   const desc=src?src.tag+' · '+src.connectorPart+' → '+r.part+' ('+src.contact.sex+' size '+src.contact.contactSize+', '+src.contact.qty+' cavities)':r.part;
+   const mappingNote=src?'Amphenol connector-to-contact standard cross-reference: '+src.contact.source+'; CONFIRM ACTUAL CONTACT, wire and finish. ':'';
+   if(r.error){rows.push({group:'contact',item:desc,operation:'Crimp / contact installation',tool:'UNKNOWN — exact DMC reference not found',status:'UNRESOLVED',source:mappingNote+r.error});continue;}
+   for(const v of r.variants){
+    // DMC data must agree with manufacturer's contact selection; do not silently accept mismatch.
+    const correct=(!src || (String(v.sex||'').toUpperCase()===src.contact.sex && String(v.contactSize||'').toUpperCase()===src.contact.contactSize));
+    rows.push({group:'contact',item:desc,operation:'Contact crimp and insertion/removal',tool:correct?(v.routes||[]).map(x=>x.join(' + ')).join(' OR ')+' | Insert '+(v.insertion||'UNRESOLVED')+' / Remove '+(v.removal||'UNRESOLVED'):'UNRESOLVED — contact type/size mismatch between references',status:!correct?'CONFLICT':src&&!contactHasExplicitEvidence(src.contact)?'CATALOG CANDIDATE — CONFIRM CONTACT':'SOURCE REVIEW',source:mappingNote+v.source+' · '+v.status});
+   }
+  }
+ }
+ for(const r of evaluateSpecialty()){
+  if(!r.record){rows.push({group:'contact',item:r.part,operation:'Specialty contact',tool:'UNKNOWN',status:'UNRESOLVED',source:r.error});continue;}
+  for(const step of r.steps)rows.push({group:'contact',item:r.part,operation:step.name,tool:(step.alternatives||[]).map(x=>x.join(' + ')).join(' OR ')||'UNKNOWN',status:step.alternatives?.length?'SOURCE REVIEW':'UNRESOLVED',source:r.record.source});
+ }
+ return rows;
+}
+const ROLE_LABEL={item:'Item / find no.',qty:'Quantity',part:'Part number',desc:'Description',cage:'CAGE code',vendor:'Manufacturer',ref:'Reference designator',um:'Unit',note:'Notes / material',pin:'Pin / cavity',wire:'Wire ID',signal:'Signal',color:'Color',awg:'Gauge',from:'From connector',to:'To connector',frompin:'From pin',topin:'To pin',other:'Other'};
+async function learnHeadings(kind,headers,roles){try{const r=await fetch('/api/layouts/learn',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify({kind,headers,roles})});if(!r.ok)throw Error(await r.text());const d=await r.json();loadLayouts();if(d.learned)$('layoutsStatus').textContent=d.learned+' heading(s) learned. Use "Re-read current drawing" to apply them to the whole drawing.'}catch(e){alert('Headings were imported but could not be remembered: '+e.message)}}
+async function loadLayouts(){try{const r=await fetch('/api/layouts',{headers:{'X-Trivex-Token':TOKEN}});const d=await r.json();window._layouts=d.entries||[];$('layoutRows').innerHTML=(d.entries||[]).length?d.entries.map(e=>`<tr><td><b>${safe(e.label)}</b></td><td>${safe(ROLE_LABEL[e.role]||e.role)}</td><td>${safe({bom:'Parts list',wire:'Wire / pinout table',conntable:'Connector table'}[e.kind]||e.kind||'')}</td><td class="small">${safe(String(e.taught||'').slice(0,10))}</td><td><button onclick='forgetLayout(${JSON.stringify(e.label)})'>Forget</button></td></tr>`).join(''):'<tr><td colspan="5">Nothing learned yet.</td></tr>';if(d.error)$('layoutsStatus').textContent='Learned layouts unavailable: '+d.error}catch(e){}}
+async function forgetLayout(label){if(!confirm('Forget the heading "'+label+'"?'))return;await fetch('/api/layouts/forget',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify({label})});loadLayouts()}
+function exportLayouts(){download('Trivex_learned_heading_layouts.json',new Blob([JSON.stringify(window._layouts||[],null,2)],{type:'application/json'}))}
+async function importLayoutsFile(f){if(!f)return;try{const r=await fetch('/api/layouts/import',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:await f.text()});if(!r.ok)throw Error(await r.text());const d=await r.json();alert(d.imported+' heading(s) imported.');loadLayouts()}catch(e){alert('Import failed: '+e.message)}$('layoutImport').value=''}
+async function reanalyzeDrawing(){if(!st.raw)return alert('Read a drawing first');if(!st.pdfURL)return alert('Reattach the source PDF first');if(!confirm('Re-read the current drawing with the learned layouts? Records and draft review work in this window are replaced by the new reading (save the project first if you need it).'))return;scan(true)}
+let accTimer=null,accChecks=[];
+function scheduleAccessoryCheck(){clearTimeout(accTimer);accTimer=setTimeout(runAccessoryCheck,250)}
+async function runAccessoryCheck(){
+ const req={connectors:st.connectors.filter(c=>c.part).map(c=>({tag:c.tag||'UNASSIGNED',part:c.part,occupied:splitCavs(c.occupied),capacity:c.capacity||0})),bom:st.bom.map(b=>({item:String(b.item||''),part:String(b.part||''),qty:asRequired(b)?'A/R':String(b.qtyText||b.qty||''),description:String(b.description||'')}))};
+ if(!req.connectors.length){accChecks=[];renderAccessory();return}
+ try{const r=await fetch('/api/accessory-check',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(req)});if(!r.ok)throw Error(await r.text());accChecks=await r.json()||[]}catch(e){accChecks=[{connector:'-',check:'Accessory check',status:'UNRESOLVED',expected:'',found:'',detail:'Check unavailable: '+e.message,tooling:[],source:''}]}
+ renderAccessory();showReport();
+}
+function renderAccessory(){
+ const tag=s=>({OK:'good',MISMATCH:'bad',MISSING:'warn',VERIFY:'warn',UNRESOLVED:'warn',INFO:''}[s]||'');
+ const cnt=k=>accChecks.filter(c=>c.status===k).length;
+ $('accessorySummary').innerHTML=accChecks.length?`<span class="tag bad">${cnt('MISMATCH')} mismatch</span> <span class="tag warn">${cnt('MISSING')} missing</span> <span class="tag warn">${cnt('VERIFY')+cnt('UNRESOLVED')} to verify</span> <span class="tag good">${cnt('OK')} OK</span>`:'No connectors yet.';
+ $('accessoryRows').innerHTML=accChecks.length?accChecks.map(c=>`<tr><td><b>${safe(c.connector)}</b><div class="small muted">${safe(c.part)}</div></td><td>${safe(c.check)}</td><td><span class="tag ${tag(c.status)}">${safe(c.status)}</span></td><td class="small">${safe(c.expected)}</td><td class="small">${safe(c.found)}</td><td class="small">${safe(c.detail)}</td><td class="small">${(c.tooling||[]).map(safe).join('<br>')||'—'}</td><td class="small">${c.source&&/^https?:/.test(c.source)?'<span title="'+safe(c.source)+'">'+safe(c.source.replace(/^https?:\/\/(www\.)?/,'').split('/')[0])+'</span>':safe(c.source||'')}</td></tr>`).join(''):'<tr><td colspan="8">No connectors yet.</td></tr>';
+}
+function renderRequiredTools(){scheduleAccessoryCheck();
+ if(!$('requirementsRows'))return;
+ const rows=allRequirementRows();
+ const problem=x=>/UNRESOLVED|CONFLICT|CANDIDATE|NOT IDENTIFIED|VERIFY|SIZE TO CABLE|SOURCE REVIEW|REFERENCE ONLY/.test(x.status);
+ const unresolved=rows.filter(problem).length;
+ $('requiredToolSummary').textContent=st.raw?`${rows.length} required operations · ${unresolved} needing engineering/manufacturer confirmation. All results are draft until checked.`:'Read a drawing or enter a contact part number to generate required tooling.';
+ $('requirementsRows').innerHTML=rows.map(x=>`<tr><td>${safe(x.item)}</td><td>${safe(x.operation)}</td><td><b>${safe(x.tool)}</b></td><td><span class="tag warn">${safe(x.status)}</span><br><span class="small muted">${safe(x.source)}</span></td></tr>`).join('')||'<tr><td colspan="4">No tool requirements found. This does not establish that no tooling is required.</td></tr>';
+ const box=$('toolingOverview');if(!box)return;
+ const groups=[['contact','Contact crimping and insertion/removal'],['assembly','Connector, backshell and cable assembly']];
+ let html='';
+ for(const [key,label] of groups){
+  const data=rows.filter(r=>r.group===key);
+  html+=`<div class="tool-group"><h3>${label} <span class="small muted">(${data.length})</span></h3>`;
+  if(!data.length)html+='<div class="tool-empty">No recognized requirements in this category. Check whether the drawing specifies the relevant parts.</div>';
+  for(const r of data){
+   const cl=/CONFLICT/.test(r.status)?'conflict':problem(r)?'unresolved':'';
+   html+=`<div class="tool-card ${cl}"><div class="tool-title">${safe(r.item)}</div><div class="small muted">${safe(r.operation)}</div><div class="tool-action">${safe(r.tool)}</div><span class="tag warn tool-status">${safe(r.status)}</span><div class="tool-source">${safe(r.source)}</div></div>`;
+  }
+  html+='</div>';
+ }
+ box.innerHTML=html;
+}
+function quickToolLookup(){
+ const part=String($('quickToolPart').value||'').trim().toUpperCase();
+ const msg=$('quickToolMessage');
+ if(!part){msg.textContent='Enter an exact contact part number.';return}
+ if(!/^[A-Z0-9][A-Z0-9\/._-]{3,39}$/.test(part)){msg.textContent='Enter a complete manufacturer part number; partial descriptions are not sufficient.';return}
+ if(/^M39029\/\d{1,3}-\d{1,4}$/.test(part)){
+  $('toolParts').value=unique([...toolList(),part]).join('\n');
+ }else{
+  $('specialtyParts').value=unique([...(String($('specialtyParts').value||'').split(/[\s,;]+/).filter(Boolean)),part]).join('\n');
+ }
+ toolEdited();renderSpecialty();renderRequiredTools();
+ const match=allRequirementRows().some(r=>String(r.item||'').toUpperCase().includes(part)&&!/UNRESOLVED|UNKNOWN/.test(r.tool));
+ msg.textContent=match?'Tooling candidates for '+part+' are now listed below. Verify wire/contact applicability.':'No complete exact-part tooling setup found for '+part+'. See unresolved items; do not substitute a similar contact.';
+}
+async function exitApplication(){
+ stopBeats=true;
+ try{await fetch('/api/exit',{method:'POST',headers:{'X-Trivex-Token':TOKEN},keepalive:true})}catch(e){}
+ window.close();
+ document.body.innerHTML='<main style="font:16px Segoe UI,Arial;padding:36px"><h2>Trivex Auditor is closed</h2><p>The local application backend has been instructed to shut down. You can close this window.</p></main>';
+}
+function exportRequirements(){const rows=allRequirementRows();csv('Trivex_Required_Assembly_Tooling_DRAFT.csv',[['Applies to','Tooling operation','Required tool(s)','Status','Evidence / restrictions'],...rows.map(x=>[x.item,x.operation,x.tool,x.status,x.source])]);}
+
+// Window lifecycle: the backend stops when this window closes (see main.go).
+let stopBeats=false;function beat(){if(!stopBeats)fetch('/api/heartbeat',{method:'POST',headers:{'X-Trivex-Token':TOKEN}}).catch(()=>{})}
+beat();setInterval(beat,5000);
+addEventListener('pagehide',()=>{try{fetch('/api/closing',{method:'POST',headers:{'X-Trivex-Token':TOKEN},keepalive:true})}catch(e){}});
+addEventListener('pageshow',e=>{if(e.persisted)beat()});
+fetch('/api/version',{headers:{'X-Trivex-Token':TOKEN}}).then(r=>r.json()).then(v=>{if(v.engineStatus&&v.engineStatus!=='ok'){engineBroken=v.engineStatus;$('drawingAlertBanner').style.display='block';$('drawingAlertBanner').innerHTML='<strong>PDF ENGINE FAILED TO START — DO NOT READ DRAWINGS</strong><div>The bundled PDFium engine could not start on this PC, so no drawing can be interpreted reliably. Reading is disabled. Run the built-in self-test and report this message (it contains no drawing data):</div><div class="mono small">'+safe(v.engineStatus)+'</div>';return}if(v.version!==APP_VERSION){$('drawingAlertBanner').style.display='block';$('drawingAlertBanner').innerHTML='<strong>VERSION MISMATCH</strong> Window '+safe(APP_VERSION)+' is connected to backend '+safe(v.version)+'. Close every Trivex window and start one executable.'}}).catch(()=>{});
+let resizeT=null;addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(st.pageView&&$('pageZoom').value==='fit'&&document.getElementById('tab-evidence').classList.contains('on'))loadPageView(st.pageView.page)},400)});
+loadAssemblyRefs();loadToolLibrary();loadSpecialty();loadLayouts();render();
+</script></body></html>

@@ -1,0 +1,295 @@
+contact,superseded_aliases,type,mating_size,barrel_size,wire_range,alternate_crimp_paths,insertion,removal,source_locator,verification_status
+M39029/5-116,M39029/5-16-16,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 1 row 2; 2023 chart panel 3 row 54; 2023 chart panel 3 row 61,chart-extracted-unverified
+M39029/5-117,M39029/5-16-20,SOCKET,16,20,20-24,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 1 row 3; 2023 chart panel 1 row 50; 2023 chart panel 3 row 54,chart-extracted-unverified
+M39029/5-118,M39029/5-12-12,SOCKET,12,12,12-14,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 1 row 4; 2023 chart panel 1 row 47; 2023 chart panel 3 row 23; 2023 chart panel 3 row 52; 2023 chart panel 3 row 59,chart-extracted-unverified
+M39029/57-356,MS27491-22,SOCKET,22,22,22-26,AFM8 + K41 OR MH860 + 86-5,DAK95-22B,DRK95-22B,2023 chart panel 1 row 5; 2023 chart panel 2 row 5,chart-extracted-unverified
+M39029/57-357,MS27491-20,SOCKET,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 6; 2023 chart panel 2 row 4; 2023 chart panel 3 row 63,chart-extracted-unverified
+M39029/57-358,MS27491-16,SOCKET,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 7; 2023 chart panel 2 row 3; 2023 chart panel 3 row 60,chart-extracted-unverified
+M39029/92-531,,SOCKET,22,22,22-28,AFM8 + K1561,DAK95-22B,DRK95-22B,2023 chart panel 1 row 8,chart-extracted-unverified
+M39029/92-532,,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK95-20B,DRK95-20B,2023 chart panel 1 row 9,chart-extracted-unverified
+M39029/92-533,,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK95-16B,DRK95-16B,2023 chart panel 1 row 10,chart-extracted-unverified
+M39029/92-534,,SOCKET,16,20,20-24,AF8 + TH1A OR MH860 + 86-2,DAK95-16B,DRK95-16B,2023 chart panel 1 row 11,chart-extracted-unverified
+M39029/92-535,,SOCKET,12,12,12-14,AF8 + TH1A,DAK95-12B,DRK95-12B,2023 chart panel 1 row 12,chart-extracted-unverified
+M39029/101-552,,SOCKET,22,22,22-28,AFM8 + K330-2 OR MH860 + 86-19,M81969/16-04,M81969/16-04,2023 chart panel 1 row 13,chart-extracted-unverified
+M39029/101-553,,SOCKET,20,20,20-24,AF8 + TH343 OR MH860 + 86-20,M81969/16-01,M81969/16-01,2023 chart panel 1 row 14,chart-extracted-unverified
+M39029/101-554,,SOCKET,16,16,16-20,MH860 + 86-21,M81969/16-02,M81969/16-02,2023 chart panel 1 row 15,chart-extracted-unverified
+M39029/48-327,MS90559-1,PIN,4/0,4/0,4/0,WA23 + WA23-16 + WA23-7,BY HAND,DRK178-1A,2023 chart panel 1 row 17,chart-extracted-unverified
+M39029/48-328,MS90559-2,PIN,4/0N,4/0,4/0,WA23 + WA23-16 + WA23-7,BY HAND,DRK178-1A,2023 chart panel 1 row 17,chart-extracted-unverified
+M39029/49-335,MS90560-1,SOCKET,4/0,4/0,4/0,WA23 + WA23-16 + WA23-7,BY HAND,DRK178-1A,2023 chart panel 1 row 17,chart-extracted-unverified
+M39029/48-325,,PIN,2/0,2/0,2/0,WA23 + WA23-15 + WA23-6,BY HAND,DRK178-2A,2023 chart panel 1 row 18,chart-extracted-unverified
+M39029/48-326,,PIN,2/0N,2/0,2/0,WA23 + WA23-15 + WA23-6,BY HAND,DRK178-2A,2023 chart panel 1 row 18,chart-extracted-unverified
+M39029/49-334,MS90560-2,SOCKET,2/0,2/0,2/0,WA23 + WA23-15 + WA23-6,BY HAND,DRK178-2A,2023 chart panel 1 row 18,chart-extracted-unverified
+M39029/48-323,MS90559-5,PIN,0,0,0,WA23 + WA23-14 + WA23-5,BY HAND,DRK178-3A,2023 chart panel 1 row 19,chart-extracted-unverified
+M39029/48-324,MS90559-6,PIN,0N,0,0,WA23 + WA23-14 + WA23-5,BY HAND,DRK178-3A,2023 chart panel 1 row 19,chart-extracted-unverified
+M39029/49-333,MS90560-3,SOCKET,0,0,0,WA23 + WA23-14 + WA23-5,BY HAND,DRK178-3A,2023 chart panel 1 row 19,chart-extracted-unverified
+M39029/48-320,MS90559-8,PIN,4,4,4,WA23 + WA23-12 + WA23-4,BY HAND,DRK178-5A,2023 chart panel 1 row 20,chart-extracted-unverified
+M39029/48-321,MS90559-9,PIN,4N,4,4,WA23 + WA23-12 + WA23-4,BY HAND,DRK178-5A,2023 chart panel 1 row 20,chart-extracted-unverified
+M39029/49-331,MS90560-5,SOCKET,4,4,4,WA23 + WA23-12 + WA23-4,BY HAND,DRK178-5A,2023 chart panel 1 row 20,chart-extracted-unverified
+M39029/48-322,MS90559-13,PIN,4G,4,4,WA23 + WA23-12 + WA23-4,BY HAND,DRK178-5A,2023 chart panel 1 row 21,chart-extracted-unverified
+M39029/49-332,MS90560-9,SOCKET,4G,4,4,WA23 + WA23-12 + WA23-4,BY HAND,DRK178-5A,2023 chart panel 1 row 21,chart-extracted-unverified
+M39029/48-319,MS90559-14,PIN,6G,6,6,WA23 + WA23-10 + WA23-3,BY HAND,DRK178-6A,2023 chart panel 1 row 22,chart-extracted-unverified
+M39029/49-330,MS90560-8,SOCKET,6G,6,6,WA23 + WA23-10 + WA23-3,BY HAND,DRK178-6A,2023 chart panel 1 row 22,chart-extracted-unverified
+M39029/48-317,MS90559-11,PIN,6,6,6,WA23 + WA23-10 + WA23-3,BY HAND,DRK178-6A,2023 chart panel 1 row 23,chart-extracted-unverified
+M39029/48-318,MS90559-12,PIN,6N,6,6,WA23 + WA23-10 + WA23-3,BY HAND,DRK178-6A,2023 chart panel 1 row 23,chart-extracted-unverified
+M39029/49-329,MS90560-7,SOCKET,6,6,6,WA23 + WA23-10 + WA23-3,BY HAND,DRK178-6A,2023 chart panel 1 row 23,chart-extracted-unverified
+M39029/64-369,M24308/11-1,PIN,20,20,20-24,AF8 + TP585 OR AFM8 + K13-1 OR MH860 + 86-30-1,DAK145,DRK145,2023 chart panel 1 row 25,chart-extracted-unverified
+M39029/63-368,M24308/10-1,SOCKET,20,20,20-24,AF8 + TP585 OR AFM8 + K13-1 OR MH860 + 86-30-1,DAK145,DRK145,2023 chart panel 1 row 25,chart-extracted-unverified
+M39029/64-968,,PIN,20,20,20-24,AF8 + TP585 OR AFM8 + K13-1 OR MH860 + 86-30-1,DAK145,DRK145,2023 chart panel 1 row 26,chart-extracted-unverified
+M39029/63-928,,SOCKET,20,20,20-24,AF8 + TP585 OR AFM8 + K13-1 OR MH860 + 86-30-1,DAK145,DRK145,2023 chart panel 1 row 26,chart-extracted-unverified
+M39029/58-360,M24308/13-1; MS27493-22D; MS27494-22D,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 27; 2023 chart panel 1 row 92; 2023 chart panel 2 row 7; 2023 chart panel 2 row 31; 2023 chart panel 2 row 55; 2023 chart panel 3 row 65,chart-extracted-unverified
+M39029/57-354,M24308/12-1; MS27491-22D; MS27492-22D,SOCKET,22D,22D,22-28,AFM8 + K41 OR MH860 + 86-5,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 27; 2023 chart panel 2 row 7; 2023 chart panel 3 row 65,chart-extracted-unverified
+M39029/58-986,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 28,chart-extracted-unverified
+M39029/57-982,,SOCKET,22D,22D,22-28,AFM8 + K41 OR MH860 + 86-5,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 28,chart-extracted-unverified
+M39029/31-234,MS3192-12-12A,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 29,chart-extracted-unverified
+M39029/32-253,MS3193-12-12A,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 29,chart-extracted-unverified
+M39029/31-236,MS3192-12-12B,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 30,chart-extracted-unverified
+M39029/32-255,MS3193-12-12B,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 30,chart-extracted-unverified
+M39029/31-237,MS3192-12-12C1,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 31,chart-extracted-unverified
+M39029/32-256,MS3193-12-12C1,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 31,chart-extracted-unverified
+M39029/31-238,MS3192-12-12C2,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 32,chart-extracted-unverified
+M39029/32-257,MS3193-12-12C2,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 32,chart-extracted-unverified
+M39029/31-239,MS3192-12-12C3,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 33,chart-extracted-unverified
+M39029/32-258,MS3193-12-12C3,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 33,chart-extracted-unverified
+M39029/31-228,MS3192-16-16A,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 34,chart-extracted-unverified
+M39029/32-247,MS3193-16-16A,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 34,chart-extracted-unverified
+M39029/31-229,MC24254-16P; MS24254-16P,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 35; 2023 chart panel 1 row 54; 2023 chart panel 1 row 71,chart-extracted-unverified
+M39029/31-230,MS3192-16-16B,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 36,chart-extracted-unverified
+M39029/32-249,MS3193-16-16B,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 36,chart-extracted-unverified
+M39029/31-231,MS3192-16-16C1,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 37,chart-extracted-unverified
+M39029/32-250,MS3193-16-16C1,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 37,chart-extracted-unverified
+M39029/31-232,MS3192-16-16C2,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 38,chart-extracted-unverified
+M39029/32-251,MS3193-16-16C2,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 38,chart-extracted-unverified
+M39029/31-233,MS3192-16-16C3,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 39,chart-extracted-unverified
+M39029/32-252,MS3193-16-16C3,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 39,chart-extracted-unverified
+M39029/31-240,MS3192-20A-20A,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 40,chart-extracted-unverified
+M39029/32-259,MS3193-20A-20A,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 40,chart-extracted-unverified
+M39029/31-223,MS3192-20-20A,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 41,chart-extracted-unverified
+M39029/32-242,MS3193-20-20A,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 41,chart-extracted-unverified
+M39029/31-224,MS3192-20-20B,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 42,chart-extracted-unverified
+M39029/32-243,MS3193-20-20B,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 42,chart-extracted-unverified
+M39029/31-225,MS3192-20-20C1,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 43,chart-extracted-unverified
+M39029/32-244,MS3193-20-20C1,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 43,chart-extracted-unverified
+M39029/31-226,MS3192-20-20C2,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 44,chart-extracted-unverified
+M39029/32-245,MS3193-20-20C2,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 44,chart-extracted-unverified
+M39029/31-227,MS3192-20-20C3,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 45,chart-extracted-unverified
+M39029/32-246,MS3193-20-20C3,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 45,chart-extracted-unverified
+M39029/4-113,M39029/4-12-12,PIN,12,12,12-14,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 1 row 47; 2023 chart panel 3 row 23; 2023 chart panel 3 row 52; 2023 chart panel 3 row 59,chart-extracted-unverified
+M39029/4-114,M39029/4-12-16,PIN,12,16,16-20,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 1 row 48; 2023 chart panel 3 row 24,chart-extracted-unverified
+M39029/5-119,M39029/5-12-16,SOCKET,12,16,16-20,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 1 row 48; 2023 chart panel 3 row 24,chart-extracted-unverified
+M39029/4-111,M39029/4-16-16,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 1 row 49; 2023 chart panel 3 row 25; 2023 chart panel 3 row 54; 2023 chart panel 3 row 61,chart-extracted-unverified
+M39029/5-116,M39029/5-16-16,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK95-16B,DRK95-16B,2023 chart panel 1 row 49; 2023 chart panel 3 row 25,chart-extracted-unverified
+M39029/4-112,M39029/4-16-20,PIN,16,20,20-24,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 1 row 50; 2023 chart panel 3 row 54,chart-extracted-unverified
+M39029/4-110,M39029/4-20-20,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK83-20B,DRK83-20B,2023 chart panel 1 row 51; 2023 chart panel 3 row 27; 2023 chart panel 3 row 55; 2023 chart panel 3 row 62,chart-extracted-unverified
+M39029/5-115,M39029/5-20-20,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK95-20B,DRK95-20B,2023 chart panel 1 row 51; 2023 chart panel 3 row 27,chart-extracted-unverified
+M39029/31-235,MS24254-12P,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 53,chart-extracted-unverified
+M39029/32-254,MS24255-12S,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 1 row 53,chart-extracted-unverified
+M39029/32-248,MS24255-16S,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK16B,DRK16B,2023 chart panel 1 row 54; 2023 chart panel 1 row 71,chart-extracted-unverified
+M39029/31-627,M39029/31-247,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 55,chart-extracted-unverified
+M39029/32-260,MS24255-20S,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 55; 2023 chart panel 1 row 72,chart-extracted-unverified
+M39029/31-448,M39029/31-20-20,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 56,chart-extracted-unverified
+M39029/32-449,M39029/32-20-20,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK20B,DRK20B,2023 chart panel 1 row 56,chart-extracted-unverified
+M39029/36-278,MS17807-16-16,PIN,16,16,16-20,AF8 + TH4,DAK123A,DRK124A,2023 chart panel 1 row 59,chart-extracted-unverified
+M39029/37-280,MS17808-16-16,SOCKET,16,16,16-20,AF8 + TH4,DAK123A,DRK124A,2023 chart panel 1 row 59,chart-extracted-unverified
+M39029/36-277,MS17807-16-20,PIN,16,20,20-24,AF8 + TH4,DAK123A,DRK124A,2023 chart panel 1 row 60,chart-extracted-unverified
+M39029/37-279,MS17808-16-20,SOCKET,16,20,20-24,AF8 + TH4,DAK123A,DRK124A,2023 chart panel 1 row 60,chart-extracted-unverified
+M39029/34-273,MS17803-16-16,PIN,16,16,16-20,AF8 + TH4 OR MH860 + 86-146,DAK123A,DRK124A,2023 chart panel 1 row 61,chart-extracted-unverified
+M39029/35-276,MS17804-16-16,SOCKET,16,16,16-20,AF8 + TH4 OR MH860 + 86-146,DAK123A,DRK124A,2023 chart panel 1 row 61,chart-extracted-unverified
+M39029/34-272,MS17803-16-20,PIN,16,20,20-24,AF8 + TH4 OR MH860 + 86-146,DAK123A,DRK124A,2023 chart panel 1 row 62,chart-extracted-unverified
+M39029/35-275,MS17804-16-20,SOCKET,16,20,20-24,AF8 + TH4 OR MH860 + 86-146,DAK123A,DRK124A,2023 chart panel 1 row 62,chart-extracted-unverified
+M39029/34-271,MS17803-20-20,PIN,20,20,20-24,AF8 + TH4 OR MH860 + 86-146,DAK123A,DRK124A,2023 chart panel 1 row 63,chart-extracted-unverified
+M39029/35-274,MS17804-20-20,SOCKET,20,20,20-24,AF8 + TH4 OR MH860 + 86-146,DAK123A,DRK124A,2023 chart panel 1 row 63,chart-extracted-unverified
+M39029/34-440,M39029/34-22-22,PIN,22,22,22-26,AFM8 + K280,DAK123-22A,DRK124-22A,2023 chart panel 1 row 64,chart-extracted-unverified
+M39029/35-441,M39029/35-22-22,SOCKET,22,22,22-26,AFM8 + K280,DAK123-22A,DRK124-22A,2023 chart panel 1 row 64,chart-extracted-unverified
+M39029/83-508,M39029/83-20-20,PIN,20,20,20-24,39-000 + 39-102,DAK55-22SA,DRK56-22A,2023 chart panel 1 row 67,chart-extracted-unverified
+M39029/84-509,M39029/84-20-20,SOCKET,20,20,20-24,39-000 + 39-102,DAK55-22SA,DRK56-22A,2023 chart panel 1 row 67,chart-extracted-unverified
+M39029/83-450,M39029/83-20-22,PIN,20,22,22-26,39-000 + 39-102,DAK55-22SA,DRK56-22A,2023 chart panel 1 row 68,chart-extracted-unverified
+M39029/84-452,M39029/84-20-22,SOCKET,20,22,22-26,39-000 + 39-102,DAK55-22SA,DRK56-22A,2023 chart panel 1 row 68,chart-extracted-unverified
+M39029/83-451,M39029/83-20-28,PIN,20,28,28-32,39-000 + 39-102,DAK55-22SA,DRK56-22A,2023 chart panel 1 row 69,chart-extracted-unverified
+M39029/84-453,M39029/84-20-28,SOCKET,20,28,28-32,39-000 + 39-102,DAK55-22SA,DRK56-22A,2023 chart panel 1 row 69,chart-extracted-unverified
+M39029/58-528,,PIN,10,10,10,1716P-1,DAK95-10B,DRK95-10B,2023 chart panel 1 row 74; 2023 chart panel 2 row 9,chart-extracted-unverified
+M39029/56-527,,SOCKET,10,10,10,1716P-1,DAK95-10B,DRK95-10B,2023 chart panel 1 row 74; 2023 chart panel 2 row 9,chart-extracted-unverified
+M39029/107-624,,PIN,10,10,10,1716P-1,DAK95-10B,DRK95-10B,2023 chart panel 1 row 75; 2023 chart panel 2 row 11; 2023 chart panel 2 row 38,chart-extracted-unverified
+M39029/106-618,,SOCKET,10,10,10,1716P-1,DAK95-10B,DRK95-10B,2023 chart panel 1 row 75; 2023 chart panel 2 row 11; 2023 chart panel 2 row 38,chart-extracted-unverified
+M39029/58-365,MS27493-12,PIN,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 1 row 78; 2023 chart panel 2 row 2; 2023 chart panel 2 row 14; 2023 chart panel 2 row 41,chart-extracted-unverified
+M39029/56-353,MS27490-12,SOCKET,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 1 row 78; 2023 chart panel 2 row 14; 2023 chart panel 2 row 41,chart-extracted-unverified
+M39029/107-623,,PIN,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 1 row 79; 2023 chart panel 2 row 16; 2023 chart panel 2 row 42,chart-extracted-unverified
+M39029/106-617,,SOCKET,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 1 row 79; 2023 chart panel 2 row 16; 2023 chart panel 2 row 42,chart-extracted-unverified
+M39029/118-654,,PIN,12,12,12-14,AF8 + TH163,DAK722-12,DRK722-12,2023 chart panel 1 row 80; 2023 chart panel 2 row 17; 2023 chart panel 2 row 43,chart-extracted-unverified
+M39029/117-642,,SOCKET,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 1 row 80; 2023 chart panel 2 row 17; 2023 chart panel 2 row 43,chart-extracted-unverified
+M39029/118-648,,PIN,12,12,12-14,AF8 + TH163,DAK722-12,DRK722-12,2023 chart panel 1 row 81; 2023 chart panel 2 row 18; 2023 chart panel 2 row 44,chart-extracted-unverified
+M39029/117-636,,SOCKET,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 1 row 81; 2023 chart panel 2 row 18; 2023 chart panel 2 row 44,chart-extracted-unverified
+M39029/58-364,MS27493-16,PIN,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 82; 2023 chart panel 2 row 3; 2023 chart panel 2 row 19; 2023 chart panel 2 row 45,chart-extracted-unverified
+M39029/56-352,MS27490-16,SOCKET,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 82; 2023 chart panel 2 row 19; 2023 chart panel 2 row 45,chart-extracted-unverified
+M39029/107-622,,PIN,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 83; 2023 chart panel 2 row 21; 2023 chart panel 2 row 46,chart-extracted-unverified
+M39029/106-616,,SOCKET,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 83; 2023 chart panel 2 row 21; 2023 chart panel 2 row 46,chart-extracted-unverified
+M39029/118-653,,PIN,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK722-16,DRK722-16,2023 chart panel 1 row 84; 2023 chart panel 2 row 22; 2023 chart panel 2 row 47,chart-extracted-unverified
+M39029/117-641,,SOCKET,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 84; 2023 chart panel 2 row 22; 2023 chart panel 2 row 47,chart-extracted-unverified
+M39029/118-647,,PIN,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK722-16,DRK722-16,2023 chart panel 1 row 85; 2023 chart panel 2 row 23; 2023 chart panel 2 row 48,chart-extracted-unverified
+M39029/117-635,,SOCKET,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 1 row 85; 2023 chart panel 2 row 23; 2023 chart panel 2 row 48,chart-extracted-unverified
+M39029/58-363,MS27493-10; MS27493-20,PIN,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 86; 2023 chart panel 2 row 4; 2023 chart panel 2 row 24; 2023 chart panel 2 row 49; 2023 chart panel 3 row 63,chart-extracted-unverified
+M39029/56-351,MS27490-20,SOCKET,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 86; 2023 chart panel 2 row 24; 2023 chart panel 2 row 49,chart-extracted-unverified
+M39029/107-621,,PIN,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 87; 2023 chart panel 2 row 26; 2023 chart panel 2 row 50,chart-extracted-unverified
+M39029/106-615,,SOCKET,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 87; 2023 chart panel 2 row 26; 2023 chart panel 2 row 50,chart-extracted-unverified
+M39029/118-652,,PIN,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK722-20,DRK722-20,2023 chart panel 1 row 88; 2023 chart panel 2 row 27; 2023 chart panel 2 row 51,chart-extracted-unverified
+M39029/117-640,,SOCKET,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 88; 2023 chart panel 2 row 27; 2023 chart panel 2 row 51,chart-extracted-unverified
+M39029/118-646,,PIN,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK722-20,DRK722-20,2023 chart panel 1 row 89; 2023 chart panel 2 row 28; 2023 chart panel 2 row 52,chart-extracted-unverified
+M39029/117-634,,SOCKET,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 1 row 89; 2023 chart panel 2 row 28; 2023 chart panel 2 row 52,chart-extracted-unverified
+M39029/58-362,MS27493-22,PIN,22,22,22-26,AFM8 + K42 OR MH860 + 86-6,DAK95-22B,DRK95-22B,2023 chart panel 1 row 90; 2023 chart panel 2 row 5; 2023 chart panel 2 row 29; 2023 chart panel 2 row 53,chart-extracted-unverified
+M39029/56-350,MS27490-22,SOCKET,22,22,22-26,AFM8 + K40 OR MH860 + 86-4,DAK95-22B,DRK95-22B,2023 chart panel 1 row 90; 2023 chart panel 2 row 29; 2023 chart panel 2 row 53,chart-extracted-unverified
+M39029/58-361,MS27493-22M,PIN,22M,22M,24-28,AFM8 + K42 OR MH860 + 86-6,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 91; 2023 chart panel 2 row 6; 2023 chart panel 2 row 30; 2023 chart panel 2 row 54; 2023 chart panel 3 row 66,chart-extracted-unverified
+M39029/56-349,MS27490-22M,SOCKET,22M,22M,24-28,AFM8 + K40 OR MH860 + 86-4,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 91; 2023 chart panel 2 row 30; 2023 chart panel 2 row 54,chart-extracted-unverified
+M39029/56-348,MS27490-22D,SOCKET,22D,22D,22-28,AFM8 + K40 OR MH860 + 86-4,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 92; 2023 chart panel 2 row 31; 2023 chart panel 2 row 55,chart-extracted-unverified
+M39029/107-620,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 93; 2023 chart panel 2 row 33; 2023 chart panel 2 row 56,chart-extracted-unverified
+M39029/106-614,,SOCKET,22D,22D,22-28,AFM8 + K40 OR MH860 + 86-4,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 93; 2023 chart panel 2 row 33; 2023 chart panel 2 row 56,chart-extracted-unverified
+M39029/118-650,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK722-22D,DRK22-22D,2023 chart panel 1 row 94; 2023 chart panel 2 row 34,chart-extracted-unverified
+M39029/117-638,,SOCKET,22D,22D,22-28,AFM8 + K40 OR MH860 + 86-4,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 94; 2023 chart panel 2 row 34; 2023 chart panel 2 row 57,chart-extracted-unverified
+M39029/118-644,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK722-22D,DRK722-22D,2023 chart panel 1 row 95; 2023 chart panel 2 row 58,chart-extracted-unverified
+M39029/117-632,,SOCKET,22D,22D,22-28,AFM8 + K40 OR MH860 + 86-4,DAK95-22MB,DRK95-22MB,2023 chart panel 1 row 95; 2023 chart panel 2 row 35; 2023 chart panel 2 row 58,chart-extracted-unverified
+M39029/57-359,MS27491-12,SOCKET,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 2 row 2; 2023 chart panel 3 row 58,chart-extracted-unverified
+M39029/57-355,MS27491-22M; MS27492-22M,SOCKET,22M,22M,24-28,AFM8 + K41 OR MH860 + 86-5,DAK95-22MB,DRK95-22MB,2023 chart panel 2 row 6; 2023 chart panel 3 row 66,chart-extracted-unverified
+M39029/122-675,,PIN,10,10,10,1716P-1,DAK95-10B,DRK95-10B,2023 chart panel 2 row 10,chart-extracted-unverified
+M39029/121-668,,SOCKET,10,10,10,1716P-1,DAK95-10B,DRK95-10B,2023 chart panel 2 row 10,chart-extracted-unverified
+M39029/122-674,,PIN,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 2 row 15,chart-extracted-unverified
+M39029/121-667,,SOCKET,12,12,12-14,AF8 + TH163,DAK95-12B,DRK95-12B,2023 chart panel 2 row 15,chart-extracted-unverified
+M39029/122-673,,PIN,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 2 row 20,chart-extracted-unverified
+M39029/121-666,,SOCKET,16,16,16-20,AF8 + TH163 OR MH860 + 86-3,DAK95-16B,DRK95-16B,2023 chart panel 2 row 20,chart-extracted-unverified
+M39029/122-672,,PIN,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 2 row 25,chart-extracted-unverified
+M39029/121-665,,SOCKET,20,20,20-24,AF8 + TH163 OR AFM8 + K43 OR MH860 + 86-7,DAK95-20B,DRK95-20B,2023 chart panel 2 row 25,chart-extracted-unverified
+M39029/122-671,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK95-22MB,DRK95-22MB,2023 chart panel 2 row 32,chart-extracted-unverified
+M39029/121-664,,SOCKET,22D,22D,22-28,AFM8 + K40 OR MH860 + 86-4,DAK95-22MB,DRK95-22MB,2023 chart panel 2 row 32,chart-extracted-unverified
+M39029/118-644,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK722-22D,DRK22-22D,2023 chart panel 2 row 35,chart-extracted-unverified
+M39029/122-670,,PIN,23,22,22-28,AFM8 + K338,M81969/1-05,M81969/1-05,2023 chart panel 2 row 36,chart-extracted-unverified
+M39029/121-663,,SOCKET,23,22,22-28,AFM8 + K339,M81969/1-05,M81969/1-05,2023 chart panel 2 row 36,chart-extracted-unverified
+M39029/122-669,,PIN,23,26,24-28,AFM8 + K339,M81969/1-05,M81969/1-05,2023 chart panel 2 row 37,chart-extracted-unverified
+M39029/121-662,,SOCKET,23,26,24-28,AFM8 + K339,M81969/1-05,M81969/1-05,2023 chart panel 2 row 37,chart-extracted-unverified
+M39029/118-650,,PIN,22D,22D,22-28,AFM8 + K42 OR MH860 + 86-6,DAK722-22D,DRK722-22D,2023 chart panel 2 row 57,chart-extracted-unverified
+M39029/44-293,MS90453-0-0,PIN,0,0,0-2,WA23 + WA23-13 + WA23-5,DAK55-0B,DRK56-0B,2023 chart panel 2 row 59; 2023 chart panel 3 row 73,chart-extracted-unverified
+M39029/45-300,MS90454-0-0,SOCKET,0,0,0-2,WA23 + WA23-13 + WA23-5,DAK55-0B,DRK56-0B,2023 chart panel 2 row 59; 2023 chart panel 3 row 73,chart-extracted-unverified
+M39029/124-685,,PIN,0,0,0-2,WA23 + WA23-13 + WA23-5,DAK55-0B,DRK56-0B,2023 chart panel 2 row 60; 2023 chart panel 3 row 74,chart-extracted-unverified
+M39029/123-680,,SOCKET,0,0,0-2,WA23 + WA23-13 + WA23-5,DAK55-0B,DRK56-0B,2023 chart panel 2 row 60; 2023 chart panel 3 row 74,chart-extracted-unverified
+M39029/44-292,MS90453-4-0,PIN,4,4,4-6,WA23 + WA23-11 + WA23-4,DAK55-4B,DRK56-4B,2023 chart panel 2 row 61; 2023 chart panel 3 row 75,chart-extracted-unverified
+M39029/45-299,MS90454-4-0,SOCKET,4,4,4-6,WA23 + WA23-11 + WA23-4,DAK55-4B,DRK56-4B,2023 chart panel 2 row 61; 2023 chart panel 3 row 75,chart-extracted-unverified
+M39029/124-684,,PIN,4,4,4-6,WA23 + WA23-11 + WA23-4,DAK55-4B,DRK56-4B,2023 chart panel 2 row 62; 2023 chart panel 3 row 76,chart-extracted-unverified
+M39029/123-679,,SOCKET,4,4,4-6,WA23 + WA23-11 + WA23-4,DAK55-4B,DRK56-4B,2023 chart panel 2 row 62; 2023 chart panel 3 row 76,chart-extracted-unverified
+M39029/44-291,MS90453-8-0,PIN,8,8,8-10,WA23 + WA23-9 + WA23-2,DAK55-8B,DRK56-8B,2023 chart panel 2 row 63; 2023 chart panel 3 row 77,chart-extracted-unverified
+M39029/45-298,MS90454-8-0,SOCKET,8,8,8-10,WA23 + WA23-9 + WA23-2,DAK55-8B,DRK56-8B,2023 chart panel 2 row 63; 2023 chart panel 3 row 77,chart-extracted-unverified
+M39029/124-683,,PIN,8,8,8-10,WA23 + WA23-9 + WA23-2,DAK55-8B,DRK56-8B,2023 chart panel 2 row 64; 2023 chart panel 3 row 78,chart-extracted-unverified
+M39029/123-678,,SOCKET,8,8,8-10,WA23 + WA23-9 + WA23-2,DAK55-8B,DRK56-8B,2023 chart panel 2 row 64; 2023 chart panel 3 row 78,chart-extracted-unverified
+M39029/44-290,MS90453-12-12,PIN,12,12,12-14,AF8 + TH1A,DAK-12B,DRK-12B,2023 chart panel 2 row 65,chart-extracted-unverified
+M39029/45-297,MS90454-12-12,SOCKET,12,12,12-14,AF8 + TH1A,DAK-12B,DRK-12B,2023 chart panel 2 row 65,chart-extracted-unverified
+M39029/124-682,,PIN,12,12,16-20,AF8 + TH1A,DAK-12B,DRK-16B,2023 chart panel 2 row 66; 2023 chart panel 3 row 80,chart-extracted-unverified
+M39029/123-677,,SOCKET,12,12,16-20,AF8 + TH1A,DAK-12B,DRK-16B,2023 chart panel 2 row 66; 2023 chart panel 3 row 80,chart-extracted-unverified
+M39029/44-289,MS90453-12-16,PIN,12,16,16-20,AF8 + TH1A,DAK-16B,DRK-16B,2023 chart panel 2 row 67,chart-extracted-unverified
+M39029/45-296,MS90454-12-16,SOCKET,12,16,16-20,AF8 + TH1A,DAK-16B,DRK-16B,2023 chart panel 2 row 67,chart-extracted-unverified
+M39029/44-288,MS90453-16-16,PIN,16,16,16-20,AF8 + TH1A,DAK-16B,DRK-16B,2023 chart panel 2 row 68,chart-extracted-unverified
+M39029/45-295,MS90454-16-16,SOCKET,16,16,16-20,AF8 + TH1A,DAK-16B,DRK-16B,2023 chart panel 2 row 68,chart-extracted-unverified
+M39029/124-681,,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK-16B,DRK-16B,2023 chart panel 2 row 69; 2023 chart panel 3 row 83,chart-extracted-unverified
+M39029/123-676,,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK-16B,DRK-16B,2023 chart panel 2 row 69; 2023 chart panel 3 row 83,chart-extracted-unverified
+M39029/44-287,MS90453-16-22,PIN,16,22,22-26,AF8 + TH1A,DAK-16B,DRK-16B,2023 chart panel 2 row 70,chart-extracted-unverified
+M39029/45-294,MS90454-16-22,SOCKET,16,22,22-26,AF8 + TH1A,DAK-16B,DRK-16B,2023 chart panel 2 row 70,chart-extracted-unverified
+M39029/29-216,M39029/29-0-0,PIN,0,0,0,WA23 + WA23-13 + WA23-5,BY HAND,DRK250-0,2023 chart panel 2 row 72,chart-extracted-unverified
+M39029/30-222,M39029/30-0-0,SOCKET,0,0,0,WA23 + WA23-13 + WA23-5,BY HAND,M81969/14-08,2023 chart panel 2 row 72,chart-extracted-unverified
+M39029/29-215,M39029/29-4-4,PIN,4,4,4,WA23 + WA23-11 + WA23-4,BY HAND,DRK250-4,2023 chart panel 2 row 73,chart-extracted-unverified
+M39029/30-221,M39029/30-4-4,SOCKET,4,4,4,WA23 + WA23-11 + WA23-4,BY HAND,M81969/14-07,2023 chart panel 2 row 73,chart-extracted-unverified
+M39029/29-214,M39029/29-8-8,PIN,8,8,8,WA23 + WA23-9 + WA23-2,BY HAND,DRK250-8,2023 chart panel 2 row 74,chart-extracted-unverified
+M39029/30-220,M39029/30-8-8,SOCKET,8,8,8,WA23 + WA23-9 + WA23-2,BY HAND,M81969/14-06,2023 chart panel 2 row 74,chart-extracted-unverified
+M39029/29-213,M39029/29-12-12,PIN,12,12,12-14,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 2 row 75; 2023 chart panel 3 row 47,chart-extracted-unverified
+M39029/30-219,M39029/30-12-12,SOCKET,12,12,12-14,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 2 row 75; 2023 chart panel 3 row 47,chart-extracted-unverified
+M39029/29-212,M39029/29-16-16,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 2 row 76; 2023 chart panel 3 row 48,chart-extracted-unverified
+M39029/30-218,M39029/30-16-16,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 2 row 76; 2023 chart panel 3 row 48,chart-extracted-unverified
+M39029/47-339,MS90461A12-12,PIN,12,12,12-14,AF8 + TH199S,DAK126-12A,DRK125-12A,2023 chart panel 2 row 79; 2023 chart panel 2 row 86,chart-extracted-unverified
+M39029/33-270,MS3343A12-12,SOCKET,12,12,12-14,AF8 + TH199S,DAK126-12A,DRK129-12A,2023 chart panel 2 row 79,chart-extracted-unverified
+M39029/47-337,MS90461A16-16; MS90461B16-16,PIN,16,16,16-20,AF8 + TH199S OR MH860 + 86-12S,DAK126-16A,DRK125-16A,2023 chart panel 2 row 80; 2023 chart panel 2 row 87,chart-extracted-unverified
+M39029/33-268,MS3343A16-16,SOCKET,16,16,16-20,AF8 + TH199S OR MH860 + 86-12S,DAK126-16A,DRK129-16A,2023 chart panel 2 row 80,chart-extracted-unverified
+M39029/47-316,MS90461A20-20; MS90461B20-20,PIN,20,20,20-24,AF8 + TH199S OR MH860 + 86-11S,DAK126-20A,DRK125-20A,2023 chart panel 2 row 81; 2023 chart panel 2 row 88,chart-extracted-unverified
+M39029/33-266,MS3343A20-20,SOCKET,20,20,20-24,AF8 + TH199S OR MH860 + 86-11S,DAK126-20A,DRK129-20A,2023 chart panel 2 row 81,chart-extracted-unverified
+M39029/47-314,MS90461A23-22; MS90461B23-22,PIN,23,22,22-26,AFM8 + K60S,DAK126-23A,DRK125-23A,2023 chart panel 2 row 82; 2023 chart panel 2 row 89,chart-extracted-unverified
+M39029/33-264,MS3343A23-22,SOCKET,23,22,22-26,AFM8 + K60S,DAK126-23A,DRK129-23A,2023 chart panel 2 row 82,chart-extracted-unverified
+M39029/47-312,MS90461A23-28; MS90461B23-28,PIN,23,28,28-32,AFM8 + K60S,DAK126-23A,DRK125-23A,2023 chart panel 2 row 83; 2023 chart panel 2 row 90,chart-extracted-unverified
+M39029/33-262,MS3343A23-28,SOCKET,23,28,28-32,AFM8 + K60S,DAK126-23A,DRK129-23A,2023 chart panel 2 row 83,chart-extracted-unverified
+M39029/46-310,MS90460B12-12,SOCKET,12,12,12-14,AF8 + TH199S,DAK126-12A,DRK129-12A,2023 chart panel 2 row 86,chart-extracted-unverified
+M39029/46-308,MS90460B16-16,SOCKET,16,16,16-20,AF8 + TH199S OR MH860 + 86-12S,DAK126-16A,DRK129-16A,2023 chart panel 2 row 87,chart-extracted-unverified
+M39029/46-306,MS90460B20-20,SOCKET,20,20,20-24,AF8 + TH199S OR MH860 + 86-11S,DAK126-20A,DRK129-20A,2023 chart panel 2 row 88,chart-extracted-unverified
+M39029/46-304,MS90460B23-22,SOCKET,23,22,22-26,AFM8 + K60S,DAK126-23A,DRK129-23A,2023 chart panel 2 row 89,chart-extracted-unverified
+M39029/46-302,MS90460B23-28,SOCKET,23,28,28-32,AFM8 + K60S,DAK126-23A,DRK129-23A,2023 chart panel 2 row 90,chart-extracted-unverified
+M39029/18-180,M39029/18-12-12,PIN,12,12,12-14,AF8 + TP360,M81969/16-03,M81969/16-03,2023 chart panel 2 row 92; 2023 chart panel 3 row 2,chart-extracted-unverified
+M39029/17-175,M39029/17-12-12,SOCKET,12,12,12-14,AF8 + TP365,M81969/16-03,M81969/16-03,2023 chart panel 2 row 92,chart-extracted-unverified
+M39029/22-605,,SOCKET,12,12,12-14,AF8 + TH343-1,DAK83-12B,DRK83-12B,2023 chart panel 2 row 93,chart-extracted-unverified
+M39029/18-179,M39029/18-16-16,PIN,16,16,16-20,AFM8 + K341 OR MH860 + 86-2,M81969/16-02,M81969/16-02,2023 chart panel 2 row 94; 2023 chart panel 3 row 4,chart-extracted-unverified
+M39029/17-174,M39029/17-16-16,SOCKET,16,16,16-20,AFM8 + K343 OR MH860 + 86-2,M81969/16-02,M81969/16-02,2023 chart panel 2 row 94,chart-extracted-unverified
+M39029/22-193,M39029/22-16-16,SOCKET,16,16,16-20,AF8 + TH343-1 OR AFM8 + K340 OR MH860 + 86-21,DAK95-16B,DRK95-16B,2023 chart panel 2 row 95; 2023 chart panel 3 row 5,chart-extracted-unverified
+M39029/18-178,M39029/18-20-20,PIN,20,20,16-20,AF8 + TH343-1 OR AFM8 + K340 OR MH860 + 86-1S,M81969/16-01,M81969/16-01,2023 chart panel 2 row 95,chart-extracted-unverified
+M39029/17-173,M39029/17-20-20,SOCKET,20,20,20-24,AF8 + TH343-1 OR AFM8 + K342 OR MH860 + 86-20,M81969/16-01,M81969/16-01,2023 chart panel 2 row 96,chart-extracted-unverified
+M39029/22-192,M39029/22-20-20,SOCKET,20,20,20-24,AF8 + TH343-1 OR AFM8 + K503 OR MH860 + 86-20,DAK95-20B,DRK95-20B,2023 chart panel 2 row 96; 2023 chart panel 3 row 6; 2023 chart panel 3 row 36,chart-extracted-unverified
+M39029/22-191,M39029/22-22-22,SOCKET,22,22,22-28,AFM8 + K330-3 OR MH860 + 86-19,DAK95-22B,DRK95-22B,2023 chart panel 2 row 97; 2023 chart panel 3 row 7,chart-extracted-unverified
+M39029/22-190,M39029/22-22-28,SOCKET,22,28,28-32,AFM8 + K330-3 OR MH860 + 86-19,DAK95-22B,DRK95-22B,2023 chart panel 2 row 97; 2023 chart panel 3 row 7,chart-extracted-unverified
+M39029/18-177,M39029/18-23-22,PIN,23,22,22-28,AFM8 + K338,M81969/16-04,M81969/16-04,2023 chart panel 2 row 98; 2023 chart panel 3 row 8,chart-extracted-unverified
+M39029/17-172,M39029/17-23-22,SOCKET,23,22,22-28,AFM8 + K339,M81969/16-04,M81969/16-04,2023 chart panel 2 row 98,chart-extracted-unverified
+M39029/18-176,M39029/18-23-28,PIN,23,28,28-32,AFM8 + K338,M81969/16-04,M81969/16-04,2023 chart panel 2 row 99; 2023 chart panel 3 row 9,chart-extracted-unverified
+M39029/17-171,M39029/17-23-28,SOCKET,23,28,28-32,AFM8 + K339,M81969/16-04,M81969/16-04,2023 chart panel 2 row 99,chart-extracted-unverified
+M39029/16-170,M39029/16-12-12,SOCKET,12,12,12-14,AF8 + TP360,M81969/16-03,M81969/16-03,2023 chart panel 3 row 2,chart-extracted-unverified
+M39029/22-605,,SOCKET,12,12,12-14,AF8 + TH343-1,DAK95-12B,DRK95-12B,2023 chart panel 3 row 3,chart-extracted-unverified
+M39029/16-169,M39029/16-16-16,SOCKET,16,16,16-20,AFM8 + K341 OR MH860 + 86-2,M81969/16-02,M81969/16-02,2023 chart panel 3 row 4,chart-extracted-unverified
+M39029/18-178,M39029/18-20-20,PIN,20,20,20-24,AF8 + TH343-1 OR AFM8 + K340 OR MH860 + 86-1S,M81969/16-01,M81969/16-01,2023 chart panel 3 row 5,chart-extracted-unverified
+M39029/16-168,M39029/16-20-20,SOCKET,20,20,20-24,AF8 + TH343-1 OR AFM8 + K340 OR MH860 + 86-20,M81969/16-01,M81969/16-01,2023 chart panel 3 row 6,chart-extracted-unverified
+M39029/16-167,M39029/16-23-22,SOCKET,23,22,22-28,AFM8 + K338,M81969/16-04,M81969/16-04,2023 chart panel 3 row 8,chart-extracted-unverified
+M39029/16-166,M39029/16-23-28,SOCKET,23,28,28-32,AFM8 + K338,M81969/16-04,M81969/16-04,2023 chart panel 3 row 9,chart-extracted-unverified
+M39029/2-106,M39029/2-16-16,PIN,16,16,16-20,AF8 + TH1A,DAK16B,DRK16B,2023 chart panel 3 row 12,chart-extracted-unverified
+M39029/3-109,M39029/3-16-16,SOCKET,16,16,16-20,AF8 + TH1A,DAK16B,DRK16B,2023 chart panel 3 row 12,chart-extracted-unverified
+M39029/2-105,M39029/2-20-20,PIN,20,20,20-24,AF8 + TH1A OR AFM8 + K287,N/A,N/A,2023 chart panel 3 row 13,chart-extracted-unverified
+M39029/3-108,M39029/3-20-20,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K287,N/A,N/A,2023 chart panel 3 row 13,chart-extracted-unverified
+M39029/2-104,M39029/2-22-22,PIN,22,22,22-26,AFM8 + K287,N/A,N/A,2023 chart panel 3 row 14,chart-extracted-unverified
+M39029/3-107,M39029/3-22-22,SOCKET,22,22,22-26,AFM8 + K287,N/A,N/A,2023 chart panel 3 row 14,chart-extracted-unverified
+M39029/11-147,M39029/11-12-12,PIN,12,12,12-14,AF8 + TP465,BY HAND,DRK337,2023 chart panel 3 row 17,chart-extracted-unverified
+M39029/12-151,M39029/12-12-12,SOCKET,12,12,12-14,AF8 + TP465,BY HAND,DRK337,2023 chart panel 3 row 17,chart-extracted-unverified
+M39029/11-146,M39029/11-16-16,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,M81969/1-03,M81969/1-03,2023 chart panel 3 row 18,chart-extracted-unverified
+M39029/12-150,M39029/12-16-16,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,M81969/1-03,M81969/1-03,2023 chart panel 3 row 18,chart-extracted-unverified
+M39029/11-145,M39029/11-20-20,PIN,20,20,20-24,AFM8 + K13-1 OR MH860 + 86-30-1,M81969/1-02,M81969/1-02,2023 chart panel 3 row 19,chart-extracted-unverified
+M39029/12-149,M39029/12-20-20,SOCKET,20,20,20-24,AFM8 + K13-1 OR MH860 + 86-30-1,M81969/1-02,M81969/1-02,2023 chart panel 3 row 19,chart-extracted-unverified
+M39029/11-144,M39029/11-22-22,PIN,22,22,22-26,AFM8 + K267-1,M81969/1-01,M81969/1-01,2023 chart panel 3 row 20,chart-extracted-unverified
+M39029/12-148,M39029/12-22-22,SOCKET,22,22,22-26,AFM8 + K267-1,M81969/1-01,M81969/1-01,2023 chart panel 3 row 20,chart-extracted-unverified
+M39029/4-112,M39029/4-16-20,PIN,16,16,20-24,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 3 row 26,chart-extracted-unverified
+M39029/5-117,M39029/5-16-20,SOCKET,16,16,20-24,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 3 row 26,chart-extracted-unverified
+M39029/1-103,M39029/1-12-12,PIN,12,12,12-14,AF8 + TH1A,DAK83-12B,DRK83-12B,2023 chart panel 3 row 30,chart-extracted-unverified
+M39029/1-102,M39029/1-14-16,PIN,14,16,16-20,AF8 + TH1A,DAK83-16B,DRK83-16B,2023 chart panel 3 row 30,chart-extracted-unverified
+M39029/1-101,M39029/1-16-20,PIN,16,20,20-24,AF8 + TH1A OR MH860 + K287,DAK83-20B,DRK83-20B,2023 chart panel 3 row 31,chart-extracted-unverified
+M39029/1-100,M39029/1-16-22,PIN,16,22,22-26,AF8 + TH1A OR MH860 + K287,M81969/14-01,M81969/14-01,2023 chart panel 3 row 31,chart-extracted-unverified
+M39029/1-507,M39029/1-20-22D,PIN,22D,22D,22-28,MH860 + K496-19,DAK95-22MB,DRK95-22MB,2023 chart panel 3 row 32,chart-extracted-unverified
+M39029/22-605,,SOCKET,12,12,12-14,AF8 + TH343-1 OR MH860 + 86-21,DAK83-12B,DRK83-12B,2023 chart panel 3 row 35,chart-extracted-unverified
+M39029/22-193,M39029/22-16-16,SOCKET,16,16,16-20,AF8 + TH343-1 OR MH860 + 86-21,DAK95-16B,DRK95-16B,2023 chart panel 3 row 35,chart-extracted-unverified
+M39029/22-191,M39029/22-22-22,SOCKET,22,22,28-32,AF8 + TH343-1 OR AFM8 + K330-3 OR MH860 + 86-19,DAK95-22B,DRK95-22B,2023 chart panel 3 row 36,chart-extracted-unverified
+M39029/22-190,M39029/22-22-28,SOCKET,22,22,28-32,MH860 + 86-19,DAK95-22MB,DRK95-22MB,2023 chart panel 3 row 37,chart-extracted-unverified
+M39029/93-540,,PIN,12,12,12-14,AF8 + TP465,N/A,DRK337,2023 chart panel 3 row 39,chart-extracted-unverified
+M39029/94-604,,SOCKET,12,12,12-14,AF8 + TP465,N/A,DRK337,2023 chart panel 3 row 39,chart-extracted-unverified
+M39029/93-539,,PIN,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,M81969/1-03,M81969/1-03,2023 chart panel 3 row 40,chart-extracted-unverified
+M39029/94-603,,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,M81969/1-03,M81969/1-03,2023 chart panel 3 row 40,chart-extracted-unverified
+M39029/93-598,,PIN,20,20,20-24,AFM8 + K13-1 OR MH860 + 86-30-1,M81969/1-02,M81969/1-02,2023 chart panel 3 row 41,chart-extracted-unverified
+M39029/94-602,,SOCKET,20,20,20-24,AFM8 + K13-1 OR MH860 + 86-30-1,M81969/1-02,M81969/1-02,2023 chart panel 3 row 41,chart-extracted-unverified
+M39029/93-597,,PIN,22,22,22-26,AFM8 + K267-1,M81969/1-01,M81969/1-01,2023 chart panel 3 row 42,chart-extracted-unverified
+M39029/94-601,,SOCKET,22,22,22-26,AFM8 + K267-1,M81969/1-01,M81969/1-01,2023 chart panel 3 row 42,chart-extracted-unverified
+M39029/29-216,M39029/29-0-0,PIN,0,0,0,WA23 + WA23-13 + WA23-5,N/A,DRK250-0,2023 chart panel 3 row 44,chart-extracted-unverified
+M39029/30-222,M39029/30-0-0,SOCKET,0,0,0,WA23 + WA23-13 + WA23-5,N/A,DRK250-0,2023 chart panel 3 row 44,chart-extracted-unverified
+M39029/29-215,M39029/29-4-4,PIN,4,4,4,WA23 + WA23-11 + WA23-4,N/A,DRK250-4,2023 chart panel 3 row 45,chart-extracted-unverified
+M39029/30-221,M39029/30-4-4,SOCKET,4,4,4,WA23 + WA23-11 + WA23-4,N/A,DRK250-4,2023 chart panel 3 row 45,chart-extracted-unverified
+M39029/29-214,M39029/29-8-8,PIN,8,8,8,WA23 + WA23-9 + WA23-2,N/A,DRK250-8,2023 chart panel 3 row 46,chart-extracted-unverified
+M39029/30-220,M39029/30-8-8,SOCKET,8,8,8,WA23 + WA23-9 + WA23-2,N/A,DRK250-8,2023 chart panel 3 row 46,chart-extracted-unverified
+M39029/30-217,M39029/30-16S-16,SOCKET,16,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-16B,DRK83-16B,2023 chart panel 3 row 49,chart-extracted-unverified
+M39029/4-114,M39029/4-12-16,PIN,12,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-12B,DRK83-12B,2023 chart panel 3 row 53,chart-extracted-unverified
+M39029/5-119,M39029/5-12-16,SOCKET,12,16,16-20,AF8 + TH1A OR MH860 + 86-2,DAK83-12B,DRK83-12B,2023 chart panel 3 row 53,chart-extracted-unverified
+M39029/5-115,M39029/5-20-20,SOCKET,20,20,20-24,AF8 + TH1A OR AFM8 + K1S OR MH860 + 86-1S,DAK83-20B,DRK83-20B,2023 chart panel 3 row 55; 2023 chart panel 3 row 62,chart-extracted-unverified
+M39029/58-362,MS27493-22,PIN,20,20,20-24,AFM8 + K42 OR MH860 + 86-6,DAK95-22B,DRK95-22B,2023 chart panel 3 row 64,chart-extracted-unverified
+M39029/57-356,MS27491-22,SOCKET,20,20,20-24,AFM8 + K41 OR MH860 + 86-5,DAK95-22B,DRK95-22B,2023 chart panel 3 row 64,chart-extracted-unverified
+M39029/70-389,M39029/70-3,PIN,16,16,16-20,AF8 + TP651,DAK1-16P-S,DRK222,2023 chart panel 3 row 69,chart-extracted-unverified
+M39029/69-386,M39029/69-3,SOCKET,16,16,16-20,AF8 + TP651,DAK1-16P-S,DRK222,2023 chart panel 3 row 69,chart-extracted-unverified
+M39029/70-388,M39029/70-2,PIN,16,20,20-24,AF8 + TP651,DAK1-16P-S,DRK222,2023 chart panel 3 row 70,chart-extracted-unverified
+M39029/69-385,M39029/69-2,SOCKET,16,20,20-24,AF8 + TP651,DAK1-16P-S,DRK222,2023 chart panel 3 row 70,chart-extracted-unverified
+M39029/70-387,M39029/70-1,PIN,16,24,24-28,AF8 + TP651,DAK1-16P-S,DRK222,2023 chart panel 3 row 71,chart-extracted-unverified
+M39029/69-384,M39029/69-1,SOCKET,16,24,24-28,AF8 + TP651,DAK1-16P-S,DRK222,2023 chart panel 3 row 71,chart-extracted-unverified
+M39029/44-290,MS90453-12-12,PIN,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 3 row 79,chart-extracted-unverified
+M39029/45-297,MS90454-12-12,SOCKET,12,12,12-14,AF8 + TH1A,DAK12B,DRK12B,2023 chart panel 3 row 79,chart-extracted-unverified
+M39029/44-289,MS90453-12-16,PIN,12,16,16-20,AF8 + TH1A,DAK16B,DRK12B,2023 chart panel 3 row 81,chart-extracted-unverified
+M39029/45-296,MS90454-12-16,SOCKET,12,16,16-20,AF8 + TH1A,DAK16B,DRK12B,2023 chart panel 3 row 81,chart-extracted-unverified
+M39029/44-288,MS90453-16-16,PIN,16,16,16-20,AF8 + TH1A,DAK16B,DRK16B,2023 chart panel 3 row 82,chart-extracted-unverified
+M39029/45-295,MS90454-16-16,SOCKET,16,16,16-20,AF8 + TH1A,DAK16B,DRK16B,2023 chart panel 3 row 82,chart-extracted-unverified
+M39029/44-287,MS90453-16-22,PIN,16,22,22-26,AF8 + TH1A,DAK83S-20,DRK16B,2023 chart panel 3 row 84,chart-extracted-unverified
+M39029/45-294,MS90454-16-22,SOCKET,16,22,22-26,AF8 + TH1A,DAK83S-20,DRK16B,2023 chart panel 3 row 84,chart-extracted-unverified

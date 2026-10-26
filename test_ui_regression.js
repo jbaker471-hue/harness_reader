@@ -1,0 +1,25 @@
+const fs=require('fs'),vm=require('vm');
+const path=require('path');const f=path.join(__dirname,'assets/ui.html');
+const html=fs.readFileSync(f,'utf8');const src=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+new Function(src);
+function block(start,end){return src.slice(src.indexOf(start),src.indexOf(end,src.indexOf(start)));}
+const isolate={};vm.createContext(isolate);
+vm.runInContext(block('function sortCav(','function resetChecks(')+block('function wv(','function wireToNet('),isolate);
+const fixture={wires:[{connector:'P1',cavity:'A',end:'J2',endCavity:'a'},{connector:'P1',cavity:'1',end:'J2',endCavity:'2'}],candidates:[{Connector:'J2',Number:'3'}],cavityModels:[{tag:'J2',all:['a','2','3'],allVerified:true}]};
+const equal=(a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(JSON.stringify(a)+' != '+JSON.stringify(b))};
+equal(Array.from(isolate.extractedOccupied(fixture,'J2')),['2','3','a']);
+equal(Array.from(isolate.extractedOccupied(fixture,'P1')),['1','A']);
+equal(isolate.sourceCavityModel(fixture,'j2').allVerified,true);
+equal(Array.from(isolate.splitCavs('A, a, 1')),['A','a','1']);
+console.log('PASS: UI syntax, far-end occupancy, candidate merging, case-sensitive cavity IDs, verified model lookup');
+
+// Face display must distinguish inferred geometry from verified drawing positions.
+const faceContext={st:{raw:{cavityModels:[{tag:'P1',all:['A','a','1'],allVerified:true,views:[{page:1,side:'front',r:100,positions:[{label:'A',x:20,y:0,r:6},{label:'1',x:-20,y:0,r:6},{label:'',x:0,y:30,r:6}]}]}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs};
+vm.createContext(faceContext);
+vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),faceContext);
+const d=faceContext.faceData({tag:'P1',occupied:'A'},'rear');
+equal(Array.from(d.missingPositions),['a']);
+equal(d.unlabelledPositions,1);
+if(!d.mirrored||d.pts[0].x>=200)throw Error('rear mirror did not flip X');
+if(!src.includes('tableIds=[...new Set([...d.pts.map(p=>p.id).filter(Boolean),...d.all])]'))throw Error('missing inventory cavities in details table');
+console.log('PASS: synthetic face geometry detection, mirror, missing/unlabeled cavities');
