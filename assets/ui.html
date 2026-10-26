@@ -104,12 +104,12 @@ let st={raw:null,filename:'Untitled',sourceMatched:false,connectors:[],nets:[],b
 async function runBuildPlan(){
  const target=$('buildPlanResults');target.textContent='Calculating local draft plan…';
  const connectors=st.connectors.filter(c=>c.part).map(c=>{
-   const wires=[];
+   const wires=[];const model=sourceCavityModel(st.raw||{},c.tag);
    for(const n of st.nets){for(const endpoint of String(n.endpoints||'').split(',')){
      const ep=parseEndpoint(endpoint);if(ep?.kind==='cavity'&&ep.tag===String(c.tag).toUpperCase())wires.push({cavity:ep.cavity,awg:n.awg||'',wire:n.wire||n.id||''});
    }}
    for(const cav of splitCavs(c.occupied)){if(!wires.some(w=>w.cavity===cav))wires.push({cavity:cav,awg:'',wire:''})}
-   return {tag:c.tag,part:c.part,all:c.labels||[],allSource:c.profile?.source||c.evidence||'manual entry',allVerified:!!(c.verified&&c.labels?.length&&c.labels.length===c.capacity),unused:[],wired:wires,contact:c.contactOverride||''};
+   return {tag:c.tag,part:c.part,all:c.labels||[],allSource:c.profile?.source||c.evidence||'manual entry',allVerified:!!(c.verified&&c.labels?.length&&c.labels.length===c.capacity&&!model?.conflicts?.length),unused:(model?.explicitUnused||[]).map(u=>u.cavity),wired:wires,contact:c.contactOverride||''};
  });
  const req={policy:$('planPolicy').value,buildQty:Math.max(1,Number($('buildQty').value)||1),connectors,bom:st.bom.map(b=>({item:String(b.item||''),part:String(b.part||''),qty:asRequired(b)?'A/R':String(b.qtyText||b.qty||''),description:String(b.description||'')}))};
  try{
@@ -129,6 +129,7 @@ function unique(x){return [...new Set(x)]}
 // Include BOTH endpoints of each extracted conductor, not only the near end.
 function extractedOccupied(data,tag){
  const ids=[];const key=String(tag||'').toUpperCase();
+ const model=sourceCavityModel(data,tag);if(Array.isArray(model?.wired))return [...new Set(model.wired)].sort(sortCav);
  for(const x of data.wires||[]){
   for(const [tagField,cavField] of [['connector','cavity'],['end','endCavity']]){
    if(wv(x,tagField).toUpperCase()!==key)continue;

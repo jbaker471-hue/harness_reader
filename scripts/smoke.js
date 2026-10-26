@@ -29,9 +29,12 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   assert.equal(v.engineStatus,'ok');assert(v.version.startsWith('2.8'));
   const report=await api('api/self-test');assert(report.pass,JSON.stringify(report));
   await api('api/heartbeat');
-  for(const name of ['SYNTHETIC_V24_TABLE_NETLIST.pdf','SYNTHETIC_FORM_UNICODE_TABLES.pdf']){
+  const fixtures=fs.readdirSync('testdata',{recursive:true}).filter(n=>n.endsWith('.pdf')).sort();
+  for(const name of fixtures){
    const r=await fetch(url+'api/parse',{method:'POST',headers:{'X-Trivex-Token':token},body:fs.readFileSync(path.join('testdata',name)),signal:AbortSignal.timeout(120000)});
-   assert(r.ok,await r.text());
+   const parsed=await r.json();assert(r.ok,name+' parse failed');assert(parsed.pages>0,name+' has no pages');
+   if(name==='SYNTHETIC_V24_TABLE_NETLIST.pdf'){assert.equal(parsed.wires.length,4);assert.equal(parsed.boms.length,3);}
+   await api('api/heartbeat');
   }
   const plan=await api('api/build-plan',{buildQty:2,policy:'plug-only',connectors:[{tag:'P1',part:'D38999/26FG35PA',all:['1','2'],allVerified:true,wired:[{cavity:'1',awg:'24'}]}]});
   assert.equal(plan.buildQty,2);assert.equal(plan.connectors[0].crimp[0].status,'OK');

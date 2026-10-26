@@ -23,3 +23,8 @@ equal(d.unlabelledPositions,1);
 if(!d.mirrored||d.pts[0].x>=200)throw Error('rear mirror did not flip X');
 if(!src.includes('tableIds=[...new Set([...d.pts.map(p=>p.id).filter(Boolean),...d.all])]'))throw Error('missing inventory cavities in details table');
 console.log('PASS: synthetic face geometry detection, mirror, missing/unlabeled cavities');
+
+// A source cavity model separates explicit unused rows from conductors.
+equal(Array.from(isolate.extractedOccupied({cavityModels:[{tag:'P1',wired:['a'],explicitUnused:[{cavity:'A'}]}],candidates:[{Connector:'P1',Number:'A'}]},'P1')),['a']);
+if(!src.includes('!model?.conflicts?.length')||!src.includes('(model?.explicitUnused||[]).map(u=>u.cavity)'))throw Error('build plan must preserve unused declarations and unresolved source conflicts');
+console.log('PASS: source model occupancy and build-plan conflict safeguards');
