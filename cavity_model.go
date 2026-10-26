@@ -56,18 +56,17 @@ var (
 // Reading stops at the first word that is not part of the list, so trailing
 // prose ("... TO BE FILLED WITH MS27488-22") never adds cavities.
 func parseCavityList(s string) []string {
-	s = strings.ToUpper(s)
 	s = strings.NewReplacer(",", " , ", ";", " , ", "&", " , ").Replace(s)
 	toks := strings.Fields(s)
 	out := []string{}
 	stop := map[string]bool{"TO": true, "BE": true, "OF": true, "IN": true, "ON": true, "AT": true, "IS": true, "BY": true, "OR": true, "AS": true, "NO": true}
 	for i := 0; i < len(toks); i++ {
 		t := toks[i]
-		if t == "," || t == "AND" {
+		if t == "," || strings.EqualFold(t, "AND") {
 			continue
 		}
 		// "7 - 9", "7 THRU 9", "7 TO 9": a range written with spaces.
-		if i+2 < len(toks) && (toks[i+1] == "-" || toks[i+1] == "THRU" || toks[i+1] == "THROUGH" || toks[i+1] == "TO") {
+		if i+2 < len(toks) && (toks[i+1] == "-" || strings.EqualFold(toks[i+1], "THRU") || strings.EqualFold(toks[i+1], "THROUGH") || strings.EqualFold(toks[i+1], "TO")) {
 			if m := reRange.FindStringSubmatch(t + "-" + toks[i+2]); m != nil {
 				out = append(out, expandRange(m[1], m[2])...)
 				i += 2
@@ -78,7 +77,7 @@ func parseCavityList(s string) []string {
 			out = append(out, expandRange(m[1], m[2])...)
 			continue
 		}
-		if stop[t] || !pinValue.MatchString(t) {
+		if stop[strings.ToUpper(t)] || !pinValue.MatchString(t) {
 			break
 		}
 		out = append(out, t)

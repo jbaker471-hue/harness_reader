@@ -285,6 +285,7 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 		}
 		cp.Wired = uniqSorted(cp.Wired)
 		all := uniqSorted(c.All)
+		inventoryConflict := len(all) != len(c.All)
 		if len(all) > 0 {
 			in := map[string]bool{}
 			for _, a := range all {
@@ -294,6 +295,7 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 			for _, w := range cp.Wired {
 				isWired[w] = true
 				if !in[w] {
+					inventoryConflict = true
 					cp.Issues = append(cp.Issues, "Cavity "+w+" is wired but is not in the cavity inventory ("+c.AllSource+").")
 				}
 			}
@@ -302,10 +304,11 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 					cp.Unused = append(cp.Unused, a)
 				}
 			}
-			cp.UnusedComplete = c.AllVerified
+			cp.UnusedComplete = c.AllVerified && !inventoryConflict
 			if cp.Positions == 0 {
 				cp.Positions, cp.PositionSource = len(all), c.AllSource
 			} else if cp.Positions != len(all) {
+				cp.UnusedComplete = false
 				cp.Issues = append(cp.Issues, fmt.Sprintf("Cavity inventory has %d cavities but the catalog lists %d positions.", len(all), cp.Positions))
 			}
 			if !c.AllVerified {
@@ -318,6 +321,20 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 			} else {
 				cp.Issues = append(cp.Issues, "Cavity count unknown: unused cavities cannot be determined. Import the insert layout or enter the capacity.")
 			}
+		}
+
+		wiredSet := map[string]bool{}
+		inventorySet := map[string]bool{}
+		for _, w := range cp.Wired { wiredSet[w] = true }
+		for _, a := range all { inventorySet[a] = true }
+		for _, u := range c.Unused {
+			if wiredSet[u] || (len(all) > 0 && !inventorySet[u]) {
+				cp.UnusedComplete = false
+				cp.Issues = append(cp.Issues, "Conflicting unused-cavity declaration: " + u + ". Resolve before kitting.")
+			}
+		}
+		if inventoryConflict {
+			cp.Issues = append(cp.Issues, "Duplicate or out-of-inventory cavity evidence; quantities remain unresolved.")
 		}
 		unusedCount := len(cp.Unused)
 		countKnown := cp.UnusedComplete
@@ -452,7 +469,7 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 		var wrong []string
 		for _, b := range bom {
 			switch {
-			case aliases[b.Part] || (t.purpose == "sealing plug" && strings.HasPrefix(b.Part, p)):
+			case aliases[b.Part] || (t.purpose == "sealing plug" && strings.HasPrefix(b.Part, p+"-")):
 				rows = append(rows, b.Part+" ×"+b.Qty)
 				if q := qtyNumber(b.Qty); q >= 0 {
 					qty += q
