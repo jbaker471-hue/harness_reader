@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -36,13 +35,10 @@ func TestAccessoryCheckAgainstBOM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range []string{"Backshell", "Contacts", "Sealing plugs (unused cavities)"} {
+	for _, c := range []string{"Backshell"} {
 		if s := accFind(ok, c, "").Status; s != "OK" {
 			t.Fatalf("%s status %s: %+v", c, s, ok)
 		}
-	}
-	if ct := accFind(ok, "Contacts", ""); len(ct.Tooling) == 0 || !strings.Contains(ct.Tooling[0], "67-022-01") {
-		t.Fatalf("socket retention tip missing: %+v", ct)
 	}
 	band := accFind(ok, "Shield termination band", "")
 	if band.Status != "INFO" || len(band.Tooling) == 0 || band.Tooling[0] != "Banding tool 600-061" {
@@ -55,15 +51,10 @@ func TestAccessoryCheckAgainstBOM(t *testing.T) {
 	if accFind(bad, "Backshell size", "").Status != "MISMATCH" || accFind(bad, "Backshell", "P1").Status != "MISSING" {
 		t.Fatalf("backshell size mismatch not caught: %+v", bad)
 	}
-	if accFind(bad, "Contacts", "").Status != "MISMATCH" {
-		t.Fatalf("opposite-sex contacts not caught: %+v", bad)
-	}
-	if accFind(bad, "Sealing plugs (unused cavities)", "").Status != "MISMATCH" {
-		t.Fatalf("plug shortfall not caught: %+v", bad)
-	}
-	// Unknown populated cavities -> VERIFY, never OK
-	unk, _ := CheckAccessories(AccRequest{Connectors: []AccConnector{{Tag: "P1", Part: "D38999/26FJ35SN"}}, BOM: []AccBOM{{Item: "2", Part: "M39029/56-348", Qty: "128"}, {Item: "3", Part: "MS27488-22-2", Qty: "A/R"}}})
-	if accFind(unk, "Contacts", "").Status != "VERIFY" || accFind(unk, "Sealing plugs (unused cavities)", "").Status != "VERIFY" {
-		t.Fatalf("unknown cavity list must give VERIFY: %+v", unk)
+	// Contact/plug quantities belong exclusively to the policy-aware build plan.
+	for _, row := range append(ok, bad...) {
+		if row.Check == "Contacts" || row.Check == "Sealing plugs (unused cavities)" {
+			t.Fatalf("duplicate contact/plug check: %+v", row)
+		}
 	}
 }
