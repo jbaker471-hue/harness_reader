@@ -1,0 +1,52 @@
+name: Trivex Auditor v2.8 Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.7'
+          cache: false
+      - name: Check for application source
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'main.go')) { throw 'Application source has not been uploaded to this repository yet' }
+          if (!(Test-Path 'vendor/modules.txt')) { throw 'Vendored dependencies are missing' }
+      - name: Vet and unit test (offline)
+        shell: pwsh
+        run: |
+          $env:GOFLAGS='-mod=vendor'
+          $env:GOPROXY='off'
+          go vet ./...
+          go test -count=1 ./...
+      - name: Build Windows x64 EXE
+        shell: pwsh
+        run: |
+          $env:GOFLAGS='-mod=vendor'
+          $env:GOPROXY='off'
+          $env:GOOS='windows'
+          $env:GOARCH='amd64'
+          $env:CGO_ENABLED='0'
+          go build -trimpath -ldflags='-H=windowsgui -s -w' -o Trivex_Harness_Auditor_v2.8.exe .
+          if (!(Test-Path 'Trivex_Harness_Auditor_v2.8.exe')) { throw 'Executable was not produced' }
+          Get-FileHash 'Trivex_Harness_Auditor_v2.8.exe' -Algorithm SHA256 | Format-List
+      - name: Publish executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivex_Harness_Auditor_v2.8_Windows_x64
+          path: Trivex_Harness_Auditor_v2.8.exe
+          if-no-files-found: error
+          retention-days: 14
