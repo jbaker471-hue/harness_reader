@@ -1,78 +1,68 @@
 name: Trivex Auditor v2.8 Windows Build
-
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'Trivex_v2.8_GitHub_Windows_Build.zip'
-      - '**/*.go'
-      - 'vendor/**'
-      - '.github/workflows/windows-build.yml'
-
+  pull_request:
 permissions:
-  contents: read
-
+  contents: write
 jobs:
   windows-x64:
     runs-on: windows-2022
     timeout-minutes: 40
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Extract v2.8 source bundle (if present)
+    env:
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+    defaults:
+      run:
         shell: pwsh
-        run: |
-          $zip = 'Trivex_v2.8_GitHub_Windows_Build.zip'
-          if (Test-Path $zip) {
-            Expand-Archive -Path $zip -DestinationPath . -Force
-          }
-          if (!(Test-Path 'main.go')) {
-            throw 'Upload Trivex_v2.8_GitHub_Windows_Build.zip into the repository root, then rerun Actions'
-          }
-          if (!(Test-Path 'vendor/modules.txt')) {
-            throw 'The complete source archive must include vendored dependencies'
-          }
-
-      - name: Set up Go 1.24.7
-        uses: actions/setup-go@v5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.24.7'
           cache: false
-
-      - name: JavaScript UI regression tests
-        shell: pwsh
-        run: node test_ui_regression.js
-
-      - name: Vet and unit tests (offline)
-        shell: pwsh
+      - name: JavaScript regression
         run: |
-          $env:GOFLAGS = '-mod=vendor'
-          $env:GOPROXY = 'off'
-          go version
+          node test_ui_regression.js
+          if ($LASTEXITCODE -ne 0) { throw 'UI regression failed' }
+      - name: Vet
+        run: |
           go vet ./...
-          go test -count=1 ./...
-
-      - name: Build Windows x64 standalone executable
-        shell: pwsh
+          if ($LASTEXITCODE -ne 0) { throw 'Vet failed' }
+      - name: Unit and synthetic pipeline tests
         run: |
-          $env:GOFLAGS = '-mod=vendor'
-          $env:GOPROXY = 'off'
-          $env:GOOS = 'windows'
-          $env:GOARCH = 'amd64'
-          $env:CGO_ENABLED = '0'
+          go test -count=1 -timeout=20m ./...
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+      - name: Build Windows GUI application
+        run: |
           go build -trimpath -ldflags='-H=windowsgui -s -w' -o Trivex_Harness_Auditor_v2.8.exe .
-          if (!(Test-Path 'Trivex_Harness_Auditor_v2.8.exe')) { throw 'EXE missing' }
-          (Get-FileHash 'Trivex_Harness_Auditor_v2.8.exe' -Algorithm SHA256).Hash |
-            Out-File -Encoding ascii Trivex_Harness_Auditor_v2.8.sha256
-
-      - name: Upload runnable Windows application
-        uses: actions/upload-artifact@v4
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Executable API and lifecycle smoke test
+        run: |
+          node scripts/smoke.js ./Trivex_Harness_Auditor_v2.8.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Executable smoke test failed' }
+      - name: Package
+        run: |
+          $hash = (Get-FileHash Trivex_Harness_Auditor_v2.8.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Trivex_Harness_Auditor_v2.8.exe" | Out-File -Encoding ascii SHA256SUMS.txt
+          "Tested commit: ${{ github.sha }}" | Out-File -Encoding ascii BUILD_COMMIT.txt
+          Compress-Archive -Path Trivex_Harness_Auditor_v2.8.exe,SHA256SUMS.txt,BUILD_COMMIT.txt,README.md,THIRD_PARTY_NOTICES.md -DestinationPath Trivex_Harness_Auditor_v2.8_Windows_x64.zip
+      - uses: actions/upload-artifact@v4
         with:
           name: Trivex_Harness_Auditor_v2.8_Windows_x64
           path: |
-            Trivex_Harness_Auditor_v2.8.exe
-            Trivex_Harness_Auditor_v2.8.sha256
+            Trivex_Harness_Auditor_v2.8_Windows_x64.zip
+            SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
+      - name: Publish tested candidate
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v2.8.0-candidate.${{ github.run_number }}"
+          gh release create $tag Trivex_Harness_Auditor_v2.8_Windows_x64.zip SHA256SUMS.txt --target "${{ github.sha }}" --prerelease --title "Trivex Harness Auditor $tag" --notes "Windows x64 candidate. Vet, Go synthetic regression, JavaScript regression and standalone executable API/shutdown smoke tests passed. Interactive desktop window close and customer drawing acceptance remain pending owner testing. See README for limitations."
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
