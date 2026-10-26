@@ -38,3 +38,16 @@ if(messages.includes('PRIVATE_TEST_VALUE'))throw Error('diagnostic leaked source
 for(const code of ['ENGINE_ERROR','TEXT_PRESENT','BOM_UNRECOGNIZED','CONDUCTORS_UNRECOGNIZED','ASSOCIATION_UNRESOLVED'])if(!messages.includes(code))throw Error('missing diagnostic '+code);
 if(!diagnostics.localRecognitionCheck({words:0}).join('').includes('NO_TEXT'))throw Error('missing no-text diagnostic');
 console.log('PASS: local recognition checks and fixed-message privacy boundary');
+
+const labor={};vm.createContext(labor);
+vm.runInContext(block('const laborOps=', 'function laborFields('),labor);
+const counts={cutkit:0,crimp:10,solder:0,shield:0,backshell:0,label:0,test:0},rates={cutkit:0,crimp:6,solder:0,shield:0,backshell:0,label:0,test:0};
+const target={counts,rates,qty:3,setup:2};
+let e=labor.laborEstimate(target,[]);equal(e.hours,5);
+e=labor.laborEstimate(target,[{counts,qty:2,setup:1,estimated:9,actual:5}]);equal(e.hours,8);equal(e.basis,'actual job hours');
+e=labor.laborEstimate(target,[{counts,qty:2,setup:1,estimated:9,actual:null}]);equal(e.hours,14);equal(e.basis,'prior estimates only');
+e=labor.laborEstimate(target,[{counts,qty:2,setup:1,estimated:9,actual:null},{counts,qty:2,setup:1,actual:5}]);equal(e.hours,8);equal(e.references,1);
+for(const bad of [{...target,qty:0},{...target,setup:-1},{...target,counts:{...counts,crimp:-1}},{...target,rates:{...rates,crimp:0}}]){
+ let rejected=false;try{labor.laborEstimate(bad,[])}catch{rejected=true}if(!rejected)throw Error('invalid labor input accepted');
+}
+console.log('PASS: labor setup/quantity arithmetic, actual-vs-estimate precedence and invalid-input rejection');
