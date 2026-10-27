@@ -126,9 +126,9 @@ console.log('PASS: secondary BOM part references remain separate and visible in 
 const reviewed={};vm.createContext(reviewed);
 vm.runInContext(block('function reviewedDrawingLabor(', 'function laborUseDrawing(')+block('function preparationRows(', 'function laborTotalReference('),reviewed);
 const state={sourceMatched:true,raw:{},connectors:[{verified:true},{verified:true}],nets:[{reviewed:true,endpoints:'P8:A, J9:a'}]};
-equal(reviewed.reviewedDrawingLabor(state),{conductors:1,connectors:2});
+equal(reviewed.reviewedDrawingLabor(state,true),{conductors:1,connectors:2});
 for(const bad of [{...state,sourceMatched:false},{...state,nets:[{reviewed:false}]},{...state,nets:[...state.nets,...state.nets]},{...state,nets:[{reviewed:true,endpoints:'P8:A, @UNRESOLVED'}]}]){
- let rejected=false;try{reviewed.reviewedDrawingLabor(bad)}catch{rejected=true}if(!rejected)throw Error('Unsafe automatic drawing counts');
+ let rejected=false;try{reviewed.reviewedDrawingLabor(bad,true)}catch{rejected=true}if(!rejected)throw Error('Unsafe automatic drawing counts');
 }
 equal(reviewed.preparationRows({connectors:[{tag:'P8',unusedComplete:false,unused:['A'],kit:[]} ]})[0].cavities,'HELD');
 equal(reviewed.preparationRows({connectors:[{tag:'P8',unusedComplete:true,unused:['A','a'],issues:[],kit:[]} ]})[0].cavities,'A, a');
