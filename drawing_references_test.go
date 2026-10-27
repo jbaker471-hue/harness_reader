@@ -13,7 +13,6 @@ func TestExplicitBOMReferenceReconciliation(t *testing.T){
  for _,tc:=range cases{got:=drawingReferenceFindings(page(tc.text),tc.bom);if len(got)!=1||got[0].Code!=tc.code||got[0].Pages[0]!=2{t.Fatalf("%s: %+v",tc.text,got)}}
  for _,text:=range []string{"7 8 12","Use part ABC-007","NOTE 7","FIND 7-10","ITEM 7.5"}{
   got:=drawingReferenceFindings(page(text),bom)
-  if text=="ITEM 7.5" {continue}
   if len(got)!=0{t.Fatalf("guessed reference from %s: %+v",text,got)}
  }
 }
