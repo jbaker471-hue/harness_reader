@@ -122,3 +122,14 @@ vm.runInContext(block('function bomObj(', 'function asRequired('),bomImport);
 const imported=bomImport.bomObj({item:'1',part:'EXAMPLE-101',partReference:'LOCAL-501',qty:'2'});
 equal(imported.part,'EXAMPLE-101');equal(imported.partReference,'LOCAL-501');equal(imported.notes,'Secondary part reference: LOCAL-501');
 console.log('PASS: secondary BOM part references remain separate and visible in notes');
+
+const reviewed={};vm.createContext(reviewed);
+vm.runInContext(block('function reviewedDrawingLabor(', 'function laborUseDrawing(')+block('function preparationRows(', 'function laborTotalReference('),reviewed);
+const state={sourceMatched:true,raw:{},connectors:[{verified:true},{verified:true}],nets:[{reviewed:true,endpoints:'P8:A, J9:a'}]};
+equal(reviewed.reviewedDrawingLabor(state),{conductors:1,connectors:2});
+for(const bad of [{...state,sourceMatched:false},{...state,nets:[{reviewed:false}]},{...state,nets:[...state.nets,...state.nets]},{...state,nets:[{reviewed:true,endpoints:'P8:A, @UNRESOLVED'}]}]){
+ let rejected=false;try{reviewed.reviewedDrawingLabor(bad)}catch{rejected=true}if(!rejected)throw Error('Unsafe automatic drawing counts');
+}
+equal(reviewed.preparationRows({connectors:[{tag:'P8',unusedComplete:false,unused:['A'],kit:[]} ]})[0].cavities,'HELD');
+equal(reviewed.preparationRows({connectors:[{tag:'P8',unusedComplete:true,unused:['A','a'],issues:[],kit:[]} ]})[0].cavities,'A, a');
+console.log('PASS: reviewed drawing count transfer and preparation holds');
