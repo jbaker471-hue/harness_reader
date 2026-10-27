@@ -224,8 +224,8 @@ async function laborImport(file){
  if(file.size>2000000)throw Error('Reference file too large.');
  const d=JSON.parse(await file.text());if(![1,2].includes(d.version)||!Array.isArray(d.references)||d.references.length>1000)throw Error('Invalid reference file.');
  for(const r of d.references){if(r?.mode==='total'){laborTotalReference(r);continue;}if(r?.mode!==undefined)throw Error('Unknown reference type.');if(!r||typeof r.name!=='string'||!r.counts||!r.rates)throw Error('Invalid reference record.');laborEstimate({counts:r.counts,rates:r.rates,qty:r.qty,setup:r.setup},[r]);}
- laborRefs=d.references;laborList();$('laborOutput').textContent='Reference file loaded locally.';
- }catch(e){$('laborOutput').textContent='Import failed: '+e.message;}
+ laborRefs=d.references;laborList();$('laborTotalOutput').textContent='Reference file loaded locally.';
+ }catch(e){$('laborTotalOutput').textContent='Import failed: '+e.message;}
 }
 
 async function runBuildPlan(){
