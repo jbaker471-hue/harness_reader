@@ -771,6 +771,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "NO_NATIVE_TEXT", Message: "No machine-readable text extracted (scanned page, or lettering drawn as graphics). Use page review."})
 	}
 	a.Findings = append(a.Findings, flexibleWarnings(d, a)...)
+	a.Findings = append(a.Findings, drawingReferenceFindings(d, a.BOM)...)
 
 	for _, c := range a.Connectors {
 		nums := map[int]int{}
