@@ -87,9 +87,9 @@ console.log('PASS: total-hours guesses without operation rates, per-unit/batch n
  console.log('PASS: mixed reference import, legacy compatibility, atomic rejection and removal');
 })().catch(e=>{console.error(e);process.exitCode=1});
 
-const featureA={conductors:10,connectors:2,branches:1,sheathingFeet:0,overbraidFeet:0,floatingShields:2,terminatedShields:2,labels:4,backshells:2};
+const featureA={conductors:10,connectors:2,branches:1,sheathingFeet:0,overbraidFeet:0,floatingShields:2,terminatedShields:2,labels:4,backshells:2,blankPins:12,sealingPlugs:12};
 const featureB={...featureA,conductors:20,sheathingFeet:6,overbraidFeet:4,terminatedShields:6,labels:8};
-const refs=[{...ref,features:featureA,featuresReviewed:true},{...ref,name:'Invented second',estimated:13,features:featureB,featuresReviewed:true}];
+const refs=[{...ref,features:featureA,featuresReviewed:true,fillerTimeBasis:'included'},{...ref,name:'Invented second',estimated:13,features:featureB,featuresReviewed:true,fillerTimeBasis:'included'}];
 let match=totals.laborFeatureEstimate(featureA,true,2,true,refs);
 equal(match.hours,14);equal(match.matches.length,1);
 const midway={};for(const k of Object.keys(featureA))midway[k]=(featureA[k]+featureB[k])/2;
@@ -101,3 +101,18 @@ for(const [f,reviewed,scope,pool] of [[{...featureA,labels:null},true,true,refs]
  let rejected=false;try{totals.laborFeatureEstimate(f,reviewed,1,scope,pool)}catch{rejected=true}if(!rejected)throw Error('Unsupported construction estimate accepted');
 }
 console.log('PASS: construction matching, shield/material/label features, unknown-vs-zero, evidence requirements and extrapolation holds');
+
+equal(totals.laborFillerHours({blankPins:1,sealingPlugs:1}),1/60);
+if(Math.abs(totals.laborFeatureEstimate(featureA,true,3,true,refs).fillerHours-.6)>1e-8)throw Error('Filler quantity multiplier failed');
+const excluded={...refs[0],estimated:7,fillerTimeBasis:'excluded'};
+if(Math.abs(totals.laborTotalReference(excluded).unit-7.2)>1e-8)throw Error('Excluded filler allowance not added');
+equal(totals.laborTotalReference(refs[0]).unit,7);
+if(Math.abs(totals.laborFeatureEstimate(featureA,true,1,true,[excluded]).hours-7.2)>1e-8)throw Error('Filler allowance counted twice');
+const includedBatch={...refs[0],hoursBasis:'batch',qty:2,estimated:14};
+equal(totals.laborTotalReference(includedBatch).unit,7);
+let fillerRejected=false;try{totals.laborTotalReference({...refs[0],estimated:.1})}catch{fillerRejected=true}if(!fillerRejected)throw Error('Negative residual work accepted');
+console.log('PASS: 30 seconds per blank pin and sealing plug, included/excluded totals, batch normalization and no double counting');
+
+const moreFillers={...featureA,blankPins:60,sealingPlugs:60};
+if(Math.abs(totals.laborFeatureEstimate(moreFillers,true,2,true,[refs[0]]).hours-15.6)>1e-8)throw Error('Known filler rate must apply independently of comparable construction range');
+console.log('PASS: independently specified filler rate applies to target quantities outside reference filler counts');
