@@ -41,6 +41,7 @@ type WireRow struct {
 	Corroboration int    `json:"corroboration,omitempty"`
 }
 type BOMRow struct {
+	PartReference string `json:"partReference,omitempty"`
 	Item        string `json:"item"`
 	Qty         string `json:"qty"`
 	Part        string `json:"part"`
