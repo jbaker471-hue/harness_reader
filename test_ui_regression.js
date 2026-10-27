@@ -66,3 +66,23 @@ for(const [q,confirmed] of [[0,true],[1.5,true],[2,false]]){
  let rejected=false;try{totals.laborTotalEstimate(ref,q,confirmed)}catch{rejected=true}if(!rejected)throw Error('Invalid target accepted');
 }
 console.log('PASS: total-hours guesses without operation rates, per-unit/batch normalization, actual precedence and comparison confirmation');
+
+(async()=>{
+ const nodes={};
+ function node(){return {value:'',checked:false,textContent:'',children:[],appendChild(x){this.children.push(x)}}}
+ const ctx={$:id=>nodes[id]||(nodes[id]=node()),document:{createElement:node}};
+ vm.createContext(ctx);vm.runInContext(block('const laborOps=','async function runBuildPlan('),ctx);
+ const data={version:2,references:[ref,{name:'Invented operations',counts,rates,qty:2,setup:1,estimated:9,actual:null}]};
+ await ctx.laborImport({size:100,text:async()=>JSON.stringify(data)});
+ equal(vm.runInContext('laborRefs.length',ctx),2);
+ equal(vm.runInContext('laborTotalReference(laborRefs[0]).unit',ctx),7);
+ equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
+ await ctx.laborImport({size:100,text:async()=>JSON.stringify({version:2,references:[{...ref,estimated:-1}]})});
+ equal(vm.runInContext('laborRefs.length',ctx),2);
+ if(!nodes.laborTotalOutput.textContent.startsWith('Import failed:'))throw Error('Import failure not visible');
+ ctx.laborRemoveReference(0);equal(vm.runInContext('laborRefs.length',ctx),1);
+ await ctx.laborImport({size:100,text:async()=>JSON.stringify({version:1,references:[data.references[1]]})});
+ equal(vm.runInContext('laborRefs.length',ctx),1);
+ equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
+ console.log('PASS: mixed reference import, legacy compatibility, atomic rejection and removal');
+})().catch(e=>{console.error(e);process.exitCode=1});
