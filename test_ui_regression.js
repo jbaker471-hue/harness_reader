@@ -102,17 +102,17 @@ for(const [f,reviewed,scope,pool] of [[{...featureA,labels:null},true,true,refs]
 }
 console.log('PASS: construction matching, shield/material/label features, unknown-vs-zero, evidence requirements and extrapolation holds');
 
-equal(totals.laborFillerHours({blankPins:1,sealingPlugs:1}),1/60);
-if(Math.abs(totals.laborFeatureEstimate(featureA,true,3,true,refs).fillerHours-.6)>1e-8)throw Error('Filler quantity multiplier failed');
+equal(totals.laborFillerHours({blankPins:1,sealingPlugs:1}),1/120);
+if(Math.abs(totals.laborFeatureEstimate(featureA,true,3,true,refs).fillerHours-.3)>1e-8)throw Error('Filler quantity multiplier failed');
 const excluded={...refs[0],estimated:7,fillerTimeBasis:'excluded'};
-if(Math.abs(totals.laborTotalReference(excluded).unit-7.2)>1e-8)throw Error('Excluded filler allowance not added');
+if(Math.abs(totals.laborTotalReference(excluded).unit-7.1)>1e-8)throw Error('Excluded filler allowance not added');
 equal(totals.laborTotalReference(refs[0]).unit,7);
-if(Math.abs(totals.laborFeatureEstimate(featureA,true,1,true,[excluded]).hours-7.2)>1e-8)throw Error('Filler allowance counted twice');
+if(Math.abs(totals.laborFeatureEstimate(featureA,true,1,true,[excluded]).hours-7.1)>1e-8)throw Error('Filler allowance counted twice');
 const includedBatch={...refs[0],hoursBasis:'batch',qty:2,estimated:14};
 equal(totals.laborTotalReference(includedBatch).unit,7);
-let fillerRejected=false;try{totals.laborTotalReference({...refs[0],estimated:.1})}catch{fillerRejected=true}if(!fillerRejected)throw Error('Negative residual work accepted');
-console.log('PASS: 30 seconds per blank pin and sealing plug, included/excluded totals, batch normalization and no double counting');
+let fillerRejected=false;try{totals.laborTotalReference({...refs[0],estimated:.05})}catch{fillerRejected=true}if(!fillerRejected)throw Error('Negative residual work accepted');
+console.log('PASS: 15 seconds per blank pin and sealing plug, included/excluded totals, batch normalization and no double counting');
 
 const moreFillers={...featureA,blankPins:60,sealingPlugs:60};
-if(Math.abs(totals.laborFeatureEstimate(moreFillers,true,2,true,[refs[0]]).hours-15.6)>1e-8)throw Error('Known filler rate must apply independently of comparable construction range');
+if(Math.abs(totals.laborFeatureEstimate(moreFillers,true,2,true,[refs[0]]).hours-14.8)>1e-8)throw Error('Known filler rate must apply independently of comparable construction range');
 console.log('PASS: independently specified filler rate applies to target quantities outside reference filler counts');
