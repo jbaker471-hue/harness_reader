@@ -30,6 +30,7 @@ var calloutQuantity = regexp.MustCompile(`(?i)^([1-9][0-9]{0,3})\s*[x×]$`)
 
 func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 	out := []GraphicCallout{}
+	polygons := map[int][]CalloutPolygon{}
 	if x.Legacy {
 		return out
 	}
@@ -77,7 +78,8 @@ func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 				add(Box{c.CX - c.R, c.CY - c.R, c.CX + c.R, c.CY + c.R}, "circle")
 			}
 		}
-		for _, g := range append(p.Polygons, fragmentedFlags(p)...) {
+		polygons[p.Page] = append(p.Polygons, fragmentedFlags(p)...)
+		for _, g := range polygons[p.Page] {
 			if convexCallout(g.Points) {
 				shape := "triangle"
 				if len(g.Points) == 6 {
@@ -191,6 +193,7 @@ func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 	}
 	for i := range out {
 		page := x.Layouts[out[i].Page-1]
+		page.Polygons = polygons[page.Page]
 		segments := []Segment{}
 		for _, seg := range page.LeaderSegments {
 			outline := false
@@ -223,7 +226,7 @@ func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 				for k := range group {
 					b := out[k].Box
 					gap := math.Max(c.Box.X0-b.X1, b.X0-c.Box.X1)
-					if gap >= -.5 && gap <= 1 && math.Abs(c.Box.CY()-b.CY()) < math.Min(c.Box.H(), b.H())*.25 {
+					if gap >= -.5 && gap <= 1.5 && math.Abs(c.Box.CY()-b.CY()) < math.Min(c.Box.H(), b.H())*.25 {
 						group[j] = true
 						changed = true
 						break
@@ -398,11 +401,42 @@ func calloutLeaders(p PageLayout, b Box, shape ...string) ([][2]float64, string)
 			segs = append(segs, Segment{a[0], a[1], z[0], z[1]})
 		}
 	}
+	outline := [][2]float64{}
+	for _, g := range p.Polygons {
+		if math.Abs(g.Box.X0-b.X0) < .1 && math.Abs(g.Box.Y0-b.Y0) < .1 && math.Abs(g.Box.X1-b.X1) < .1 && math.Abs(g.Box.Y1-b.Y1) < .1 {
+			outline = g.Points
+			break
+		}
+	}
+
+	inside := func(q [2]float64) bool {
+		if len(shape) > 0 {
+			if shape[0] == "circle" {
+				return math.Hypot(q[0]-b.CX(), q[1]-b.CY()) < b.W()/2-tol
+			}
+			if len(outline) > 0 {
+				return pointInFlag(outline, q[0], q[1])
+			}
+		}
+		return b.Contains(q[0], q[1])
+	}
 	border := func(a [2]float64) bool {
 		if len(shape) > 0 && shape[0] == "circle" {
 			return math.Abs(math.Hypot(a[0]-b.CX(), a[1]-b.CY())-b.W()/2) <= tol
 		}
 
+		if len(outline) > 0 {
+			for i, u := range outline {
+				v := outline[(i+1)%len(outline)]
+				dx, dy := v[0]-u[0], v[1]-u[1]
+				t := ((a[0]-u[0])*dx + (a[1]-u[1])*dy) / (dx*dx + dy*dy)
+				t = math.Max(0, math.Min(1, t))
+				if math.Hypot(a[0]-u[0]-t*dx, a[1]-u[1]-t*dy) <= tol {
+					return true
+				}
+			}
+			return false
+		}
 		dx := math.Max(b.X0-a[0], math.Max(0, a[0]-b.X1))
 		dy := math.Max(b.Y0-a[1], math.Max(0, a[1]-b.Y1))
 		inside := a[0] > b.X0+tol && a[0] < b.X1-tol && a[1] > b.Y0+tol && a[1] < b.Y1-tol
@@ -418,7 +452,7 @@ func calloutLeaders(p PageLayout, b Box, shape ...string) ([][2]float64, string)
 		if border(z) {
 			a, z = z, a
 		}
-		if b.Contains(z[0], z[1]) && !(len(shape) > 0 && shape[0] == "circle" && math.Hypot(z[0]-b.CX(), z[1]-b.CY()) > b.W()/2) {
+		if inside(z) {
 			continue
 		}
 		used := map[int]bool{i: true}
