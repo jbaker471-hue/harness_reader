@@ -86,3 +86,11 @@ func TestFlagDefinitionReconciliation(t *testing.T) {
 		t.Fatalf("%+v", cs)
 	}
 }
+
+func TestLeaderStartsOnActualSlopingFlagEdge(t *testing.T) {
+	p := PageLayout{Polygons: []CalloutPolygon{{Points: [][2]float64{{10, 10}, {20, 10}, {25, 20}, {20, 30}, {10, 30}, {5, 20}}, Box: Box{5, 10, 25, 30}}}, LeaderSegments: []Segment{{7.5, 15, -10, 0}}}
+	targets, status := calloutLeaders(p, Box{5, 10, 25, 30}, "hexagon")
+	if len(targets) != 1 || targets[0] != [2]float64{-10, 0} || strings.Contains(status, "HELD") {
+		t.Fatalf("%v %s", targets, status)
+	}
+}
