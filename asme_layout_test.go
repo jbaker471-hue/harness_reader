@@ -143,4 +143,8 @@ func TestBottomUpManufacturerAndSecondaryPartColumns(t *testing.T) {
  if len(a.BOM)!=2 {t.Fatalf("BOM %+v",a.BOM)}
  found:=map[string]BOMRow{};for _,r:=range a.BOM {found[r.Item]=r}
  if found["1"].Part!="EXAMPLE-101"||found["1"].PartReference!="LOCAL-501"||found["2"].Part!="EXAMPLE-202"||found["2"].PartReference!="LOCAL-602" {t.Fatalf("part columns merged or lost: %+v",a.BOM)}
+ v,err:=viewAnalysis(onePagePDF(c,"[0 0 800 600]"));if err!=nil {t.Fatal(err)}
+ if len(v.Boms)!=2 {t.Fatalf("API BOM %+v",v.Boms)}
+ for _,r:=range v.Boms {if r.PartReference=="" {t.Fatalf("API dropped secondary part: %+v",r)}}
+
 }
