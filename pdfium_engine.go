@@ -23,13 +23,13 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"errors"
-	"os"
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -229,40 +229,48 @@ type Circle struct {
 	Mark string `json:"mark,omitempty"`
 }
 
+type CalloutPolygon struct {
+	Points [][2]float64 `json:"points"`
+	Box    Box          `json:"box"`
+}
+
 type Segment [4]float64 // x0,y0,x1,y1 display space
 
 type TextStats struct {
-	Chars             int            `json:"chars"`
-	Decoded           int            `json:"decoded"`
-	UnicodeMapErrors  int            `json:"unicodeMapErrors"`
-	Unmapped          int            `json:"unmapped"`
-	PrivateUse        int            `json:"privateUse"`
-	DirectionShare    map[string]int `json:"directionShare"` // "0","90","180","270","other" -> chars
-	Fonts             int            `json:"fonts"`
-	DecodedRatio      float64        `json:"decodedRatio"`
-	AnalysisRotation  int            `json:"analysisRotation"` // degrees applied to make dominant text upright for recognizers
-	OutlinedTextLikely bool          `json:"outlinedTextLikely"`
+	Chars              int            `json:"chars"`
+	Decoded            int            `json:"decoded"`
+	UnicodeMapErrors   int            `json:"unicodeMapErrors"`
+	Unmapped           int            `json:"unmapped"`
+	PrivateUse         int            `json:"privateUse"`
+	DirectionShare     map[string]int `json:"directionShare"` // "0","90","180","270","other" -> chars
+	Fonts              int            `json:"fonts"`
+	DecodedRatio       float64        `json:"decodedRatio"`
+	AnalysisRotation   int            `json:"analysisRotation"` // degrees applied to make dominant text upright for recognizers
+	OutlinedTextLikely bool           `json:"outlinedTextLikely"`
 }
 
 type PageLayout struct {
-	Page         int              `json:"page"`
-	Width        float64          `json:"width"`  // display width, points
-	Height       float64          `json:"height"` // display height, points
-	Rotation     int              `json:"rotation"`
-	MediaBox     [4]float64       `json:"mediaBox"`
-	CropBox      [4]float64       `json:"cropBox"`
-	Words        []LayoutWord     `json:"words"`
-	Images       []ImagePlacement `json:"images"`
-	Circles      []Circle         `json:"circles"`
-	Segments     []Segment        `json:"segments"`
-	PathObjects  int              `json:"pathObjects"`
-	PathSegments int              `json:"pathSegments"`
-	FormObjects  int              `json:"formObjects"`
-	TextObjects  int              `json:"textObjects"`
-	VectorDetailTruncated bool    `json:"vectorDetailTruncated"`
-	Text         TextStats        `json:"text"`
-	Notes        []string         `json:"notes"`
-	toDisplay    affine
+	LeaderSegments []Segment        `json:"leaderSegments"`
+	Polygons       []CalloutPolygon `json:"polygons"`
+
+	Page                  int              `json:"page"`
+	Width                 float64          `json:"width"`  // display width, points
+	Height                float64          `json:"height"` // display height, points
+	Rotation              int              `json:"rotation"`
+	MediaBox              [4]float64       `json:"mediaBox"`
+	CropBox               [4]float64       `json:"cropBox"`
+	Words                 []LayoutWord     `json:"words"`
+	Images                []ImagePlacement `json:"images"`
+	Circles               []Circle         `json:"circles"`
+	Segments              []Segment        `json:"segments"`
+	PathObjects           int              `json:"pathObjects"`
+	PathSegments          int              `json:"pathSegments"`
+	FormObjects           int              `json:"formObjects"`
+	TextObjects           int              `json:"textObjects"`
+	VectorDetailTruncated bool             `json:"vectorDetailTruncated"`
+	Text                  TextStats        `json:"text"`
+	Notes                 []string         `json:"notes"`
+	toDisplay             affine
 }
 
 // ---------------------------------------------------------------------------
@@ -408,7 +416,7 @@ type glyph struct {
 	ox, oy     float64 // baseline origin, display space
 	ux, uy     float64 // unit reading direction, display space (y down)
 	em         float64
-	angleIndex int // 0,90,180,270 or -1
+	angleIndex int    // 0,90,180,270 or -1
 	obj        string // identity of the owning text object (one per text-show operation)
 }
 
@@ -543,6 +551,32 @@ func (d *pdfDoc) extractText(page references.FPDF_PAGE, pl *PageLayout) error {
 // order is irrelevant, so glyph-by-glyph exporters and out-of-order CAD text
 // produce the same fragments as a single Tj string would.
 func groupGlyphs(gs []glyph) []LayoutWord {
+	// CAD exporters may paint the same glyph twice (e.g. simulated bold).
+	// Deduplicate only coincident identical geometry, never repeated characters
+	// at distinct positions or differing letters at one position.
+	clean := make([]glyph, 0, len(gs))
+	buckets := map[[3]int][]int{}
+	for _, g := range gs {
+		cx, cy := int(math.Floor(g.ox/.2)), int(math.Floor(g.oy/.2))
+		dup := false
+		for dx := -1; dx <= 1; dx++ {
+			for dy := -1; dy <= 1; dy++ {
+				for _, i := range buckets[[3]int{int(g.r), cx + dx, cy + dy}] {
+					h := clean[i]
+					if math.Abs(h.ox-g.ox) <= .15 && math.Abs(h.oy-g.oy) <= .15 && math.Abs(h.box.W()-g.box.W()) <= .15 && math.Abs(h.box.H()-g.box.H()) <= .15 && h.angleIndex == g.angleIndex {
+						dup = true
+					}
+				}
+			}
+		}
+		if !dup {
+			k := [3]int{int(g.r), cx, cy}
+			buckets[k] = append(buckets[k], len(clean))
+			clean = append(clean, g)
+		}
+	}
+	gs = clean
+
 	type line struct {
 		ux, uy float64
 		base   float64
@@ -791,6 +825,33 @@ func (d *pdfDoc) collectPath(obj references.FPDF_PAGEOBJECT, m affine, pl *PageL
 		x, y := m.apply(float64(p.X), float64(p.Y))
 		pts = append(pts, pt{x, y, t.Type, cl})
 	}
+	var openPath []pt
+	flushOpen := func() {
+		if len(openPath) < 2 {
+			return
+		}
+		for _, q := range openPath {
+			if q.closed || q.kind == enums.FPDF_SEGMENT_BEZIERTO {
+				return
+			}
+		}
+		a, z := openPath[0], openPath[len(openPath)-1]
+		if math.Hypot(a.x-z.x, a.y-z.y) < .1 {
+			return
+		}
+		for i := 1; i < len(openPath); i++ {
+			a, b := openPath[i-1], openPath[i]
+			pl.LeaderSegments = append(pl.LeaderSegments, Segment{r2(a.x), r2(a.y), r2(b.x), r2(b.y)})
+		}
+	}
+	for _, q := range pts {
+		if q.kind == enums.FPDF_SEGMENT_MOVETO {
+			flushOpen()
+			openPath = nil
+		}
+		openPath = append(openPath, q)
+	}
+	flushOpen()
 	// Line segments for overlay (bezier control points are approximated by chords).
 	var prev *pt
 	var start *pt
@@ -820,6 +881,25 @@ func (d *pdfDoc) collectPath(obj references.FPDF_PAGEOBJECT, m affine, pl *PageL
 			a, z := pts[0], pts[len(pts)-1]
 			if math.Abs(a.x-z.x) < 0.01 && math.Abs(a.y-z.y) < 0.01 {
 				pts = pts[:len(pts)-1] // closing point duplicates the start
+			}
+		}
+
+		// Preserve closed straight-sided flag-note outlines separately from circles.
+		if len(pts) == 3 || len(pts) == 6 {
+			closed := len(sub) > 0 && sub[len(sub)-1].closed
+			if len(sub) > len(pts) {
+				closed = true
+			}
+			linear := true
+			points := [][2]float64{}
+			for _, q := range pts {
+				if q.kind == enums.FPDF_SEGMENT_BEZIERTO {
+					linear = false
+				}
+				points = append(points, [2]float64{r2(q.x), r2(q.y)})
+			}
+			if closed && linear {
+				pl.Polygons = append(pl.Polygons, CalloutPolygon{Points: points, Box: boxOfPoints(points...)})
 			}
 		}
 		if len(pts) < 4 {

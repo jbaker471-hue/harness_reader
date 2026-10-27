@@ -42,14 +42,14 @@ type WireRow struct {
 }
 type BOMRow struct {
 	PartReference string `json:"partReference,omitempty"`
-	Item        string `json:"item"`
-	Qty         string `json:"qty"`
-	Part        string `json:"part"`
-	Vendor      string `json:"vendor"`
-	Description string `json:"description"`
-	Reference   string `json:"reference"`
-	Page        int    `json:"page"`
-	Status      string `json:"status"`
+	Item          string `json:"item"`
+	Qty           string `json:"qty"`
+	Part          string `json:"part"`
+	Vendor        string `json:"vendor"`
+	Description   string `json:"description"`
+	Reference     string `json:"reference"`
+	Page          int    `json:"page"`
+	Status        string `json:"status"`
 }
 type Finding struct {
 	Severity string `json:"severity"`
@@ -130,6 +130,7 @@ func matchingText(words []Word, xmin, xmax, y, dy float64) string {
 	}
 	return strings.TrimSpace(strings.Join(ss, " "))
 }
+
 // reLayoutCode decodes shell size letter + insert arrangement of a MIL-DTL-38999
 // Series III/IV part. Contact code: P/S standard, H/J 1500-cycle, A/B less contacts.
 var reLayoutCode = regexp.MustCompile(`D38999/\d{2}[A-Z]([A-HJ])([0-9]{2})[PSHJAB]`)
@@ -289,7 +290,7 @@ func bomRows(p Page) []BOMRow {
 		if pn == "" {
 			status = "INCOMPLETE PART NUMBER — HOLD"
 		}
-		rows = append(rows, BOMRow{Item:item, Qty:qty, Part:pn, Vendor:vendor, Description:strings.Join(d, " "), Reference:ref, Page:p.Number, Status:status})
+		rows = append(rows, BOMRow{Item: item, Qty: qty, Part: pn, Vendor: vendor, Description: strings.Join(d, " "), Reference: ref, Page: p.Number, Status: status})
 	}
 	return rows
 }
@@ -400,12 +401,27 @@ func wireRows(p Page) []WireRow {
 		if branch == "" {
 			branch = "UNRESOLVED ENDPOINT"
 		}
+		if otherId == "" && branch != "UNRESOLVED ENDPOINT" {
+			named := []string{}
+			for _, v := range p.Words {
+				if v.X > p.Width*.72 && v.X < p.Width*.81 && nearY(v, w.Y, 4.8) && regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_+/-]{0,15}$`).MatchString(v.Text) {
+					named = append(named, v.Text)
+				}
+			}
+			if len(named) == 1 {
+				otherId = named[0]
+			}
+		}
 		// Signal and other contact can be user-verified in UI.
 		conf := "CANDIDATE: BOTH ENDPOINTS"
 		if otherId == "" {
-			conf = "CANDIDATE: END CONTACT NOT NUMERIC"
+			conf = "CANDIDATE: END CONTACT UNRESOLVED"
 		}
-		out = append(out, WireRow{Page: p.Number, Connector: tag, Cavity: id, Signal: sig, End: branch, EndCavity: otherId, EndSignal: right, Confidence: conf, Y: w.Y, Method: "legacy-template"})
+		color := ""
+		if m := regexp.MustCompile(`\(([^()]*)\)\s*$`).FindStringSubmatch(right); m != nil {
+			color = schematicColor(m[1])
+		}
+		out = append(out, WireRow{Page: p.Number, Connector: tag, Cavity: id, Signal: sig, End: branch, EndCavity: otherId, EndSignal: right, Confidence: conf, Y: w.Y, Method: "legacy-template", Color: color})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Y > out[j].Y })
 	return out
@@ -522,7 +538,11 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			// Keep only the strict paired-endpoint schematic recognizer on mixed
 			// pages. Legacy positional guesses can mistake BOM quantities for pins.
 			kept := w[:0]
-			for _, r := range w {if r.Method == "paired-schematic" {kept = append(kept, r)}}
+			for _, r := range w {
+				if r.Method == "paired-schematic" {
+					kept = append(kept, r)
+				}
+			}
 			w = kept
 		}
 		// Header-grounded pinout/wire-list tables are distinct from BOM
@@ -774,65 +794,24 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	a.Findings = append(a.Findings, drawingReferenceFindings(d, a.BOM)...)
 
 	for _, c := range a.Connectors {
-		nums := map[int]int{}
-		issues := []int{}
+		occupied := map[string]bool{}
 		for _, w := range a.Wires {
-			if w.Connector != c.Tag {
-				continue
+			if w.Connector == c.Tag && w.Cavity != "" {
+				occupied[w.Cavity] = true
 			}
-			i, e := strconv.Atoi(w.Cavity)
-			if e != nil {
-				continue
-			}
-			nums[i]++
-			if c.CavityCount > 0 && i > c.CavityCount {
-				issues = append(issues, w.Page)
+			if w.End == c.Tag && w.EndCavity != "" {
+				occupied[w.EndCavity] = true
 			}
 		}
-		occupied := []string{}
-		unused := []string{}
-		for i := range nums {
-			occupied = append(occupied, strconv.Itoa(i))
+		ids := []string{}
+		for id := range occupied {
+			ids = append(ids, id)
 		}
-		sort.Slice(occupied, func(i, j int) bool {
-			x, _ := strconv.Atoi(occupied[i])
-			y, _ := strconv.Atoi(occupied[j])
-			return x < y
-		})
-		state := "DRAFT — VERIFY SOURCE"
-		if c.CavityCount > 0 {
-			for i := 1; i <= c.CavityCount; i++ {
-				if nums[i] == 0 {
-					unused = append(unused, strconv.Itoa(i))
-				}
-			}
-		} else {
-			state = "BLOCKED — UNKNOWN INSERT LAYOUT"
-		}
-		if len(issues) > 0 {
-			ids := []string{}
-			for i := range nums {
-				if i > c.CavityCount {
-					ids = append(ids, strconv.Itoa(i))
-				}
-			}
-			sortCavities(ids)
-			a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "CAVITY_OUT_OF_RANGE", Message: fmt.Sprintf("%s (%s) is a %d-position insert but drawing assigns cavity numbers %s", c.Tag, c.Part, c.CavityCount, strings.Join(ids, ", ")), Pages: uniqInts(issues)})
-			state = "BLOCKED — DRAWING CONFLICT"
-		}
-		dup := []string{}
-		for i, n := range nums {
-			if n > 1 {
-				dup = append(dup, strconv.Itoa(i))
-			}
-		}
-		if len(dup) > 0 {
-			sortCavities(dup)
-			a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "DUPLICATE_CAVITY", Message: fmt.Sprintf("%s cavity IDs assigned more than once with DIFFERENT destinations: %s", c.Tag, strings.Join(dup, ", "))})
-			state = "BLOCKED — DUPLICATES"
-		}
-		a.Audits = append(a.Audits, ConnectorAudit{c.Tag, c.CavityCount, occupied, unused, state})
+		sortCavities(ids)
+		// Catalog capacity is not a cavity-ID inventory or evidence of full coverage.
+		a.Audits = append(a.Audits, ConnectorAudit{c.Tag, c.CavityCount, ids, []string{}, "BLOCKED — VERIFIED INVENTORY AND COVERAGE REQUIRED"})
 	}
+
 	// Even with a complete-looking list, the app cannot establish missing pages automatically.
 	a.Findings = append(a.Findings, Finding{Severity: "REVIEW", Code: "INDEPENDENT_SOURCE_CHECK", Message: "Cavity counts and netlist are candidates; verify every relevant sheet and contact against the actual PDF before production use."})
 	a.ToolingMatches = toolMatches(d)

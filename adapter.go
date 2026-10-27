@@ -34,21 +34,21 @@ type ViewCandidate struct {
 }
 type ViewBOM struct {
 	PartReference string `json:"partReference,omitempty"`
-	Item        string `json:"item"`
-	Qty         string `json:"qty"`
-	Part        string `json:"part"`
-	Description string `json:"description"`
-	Vendor      string `json:"vendor"`
-	Reference   string `json:"reference"`
-	Page        int    `json:"Page"`
+	Item          string `json:"item"`
+	Qty           string `json:"qty"`
+	Part          string `json:"part"`
+	Description   string `json:"description"`
+	Vendor        string `json:"vendor"`
+	Reference     string `json:"reference"`
+	Page          int    `json:"Page"`
 }
 type ViewIssue struct {
 	Severity  string
 	Category  string
 	Code      string
 	Message   string
-	Connector string   `json:",omitempty"`
-	Part      string   `json:",omitempty"`
+	Connector string `json:",omitempty"`
+	Part      string `json:",omitempty"`
 	Pages     []int
 	Cavities  []string
 	Expected  string `json:",omitempty"`
@@ -67,6 +67,8 @@ type PageInfo struct {
 }
 
 type ViewAnalysis struct {
+	Callouts []GraphicCallout `json:"graphicalCallouts"`
+
 	AppVersion     string             `json:"appVersion"`
 	Engine         string             `json:"engine"`
 	EngineError    string             `json:"engineError,omitempty"`
@@ -127,6 +129,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	if v.InsertViews == nil {
 		v.InsertViews = []InsertDiagram{}
 	}
+	v.Callouts = graphicalCallouts(x, a.BOM)
 	v.Diagnostics = pageDiagnostics(x, &a, diagrams)
 	v.CavityModels = buildCavityModels(&a, diagrams)
 	v.Unused = a.Unused
@@ -201,7 +204,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	sort.Strings(v.Branches)
 	for _, bom := range a.BOM {
-		v.Boms = append(v.Boms, ViewBOM{Item:bom.Item, Qty:bom.Qty, Part:bom.Part, Description:bom.Description, Vendor:bom.Vendor, Reference:bom.Reference, Page:bom.Page, PartReference:bom.PartReference})
+		v.Boms = append(v.Boms, ViewBOM{Item: bom.Item, Qty: bom.Qty, Part: bom.Part, Description: bom.Description, Vendor: bom.Vendor, Reference: bom.Reference, Page: bom.Page, PartReference: bom.PartReference})
 	}
 	for _, f := range a.Findings {
 		x := ViewIssue{Severity: f.Severity, Category: f.Category, Code: f.Code, Message: f.Message, Pages: f.Pages, Action: "Review original source sheet and obtain approved engineering resolution before production release.", Cavities: []string{}}
@@ -328,6 +331,7 @@ func uniqueStrings(ss []string) []string {
 	}
 	return o
 }
+
 // libraryCSV returns a schema-validated reference library. A schema error is
 // returned to the caller (and shown in the UI) instead of skipping rows.
 func libraryCSV(name string) ([][]string, error) { return readLibrary(name) }
