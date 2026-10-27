@@ -133,3 +133,14 @@ func TestContactSexFromKeyedPartNumber(t *testing.T) {
 		t.Fatalf("contact sex %v (D38999/26FJ35SN is socket, /26FA35PN is pin)", sex)
 	}
 }
+
+func TestBottomUpManufacturerAndSecondaryPartColumns(t *testing.T) {
+ text:=func(x,y int,s string)string{return fmt.Sprintf("BT /F1 7 Tf 1 0 0 1 %d %d Tm (%s) Tj ET\n",x,y,s)}
+ c:=text(50,250,"ITEM")+text(100,250,"QTY")+text(170,250,"DESCRIPTION")+text(370,250,"MANUFACTURE P/N")+text(570,250,"EXAMPLECO P/N")
+ c+=text(50,270,"1")+text(100,270,"2")+text(170,270,"CONNECTOR")+text(370,270,"EXAMPLE-101")+text(570,270,"LOCAL-501")
+ c+=text(50,290,"2")+text(100,290,"4")+text(170,290,"LABEL")+text(370,290,"EXAMPLE-202")+text(570,290,"LOCAL-602")
+ a,err:=AnalyzeDocument(onePagePDF(c,"[0 0 800 600]"));if err!=nil {t.Fatal(err)}
+ if len(a.BOM)!=2 {t.Fatalf("BOM %+v",a.BOM)}
+ found:=map[string]BOMRow{};for _,r:=range a.BOM {found[r.Item]=r}
+ if found["1"].Part!="EXAMPLE-101"||found["1"].PartReference!="LOCAL-501"||found["2"].Part!="EXAMPLE-202"||found["2"].PartReference!="LOCAL-602" {t.Fatalf("part columns merged or lost: %+v",a.BOM)}
+}
