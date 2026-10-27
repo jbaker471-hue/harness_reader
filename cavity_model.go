@@ -121,15 +121,16 @@ func explicitUnusedFromNotes(d PDFData) []UnusedCavity {
 }
 
 // splitUnusedRows moves rows that document a not-connected cavity (SPARE,
-// N/C, NOT USED, "-") out of the conductor list and into explicit unused.
+// N/C, NOT USED) out of the conductor list only without physical-wire evidence.
 func splitUnusedRows(rows []WireRow) ([]WireRow, []UnusedCavity) {
 	keep := []WireRow{}
 	unused := []UnusedCavity{}
 	nc := func(s string) bool { return reNotConnected.MatchString(strings.TrimSpace(s)) }
 	for _, r := range rows {
 		noEnd := r.End == "UNRESOLVED ENDPOINT" && nc(r.EndSignal) && r.EndCavity == ""
-		marked := reSpareSignal.MatchString(strings.TrimSpace(r.Signal))
-		if noEnd && (marked || nc(r.Wire)) && r.Connector != "UNASSIGNED" {
+		marked := explicitNotConnected(r.Signal) || (nc(r.Signal) && explicitNotConnected(r.EndSignal))
+		noWire := nc(r.Wire) && nc(r.Color) && nc(r.AWG)
+		if noEnd && marked && noWire && r.Connector != "" && r.Connector != "UNASSIGNED" {
 			unused = append(unused, UnusedCavity{Connector: r.Connector, Cavity: r.Cavity, Page: r.Page, Source: "row marked " + strings.TrimSpace(firstNonEmpty(r.Signal, "not connected")) + " on sheet " + strconv.Itoa(r.Page)})
 			continue
 		}

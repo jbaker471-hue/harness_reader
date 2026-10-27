@@ -73,3 +73,31 @@ func TestParseCavityList(t *testing.T) {
 		t.Fatalf("got %s", got)
 	}
 }
+
+func TestMissingRecognitionDoesNotDeclareUnused(t *testing.T) {
+ cases := []struct {
+  name string
+  signal, wire, color, awg, end, pin string
+  unused bool
+ }{
+  {"missing fields", "", "", "", "", "", "", false},
+  {"signal without wire ID", "CONTROL", "", "", "", "", "", false},
+  {"wired spare", "SPARE", "WIRE-EXAMPLE", "", "", "", "", false},
+  {"colored spare", "SPARE", "", "BLU", "", "", "", false},
+  {"gauged spare", "SPARE", "", "", "24", "", "", false},
+  {"spare with destination", "SPARE", "", "", "", "J9", "2", false},
+  {"explicit spare", "SPARE", "-", "", "", "-", "", true},
+  {"explicit unused destination", "", "", "", "", "N/C", "", true},
+  {"unknown dash destination", "", "", "", "", "-", "", false},
+  {"signal contradicts destination", "CONTROL", "", "", "", "N/C", "", false},
+ }
+ for _, tc := range cases {t.Run(tc.name, func(t *testing.T) {
+  row := map[string]string{"signal":tc.signal,"wire":tc.wire,"color":tc.color,"awg":tc.awg,"to":tc.end,"topin":tc.pin}
+  if got:=notConnectedRow(row); got!=tc.unused {t.Fatalf("table unused=%v want %v",got,tc.unused)}
+  end, endSignal := "UNRESOLVED ENDPOINT",tc.end
+  if tc.end=="J9" {end,endSignal=tc.end,""}
+  rows, unused:=splitUnusedRows([]WireRow{{Connector:"P8",Cavity:"a",Signal:tc.signal,Wire:tc.wire,Color:tc.color,AWG:tc.awg,End:end,EndSignal:endSignal,EndCavity:tc.pin}})
+  if (len(unused)==1)!=tc.unused {t.Fatalf("fallback unused=%+v want %v",unused,tc.unused)}
+  if len(rows)+len(unused)!=1 {t.Fatal("row lost or duplicated")}
+ })}
+}

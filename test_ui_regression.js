@@ -51,3 +51,68 @@ for(const bad of [{...target,qty:0},{...target,setup:-1},{...target,counts:{...c
  let rejected=false;try{labor.laborEstimate(bad,[])}catch{rejected=true}if(!rejected)throw Error('invalid labor input accepted');
 }
 console.log('PASS: labor setup/quantity arithmetic, actual-vs-estimate precedence and invalid-input rejection');
+
+const totals={};vm.createContext(totals);
+vm.runInContext(block('const laborFeatures=', 'function laborTotalAdd('),totals);
+const ref={mode:'total',name:'Invented assembly',scope:'Assembly and test',hoursBasis:'unit',qty:1,estimated:7,actual:null};
+equal(totals.laborTotalEstimate(ref,3,true).hours,21);
+equal(totals.laborTotalEstimate({...ref,hoursBasis:'batch',qty:4,estimated:28},2,true).hours,14);
+equal(totals.laborTotalEstimate({...ref,actual:8},2,true).hours,16);
+equal(totals.laborTotalEstimate(ref,1,true).basis,'estimated hours');
+for(const bad of [{...ref,estimated:0},{...ref,estimated:NaN},{...ref,actual:-1},{...ref,qty:0},{...ref,qty:1.5},{...ref,hoursBasis:'unknown'},{...ref,estimated:null}]){
+ let rejected=false;try{totals.laborTotalReference(bad)}catch{rejected=true}if(!rejected)throw Error('Invalid total-hours reference accepted');
+}
+for(const [q,confirmed] of [[0,true],[1.5,true],[2,false]]){
+ let rejected=false;try{totals.laborTotalEstimate(ref,q,confirmed)}catch{rejected=true}if(!rejected)throw Error('Invalid target accepted');
+}
+console.log('PASS: total-hours guesses without operation rates, per-unit/batch normalization, actual precedence and comparison confirmation');
+
+(async()=>{
+ const nodes={};
+ function node(){return {value:'',checked:false,textContent:'',children:[],appendChild(x){this.children.push(x)}}}
+ const ctx={$:id=>nodes[id]||(nodes[id]=node()),document:{createElement:node}};
+ vm.createContext(ctx);vm.runInContext(block('const laborOps=','async function runBuildPlan('),ctx);
+ const data={version:2,references:[ref,{name:'Invented operations',counts,rates,qty:2,setup:1,estimated:9,actual:null}]};
+ await ctx.laborImport({size:100,text:async()=>JSON.stringify(data)});
+ equal(vm.runInContext('laborRefs.length',ctx),2);
+ equal(vm.runInContext('laborTotalReference(laborRefs[0]).unit',ctx),7);
+ equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
+ await ctx.laborImport({size:100,text:async()=>JSON.stringify({version:2,references:[{...ref,estimated:-1}]})});
+ equal(vm.runInContext('laborRefs.length',ctx),2);
+ if(!nodes.laborTotalOutput.textContent.startsWith('Import failed:'))throw Error('Import failure not visible');
+ ctx.laborRemoveReference(0);equal(vm.runInContext('laborRefs.length',ctx),1);
+ await ctx.laborImport({size:100,text:async()=>JSON.stringify({version:1,references:[data.references[1]]})});
+ equal(vm.runInContext('laborRefs.length',ctx),1);
+ equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
+ console.log('PASS: mixed reference import, legacy compatibility, atomic rejection and removal');
+})().catch(e=>{console.error(e);process.exitCode=1});
+
+const featureA={conductors:10,connectors:2,branches:1,sheathingFeet:0,overbraidFeet:0,floatingShields:2,terminatedShields:2,labels:4,backshells:2,blankPins:12,sealingPlugs:12};
+const featureB={...featureA,conductors:20,sheathingFeet:6,overbraidFeet:4,terminatedShields:6,labels:8};
+const refs=[{...ref,features:featureA,featuresReviewed:true,fillerTimeBasis:'included'},{...ref,name:'Invented second',estimated:13,features:featureB,featuresReviewed:true,fillerTimeBasis:'included'}];
+let match=totals.laborFeatureEstimate(featureA,true,2,true,refs);
+equal(match.hours,14);equal(match.matches.length,1);
+const midway={};for(const k of Object.keys(featureA))midway[k]=(featureA[k]+featureB[k])/2;
+match=totals.laborFeatureEstimate(midway,true,1,true,refs);
+if(Math.abs(match.hours-10)>1e-8)throw Error('Symmetric feature interpolation failed');
+equal(match.basis,'estimated hours');
+match=totals.laborFeatureEstimate(featureA,true,1,true,[{...refs[0],actual:8}]);equal(match.hours,8);equal(match.basis,'actual hours');
+for(const [f,reviewed,scope,pool] of [[{...featureA,labels:null},true,true,refs],[featureA,false,true,refs],[featureA,true,false,refs],[{...featureA,conductors:30},true,true,refs],[featureA,true,true,[ref]]]){
+ let rejected=false;try{totals.laborFeatureEstimate(f,reviewed,1,scope,pool)}catch{rejected=true}if(!rejected)throw Error('Unsupported construction estimate accepted');
+}
+console.log('PASS: construction matching, shield/material/label features, unknown-vs-zero, evidence requirements and extrapolation holds');
+
+equal(totals.laborFillerHours({blankPins:1,sealingPlugs:1}),1/120);
+if(Math.abs(totals.laborFeatureEstimate(featureA,true,3,true,refs).fillerHours-.3)>1e-8)throw Error('Filler quantity multiplier failed');
+const excluded={...refs[0],estimated:7,fillerTimeBasis:'excluded'};
+if(Math.abs(totals.laborTotalReference(excluded).unit-7.1)>1e-8)throw Error('Excluded filler allowance not added');
+equal(totals.laborTotalReference(refs[0]).unit,7);
+if(Math.abs(totals.laborFeatureEstimate(featureA,true,1,true,[excluded]).hours-7.1)>1e-8)throw Error('Filler allowance counted twice');
+const includedBatch={...refs[0],hoursBasis:'batch',qty:2,estimated:14};
+equal(totals.laborTotalReference(includedBatch).unit,7);
+let fillerRejected=false;try{totals.laborTotalReference({...refs[0],estimated:.05})}catch{fillerRejected=true}if(!fillerRejected)throw Error('Negative residual work accepted');
+console.log('PASS: 15 seconds per blank pin and sealing plug, included/excluded totals, batch normalization and no double counting');
+
+const moreFillers={...featureA,blankPins:60,sealingPlugs:60};
+if(Math.abs(totals.laborFeatureEstimate(moreFillers,true,2,true,[refs[0]]).hours-14.8)>1e-8)throw Error('Known filler rate must apply independently of comparable construction range');
+console.log('PASS: independently specified filler rate applies to target quantities outside reference filler counts');

@@ -531,12 +531,17 @@ var reNotConnected = regexp.MustCompile(`(?i)^(?:-+|—|N/?C|NOT USED|UNUSED|SPA
 // signal says so (SPARE, N/C…) or the destination cell itself says so. A row
 // that names a real signal but no destination stays a conductor candidate.
 // wireRows and unusedRows both use it, so a cavity is never both.
+func explicitNotConnected(s string) bool {
+	s = strings.TrimSpace(s)
+	return reSpareSignal.MatchString(s) || strings.EqualFold(s, "OPEN")
+}
+
 func notConnectedRow(r map[string]string) bool {
 	nc := func(k string) bool { return reNotConnected.MatchString(strings.TrimSpace(r[k])) }
-	if !(nc("to") && nc("topin") && nc("wire")) {
+	if !(nc("to") && nc("topin") && nc("wire") && nc("color") && nc("awg")) {
 		return false
 	}
-	return nc("signal") || strings.TrimSpace(r["to"]) != ""
+	return explicitNotConnected(r["signal"]) || (nc("signal") && explicitNotConnected(r["to"]))
 }
 
 var reConnectorNoun = regexp.MustCompile(`^\s*(?:CONNECTOR|RECEPTACLE)\b`)
