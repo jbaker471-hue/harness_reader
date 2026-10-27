@@ -505,7 +505,10 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		if len(gb) > len(bb) {
 			bb = gb
 		}
-		w := wireRows(p)
+		w := pairedSchematicRows(p)
+		if len(w) == 0 {
+			w = wireRows(p)
+		}
 		// Retry when a drawing uses another connector designator, or shifts
 		// the cavity column. These remain source-review candidates.
 		if len(w) == 0 && len(bb) == 0 {
@@ -515,8 +518,12 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			w = findStructuredWireRows(p)
 		}
 		if len(bb) > 0 {
-			w = nil
-		} // BOM quantities are never cavity assignments
+			// Keep only the strict paired-endpoint schematic recognizer on mixed
+			// pages. Legacy positional guesses can mistake BOM quantities for pins.
+			kept := w[:0]
+			for _, r := range w {if r.Method == "paired-schematic" {kept = append(kept, r)}}
+			w = kept
+		}
 		// Header-grounded pinout/wire-list tables are distinct from BOM
 		// tables (their heading has no QTY/PART column), so they are read on
 		// every sheet, including a sheet that also carries the BOM.
