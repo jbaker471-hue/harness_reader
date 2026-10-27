@@ -51,3 +51,18 @@ for(const bad of [{...target,qty:0},{...target,setup:-1},{...target,counts:{...c
  let rejected=false;try{labor.laborEstimate(bad,[])}catch{rejected=true}if(!rejected)throw Error('invalid labor input accepted');
 }
 console.log('PASS: labor setup/quantity arithmetic, actual-vs-estimate precedence and invalid-input rejection');
+
+const totals={};vm.createContext(totals);
+vm.runInContext(block('function laborTotalReference(', 'function laborTotalAdd('),totals);
+const ref={mode:'total',name:'Invented assembly',scope:'Assembly and test',hoursBasis:'unit',qty:1,estimated:7,actual:null};
+equal(totals.laborTotalEstimate(ref,3,true).hours,21);
+equal(totals.laborTotalEstimate({...ref,hoursBasis:'batch',qty:4,estimated:28},2,true).hours,14);
+equal(totals.laborTotalEstimate({...ref,actual:8},2,true).hours,16);
+equal(totals.laborTotalEstimate(ref,1,true).basis,'estimated hours');
+for(const bad of [{...ref,estimated:0},{...ref,estimated:NaN},{...ref,actual:-1},{...ref,qty:0},{...ref,qty:1.5},{...ref,hoursBasis:'unknown'},{...ref,estimated:null}]){
+ let rejected=false;try{totals.laborTotalReference(bad)}catch{rejected=true}if(!rejected)throw Error('Invalid total-hours reference accepted');
+}
+for(const [q,confirmed] of [[0,true],[1.5,true],[2,false]]){
+ let rejected=false;try{totals.laborTotalEstimate(ref,q,confirmed)}catch{rejected=true}if(!rejected)throw Error('Invalid target accepted');
+}
+console.log('PASS: total-hours guesses without operation rates, per-unit/batch normalization, actual precedence and comparison confirmation');
