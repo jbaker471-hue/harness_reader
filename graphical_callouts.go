@@ -127,7 +127,7 @@ func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 		}
 		continuation := []LayoutWord{}
 		for _, w := range p.Words {
-			if w.Box.CY() > c.Box.Y1 && w.Box.Y1 < stop && w.Box.X0 >= ws[0].Box.X0 && w.Box.X1 <= box.X1+20 {
+			if w.Box.CY() > c.Box.Y1 && w.Box.Y1 < stop && w.Box.X0 >= ws[0].Box.X0 && w.Box.X1 <= c.Box.X1+350 {
 				continuation = append(continuation, w)
 			}
 		}
