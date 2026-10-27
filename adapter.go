@@ -33,6 +33,7 @@ type ViewCandidate struct {
 	Signal    string
 }
 type ViewBOM struct {
+	PartReference string `json:"partReference,omitempty"`
 	Item        string `json:"item"`
 	Qty         string `json:"qty"`
 	Part        string `json:"part"`
@@ -200,7 +201,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	sort.Strings(v.Branches)
 	for _, bom := range a.BOM {
-		v.Boms = append(v.Boms, ViewBOM{bom.Item, bom.Qty, bom.Part, bom.Description, bom.Vendor, bom.Reference, bom.Page})
+		v.Boms = append(v.Boms, ViewBOM{Item:bom.Item, Qty:bom.Qty, Part:bom.Part, Description:bom.Description, Vendor:bom.Vendor, Reference:bom.Reference, Page:bom.Page, PartReference:bom.PartReference})
 	}
 	for _, f := range a.Findings {
 		x := ViewIssue{Severity: f.Severity, Category: f.Category, Code: f.Code, Message: f.Message, Pages: f.Pages, Action: "Review original source sheet and obtain approved engineering resolution before production release.", Cavities: []string{}}
