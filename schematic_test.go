@@ -20,9 +20,8 @@ func inventedPairedPage() Page {
 
 func TestPairedSchematicAcrossPage(t *testing.T) {
  p:=inventedPairedPage()
- // The lower two rows need their own repeated connector headings, as on
- // split schematic blocks; all positions here are invented.
- p.Words=append(p.Words,Word{Text:"RACK-J7",X:55,Y:410,Size:8},Word{Text:"BENCH-P9",X:790,Y:410,Size:8})
+ // One heading pair must cover the full-height repeated column, including
+ // the lower rows. No arbitrary fraction-of-page heading cutoff is valid.
  rows:=pairedSchematicRows(p)
  if len(rows)!=4 {t.Fatalf("rows=%d %+v",len(rows),rows)}
  for i,r:=range rows {
@@ -68,4 +67,20 @@ func TestPairedSchematicMixedBOMPDF(t *testing.T) {
  if len(a.BOM)!=2||len(a.Wires)!=4 {t.Fatalf("BOM=%+v wires=%+v",a.BOM,a.Wires)}
  for _,r:=range a.Wires {if r.Method!="paired-schematic"||r.AWG!="24"||r.End!="BENCH-P9" {t.Fatalf("row %+v",r)}}
  if len(a.PageSummary)!=1||!strings.Contains(a.PageSummary[0].Category,"BOM + WIRING"){t.Fatalf("summary %+v",a.PageSummary)}
+}
+
+func TestPairedSchematicCombinedTextFragments(t *testing.T) {
+ p:=Page{Number:1,Width:1000,Height:800,PageAccurate:true}
+ p.Words=[]Word{{Text:"RACK-J7",X:55,Y:770,Size:8},{Text:"BENCH-P9",X:790,Y:770,Size:8}}
+ for i:=1;i<=4;i++ {y:=730-float64(i-1)*160
+  p.Words=append(p.Words,Word{Text:fmt.Sprintf("%d BLU",i),X:55,Y:y,Size:8},Word{Text:"22 AWG",X:420,Y:y,Size:8},Word{Text:fmt.Sprintf("BU %d",i+4),X:773,Y:y,Size:8})
+ }
+ rows:=pairedSchematicRows(p)
+ if len(rows)!=4 {t.Fatalf("combined fragments: %+v",rows)}
+ for _,r:=range rows {if r.Color!="BLU"||r.AWG!="22" {t.Fatalf("combined attributes: %+v",r)}}
+ // A plain central number may be an item/find callout, not a wire gauge.
+ for i:=range p.Words {if p.Words[i].Text=="22 AWG" {p.Words[i].Text="22"}}
+ rows=pairedSchematicRows(p)
+ if len(rows)!=4 {t.Fatal("plain callout should not remove endpoint evidence")}
+ for _,r:=range rows {if r.AWG!="" {t.Fatalf("callout guessed as gauge: %+v",r)}}
 }

@@ -42,7 +42,7 @@ func schematicTag(p Page,x,y,em float64) string {
  for _,w:=range p.Words {
   text:=strings.ToUpper(strings.TrimSpace(w.Text))
   tag:=reRefDesignator.FindString(text)
-  if w.Rotated || tag=="" || tag!=text || w.Y<=y+em || w.Y-y>p.Height*.55 || abs(w.X-x)>p.Width*.12 {continue}
+  if w.Rotated || tag=="" || tag!=text || w.Y<=y+em || abs(w.X-x)>p.Width*.12 {continue}
   d:=abs(w.X-x)+(w.Y-y)*.2
   if d<score-em {best,score,ambiguous=tag,d,false
   }else if abs(d-score)<=em && tag!=best {ambiguous=true}

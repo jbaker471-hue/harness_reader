@@ -41,6 +41,7 @@ type WireRow struct {
 	Corroboration int    `json:"corroboration,omitempty"`
 }
 type BOMRow struct {
+	PartReference string `json:"partReference,omitempty"`
 	Item        string `json:"item"`
 	Qty         string `json:"qty"`
 	Part        string `json:"part"`
@@ -288,7 +289,7 @@ func bomRows(p Page) []BOMRow {
 		if pn == "" {
 			status = "INCOMPLETE PART NUMBER — HOLD"
 		}
-		rows = append(rows, BOMRow{item, qty, pn, vendor, strings.Join(d, " "), ref, p.Number, status})
+		rows = append(rows, BOMRow{Item:item, Qty:qty, Part:pn, Vendor:vendor, Description:strings.Join(d, " "), Reference:ref, Page:p.Number, Status:status})
 	}
 	return rows
 }

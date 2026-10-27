@@ -116,3 +116,9 @@ console.log('PASS: 15 seconds per blank pin and sealing plug, included/excluded 
 const moreFillers={...featureA,blankPins:60,sealingPlugs:60};
 if(Math.abs(totals.laborFeatureEstimate(moreFillers,true,2,true,[refs[0]]).hours-14.8)>1e-8)throw Error('Known filler rate must apply independently of comparable construction range');
 console.log('PASS: independently specified filler rate applies to target quantities outside reference filler counts');
+
+const bomImport={};vm.createContext(bomImport);
+vm.runInContext(block('function bomObj(', 'function asRequired('),bomImport);
+const imported=bomImport.bomObj({item:'1',part:'EXAMPLE-101',partReference:'LOCAL-501',qty:'2'});
+equal(imported.part,'EXAMPLE-101');equal(imported.partReference,'LOCAL-501');equal(imported.notes,'Secondary part reference: LOCAL-501');
+console.log('PASS: secondary BOM part references remain separate and visible in notes');

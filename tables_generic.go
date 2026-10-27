@@ -38,11 +38,14 @@ var headerVocab = map[string]string{
 	"ITEM": "item", "ITEM NO": "item", "ITEM NUMBER": "item", "FIND": "item", "FIND NO": "item", "FIND NUMBER": "item", "F/N": "item", "FN": "item",
 	"QTY": "qty", "QTY REQD": "qty", "QTY REQ": "qty", "QTY RQD": "qty", "QUANTITY": "qty", "QTY PER ASSY": "qty", "QTY/ASSY": "qty", "REQD": "qty", "QTY PER": "qty",
 	"PART NUMBER": "part", "PART NO": "part", "PART #": "part", "P/N": "part", "PN": "part", "PART OR IDENTIFYING NO": "part", "PART OR IDENTIFYING NUMBER": "part",
+	"MANUFACTURE P/N": "part", "MANUFACTURER P/N": "part", "MANUFACTURE PN": "part", "MANUFACTURER PN": "part",
 	"IDENTIFYING NO": "part", "IDENTIFYING NUMBER": "part", "MFR PART NO": "part", "MFR PART NUMBER": "part", "MANUFACTURER PART NUMBER": "part", "MFG P/N": "part", "MFR P/N": "part", "PART/DWG NO": "part",
 	"DESCRIPTION": "desc", "NOMENCLATURE": "desc", "NOMENCLATURE OR DESCRIPTION": "desc", "DESC": "desc", "NOUN": "desc",
 	"CAGE": "cage", "CAGE CODE": "cage", "CODE IDENT": "cage", "CODE IDENT NO": "cage", "FSCM": "cage", "FSCM NO": "cage",
+	"SPECIFICATION/MANUFACTURE": "vendor", "SPECIFICATION/MANUFACTURER": "vendor", "SPECIFICATION / MANUFACTURER": "vendor",
 	"MFR": "vendor", "MANUFACTURER": "vendor", "VENDOR": "vendor", "MFG": "vendor",
 	"REF DES": "ref", "REFDES": "ref", "REF": "ref", "REF DESIG": "ref", "REFERENCE DESIGNATOR": "ref", "REFERENCE DESIGNATION": "ref", "DESIGNATOR": "ref", "CONN": "ref", "CONNECTOR": "ref",
+	"NOTES OR REMARKS": "note",
 	"UM": "um", "U/M": "um", "UNIT": "um", "NOTES": "note", "NOTE": "note", "REMARKS": "note", "MATERIAL": "note", "SPECIFICATION": "note", "MATERIAL/SPEC": "note", "MATERIAL SPECIFICATION": "note",
 	// wiring
 	"PIN": "pin", "PIN NO": "pin", "PINS": "pin", "CONT": "pin", "CONT NO": "pin", "CONTACT": "pin", "CONTACT NO": "pin", "CAV": "pin", "CAV NO": "pin", "CAVITY": "pin", "TERM": "pin", "POS": "pin", "POSITION": "pin",
@@ -73,6 +76,9 @@ func headerRole(label string) string {
 	if r, ok := headerVocab[n]; ok {
 		return r
 	}
+	// Unrecognized organization-prefixed P/N headings are separate reference
+	// columns, never text to concatenate into the manufacturer part number.
+	if strings.HasSuffix(n, " P/N") || strings.HasSuffix(n, " PN") {return "partref"}
 	return ""
 }
 
@@ -82,7 +88,7 @@ func headerish(text string) bool {
 	if n == "" {
 		return false
 	}
-	if knownHeading(n) {
+	if knownHeading(n) || headerRole(n) != "" {
 		return true
 	}
 	parts := map[string]bool{"OR": true, "NO": true, "NAME": true, "DES": true, "REQD": true, "CODE": true, "IDENTIFYING": true, "NUMBER": true, "OR DESCRIPTION": true, "IDENTIFYING NO": true, "PART OR": true, "REF": true}
@@ -564,7 +570,7 @@ func (t genericTable) bomRows() []BOMRow {
 		if qty == "" {
 			qty = "UNRESOLVED"
 		}
-		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE"})
+		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE"})
 	}
 	return out
 }
