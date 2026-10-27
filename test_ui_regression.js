@@ -53,7 +53,7 @@ for(const bad of [{...target,qty:0},{...target,setup:-1},{...target,counts:{...c
 console.log('PASS: labor setup/quantity arithmetic, actual-vs-estimate precedence and invalid-input rejection');
 
 const totals={};vm.createContext(totals);
-vm.runInContext(block('function laborTotalReference(', 'function laborTotalAdd('),totals);
+vm.runInContext(block('const laborFeatures=', 'function laborTotalAdd('),totals);
 const ref={mode:'total',name:'Invented assembly',scope:'Assembly and test',hoursBasis:'unit',qty:1,estimated:7,actual:null};
 equal(totals.laborTotalEstimate(ref,3,true).hours,21);
 equal(totals.laborTotalEstimate({...ref,hoursBasis:'batch',qty:4,estimated:28},2,true).hours,14);
@@ -86,3 +86,18 @@ console.log('PASS: total-hours guesses without operation rates, per-unit/batch n
  equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
  console.log('PASS: mixed reference import, legacy compatibility, atomic rejection and removal');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+const featureA={conductors:10,connectors:2,branches:1,sheathingFeet:0,overbraidFeet:0,floatingShields:2,terminatedShields:2,labels:4,backshells:2};
+const featureB={...featureA,conductors:20,sheathingFeet:6,overbraidFeet:4,terminatedShields:6,labels:8};
+const refs=[{...ref,features:featureA,featuresReviewed:true},{...ref,name:'Invented second',estimated:13,features:featureB,featuresReviewed:true}];
+let match=totals.laborFeatureEstimate(featureA,true,2,true,refs);
+equal(match.hours,14);equal(match.matches.length,1);
+const midway={};for(const k of Object.keys(featureA))midway[k]=(featureA[k]+featureB[k])/2;
+match=totals.laborFeatureEstimate(midway,true,1,true,refs);
+if(Math.abs(match.hours-10)>1e-8)throw Error('Symmetric feature interpolation failed');
+equal(match.basis,'estimated hours');
+match=totals.laborFeatureEstimate(featureA,true,1,true,[{...refs[0],actual:8}]);equal(match.hours,8);equal(match.basis,'actual hours');
+for(const [f,reviewed,scope,pool] of [[{...featureA,labels:null},true,true,refs],[featureA,false,true,refs],[featureA,true,false,refs],[{...featureA,conductors:30},true,true,refs],[featureA,true,true,[ref]]]){
+ let rejected=false;try{totals.laborFeatureEstimate(f,reviewed,1,scope,pool)}catch{rejected=true}if(!rejected)throw Error('Unsupported construction estimate accepted');
+}
+console.log('PASS: construction matching, shield/material/label features, unknown-vs-zero, evidence requirements and extrapolation holds');
