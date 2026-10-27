@@ -8,7 +8,7 @@ import (
 
 // Only explicit prose references are matched here. Bare numbers, circled
 // callouts and note symbols require separate geometry-aware interpretation.
-var explicitBOMReference = regexp.MustCompile(`(?i)\b(?:FIND|ITEM)(?:\s+(?:NO\.?|NUMBER))?\s*#?\s+([0-9]{1,4}[A-Z]?)(?:\s*[,;).:]|\s|$)`)
+var explicitBOMReference = regexp.MustCompile(`(?i)\b(?:FIND|ITEM)(?:\s+(?:NO\.?|NUMBER))?\s*#?\s+([0-9]{1,4}[A-Z]?)(?:\s*[,;):]|\.(?:[^0-9]|$)|\s|$)`)
 var unusedTreatmentNote = regexp.MustCompile(`(?i)\bUNUSED\b.*\b(?:CONTACT|CONTACTS|CAVITY|CAVITIES|OPENINGS)\b`)
 
 func canonicalFind(s string) string {
