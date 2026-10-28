@@ -139,6 +139,9 @@ var reLayoutCode = regexp.MustCompile(`D38999/\d{2}[A-Z]([A-HJ])([0-9]{2})[PSHJA
 // (A35 6 … J35 128) agree with the Amphenol 38999 insert availability chart
 // and the Glenair MIL-STD-1560 insert arrangement reference.
 func getLayout(part string) (int, string) {
+	if g, ok := guideInventory(part); ok {
+		return len(g.IDs), "GUIDE INVENTORY: " + g.Arrangement
+	}
 	s := strings.ToUpper(part)
 	m := reLayoutCode.FindStringSubmatch(s)
 	if len(m) == 0 {

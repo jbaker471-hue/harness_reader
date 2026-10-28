@@ -34,7 +34,7 @@ type CavityModel struct {
 	Part           string         `json:"part"`
 	All            []string       `json:"all"`
 	AllSource      string         `json:"allSource"`
-	AllVerified    bool           `json:"allVerified"` // true only when the set comes from the drawing itself
+	AllVerified    bool           `json:"allVerified"` // drawing or reviewed exact-part guide inventory; wiring coverage is separate
 	Wired          []string       `json:"wired"`
 	ExplicitUnused []UnusedCavity `json:"explicitUnused"`
 	Unused         []string       `json:"unused"`
@@ -46,9 +46,9 @@ type CavityModel struct {
 }
 
 var (
-	reUnusedNote = regexp.MustCompile(`(?i)\b(?:UNUSED|SPARE|NOT\s+USED|UNPOPULATED|EMPTY)\s+(?:CAVITIES|CAVITY|CONTACTS|CONTACT|POSITIONS|PINS|SOCKETS)\b(?:\s+(?:OF|ON|IN|FOR))?\s*((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)?\s*[:=-]?\s*([A-Za-z0-9 ,;&/-]+?)(?:\.|$)`)
-	reTagFirst   = regexp.MustCompile(`(?i)\b((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)\s*[:,-]?\s+(?:UNUSED|SPARE|NOT\s+USED|UNPOPULATED)\b`)
-	reRange      = regexp.MustCompile(`^([0-9]{1,4})\s*(?:-|THRU|THROUGH|TO)\s*([0-9]{1,4})$`)
+	reUnusedNote  = regexp.MustCompile(`(?i)\b(?:UNUSED|SPARE|NOT\s+USED|UNPOPULATED|EMPTY)\s+(?:CAVITIES|CAVITY|CONTACTS|CONTACT|POSITIONS|PINS|SOCKETS)\b(?:\s+(?:OF|ON|IN|FOR))?\s*((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)?\s*[:=-]?\s*([A-Za-z0-9 ,;&/-]+?)(?:\.|$)`)
+	reTagFirst    = regexp.MustCompile(`(?i)\b((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)\s*[:,-]?\s+(?:UNUSED|SPARE|NOT\s+USED|UNPOPULATED)\b`)
+	reRange       = regexp.MustCompile(`^([0-9]{1,4})\s*(?:-|THRU|THROUGH|TO)\s*([0-9]{1,4})$`)
 	reSpareSignal = regexp.MustCompile(`(?i)^(?:SPARE|N/?C|NOT USED|UNUSED|NO CONNECT(?:ION)?)$`)
 )
 
@@ -236,7 +236,8 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 			}
 			m.Views = append(m.Views, FaceView{Page: d.Page, Side: d.ViewSide, Box: d.Box, R: d.Outline.R, Positions: d.Positions, Labeled: d.Labeled})
 		}
-		// Cavity set: the best-labelled face view on the drawing, else catalog.
+		// Cavity set: labelled source view or exact-part reviewed guide inventory.
+		guide, hasGuide := guideInventory(parts[tag])
 		best := -1
 		for i, v := range m.Views {
 			if len(v.Positions) > 0 && float64(v.Labeled) >= 0.8*float64(len(v.Positions)) && (best < 0 || v.Labeled > m.Views[best].Labeled) {
@@ -263,6 +264,10 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 			if counts[tag] > 0 && counts[tag] != len(m.All) {
 				m.Conflicts = append(m.Conflicts, fmt.Sprintf("The face view shows %d cavities but the catalog lists %d positions for %s.", len(m.All), counts[tag], parts[tag]))
 			}
+		} else if hasGuide {
+			m.All = append([]string{}, guide.IDs...)
+			m.AllSource = guide.Source
+			m.AllVerified = true
 		} else if counts[tag] > 0 {
 			for i := 1; i <= counts[tag]; i++ {
 				m.All = append(m.All, strconv.Itoa(i))
@@ -270,6 +275,22 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 			m.AllSource = fmt.Sprintf("catalog position count %d for %s; cavity numbering 1…%d ASSUMED — confirm against the insert arrangement", counts[tag], parts[tag], counts[tag])
 		} else {
 			m.AllSource = "unknown — no face view on the drawing and no catalog count for this part"
+		}
+		if hasGuide && best >= 0 {
+			expected := map[string]bool{}
+			for _, id := range guide.IDs {
+				expected[id] = true
+			}
+			for _, id := range m.All {
+				if !expected[id] {
+					m.Conflicts = append(m.Conflicts, "Drawn cavity "+id+" is absent from the exact-part guide inventory ("+guide.Source+").")
+				}
+			}
+			if !m.AllVerified {
+				m.All = append([]string{}, guide.IDs...)
+				m.AllSource = guide.Source
+				m.AllVerified = true
+			}
 		}
 		// Wired cavities (either end of a conductor).
 		seen := map[string]bool{}
@@ -298,7 +319,7 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 		if m.AllVerified {
 			for _, c := range m.Wired {
 				if !inAll[c] {
-					m.Conflicts = append(m.Conflicts, fmt.Sprintf("Cavity %s is wired but does not exist on the drawn face view.", c))
+					m.Conflicts = append(m.Conflicts, fmt.Sprintf("Cavity %s is wired but does not exist in the sourced cavity inventory.", c))
 				}
 			}
 		}

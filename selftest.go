@@ -18,6 +18,7 @@ func sha256Hex(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToStri
 // Reference library schema validation (loud failure, never silent skips).
 
 var librarySchemas = map[string][]string{
+	"CONNECTOR_LAYOUT_REFERENCE.csv":     {"family", "arrangement", "cavity_ids", "source", "status"},
 	"DMC_EXPANDED_REFERENCE.csv":         {"contact", "superseded_aliases", "type", "mating_size", "barrel_size", "wire_range", "alternate_crimp_paths", "insertion", "removal", "source_locator", "verification_status"},
 	"MANUFACTURER_CONTACT_REFERENCE.csv": {"Manufacturer", "Contact P/N", "Alternate Identities", "Family", "Sex", "Wire AWG range", "Required Operation / Tool Combinations", "Verified Tooling Status", "Reference URL", "Review Notes"},
 	"SPECIALTY_CONTACTS_REFERENCE.csv":   {"contact", "family", "kind", "sex", "wire", "source", "status", "operations"},

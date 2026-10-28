@@ -589,7 +589,16 @@ func run() error {
 		part := strings.ToUpper(strings.TrimSpace(v.Part))
 		n, st := getLayout(part)
 		inferred := ResolveConnectorContacts(part)
-		jsonAnswer(w, map[string]any{"contactCandidates": inferred.Contacts, "contactMappingStatus": inferred.Status, "contactMappingWarning": inferred.Warning, "contactMappingSource": inferred.Source, "part": part, "positionCount": n, "status": "catalog-count-only", "contactSex": func() string {
+		labels := []string{}
+		status := "catalog-count-only"
+		source := "Amphenol insert availability chart; exact cavity IDs require separate verification"
+		if g, ok := guideInventory(part); ok {
+			labels = g.IDs
+			status = "verified-layout"
+			source = g.Source
+			st = "Guide cavity-ID inventory; physical face orientation and complete wiring coverage still require review"
+		}
+		jsonAnswer(w, map[string]any{"contactCandidates": inferred.Contacts, "contactMappingStatus": inferred.Status, "contactMappingWarning": inferred.Warning, "contactMappingSource": inferred.Source, "part": part, "positionCount": n, "status": status, "contactSex": func() string {
 			if inferred.ContactSex != "" {
 				return inferred.ContactSex
 			}
@@ -600,7 +609,7 @@ func run() error {
 				return "SOCKET"
 			}
 			return "UNKNOWN"
-		}(), "source": "Amphenol insert availability chart; exact cavity IDs require separate verification", "family": "MIL-DTL-38999", "warning": st, "labels": []string{}})
+		}(), "source": source, "family": "MIL-DTL-38999", "warning": st, "labels": labels})
 	})
 	mux.HandleFunc("/api/tooling", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {

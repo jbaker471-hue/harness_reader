@@ -36,6 +36,9 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
    if(name==='SYNTHETIC_V24_TABLE_NETLIST.pdf'){assert.equal(parsed.wires.length,4);assert.equal(parsed.boms.length,3);}
    await api('api/heartbeat');
   }
+  const guide=await api('api/resolve',{part:'D38999/26WB35PN'});
+  assert.equal(guide.status,'verified-layout');assert.equal(guide.labels.length,13);assert.equal(guide.labels[12],'13');assert(guide.source.includes('Glenair'));
+  const unknown=await api('api/resolve',{part:'D38999/26WB99PN'});assert.equal(unknown.labels.length,0);
   const plan=await api('api/build-plan',{buildQty:2,policy:'plug-only',connectors:[{tag:'P1',part:'D38999/26FG35PA',all:['1','2'],allVerified:true,wired:[{cavity:'1',awg:'24'}]}]});
   assert.equal(plan.buildQty,2);assert.equal(plan.connectors[0].crimp[0].status,'OK');
   assert.equal(plan.connectors[0].unused.length,1);

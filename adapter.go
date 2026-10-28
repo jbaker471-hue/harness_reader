@@ -247,7 +247,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	v.Warnings = append(v.Warnings, "Engine: "+x.Engine)
 	v.Warnings = append(v.Warnings, "Interpretation: "+v.Interpretation)
 	v.Warnings = append(v.Warnings, "Page-accurate PDFium extraction. Candidates are UNVERIFIED until each drawing sheet is checked.")
-	v.Warnings = append(v.Warnings, "Connector catalog COUNT does not establish an exact cavity-ID map. Export remains blocked until a verified layout is imported.")
+	v.Warnings = append(v.Warnings, "Exact-part guide inventories are used when available. Count-only matches still need a verified cavity-ID map. All unused lists require complete wiring review and conflict resolution.")
 	if len(a.BOM) == 0 {
 		v.Warnings = append(v.Warnings, "BOM not recognized; select it in page review or reconcile manually.")
 	}
