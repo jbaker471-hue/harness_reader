@@ -30,6 +30,7 @@ type FaceView struct {
 }
 
 type CavityModel struct {
+	UnusedStatus   string         `json:"unusedStatus"`
 	Tag            string         `json:"tag"`
 	Part           string         `json:"part"`
 	All            []string       `json:"all"`
@@ -366,6 +367,17 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 			if strings.HasPrefix(m.MirrorCheck, "CONFLICT") {
 				m.Conflicts = append(m.Conflicts, m.MirrorCheck)
 			}
+		}
+		m.UnusedStatus = "CANDIDATE — confirm every wiring sheet"
+		switch {
+		case len(m.Conflicts) > 0:
+			m.Unused = []string{}
+			m.UnusedStatus = "HELD — resolve source and inventory conflicts"
+		case len(m.Wired) == 0:
+			m.Unused = []string{}
+			m.UnusedStatus = "HELD — no wire paths recognized at this connector"
+		case !m.AllVerified:
+			m.UnusedStatus = "UNVERIFIED — exact inventory not established"
 		}
 		out = append(out, m)
 	}
