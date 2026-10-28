@@ -59,3 +59,18 @@ func TestAllGuideRowsAndToolLibraries(t *testing.T) {
 		t.Fatal("manufacturer/specialty sources incomplete")
 	}
 }
+
+func TestGuideInventoryDoesNotTurnMissingWiresIntoUnused(t *testing.T) {
+	a := Analysis{Connectors: []Connector{{Tag: "P7", Part: "D38999/26WB35PN", CavityCount: 13}}}
+	ms := buildCavityModels(&a, nil)
+	if len(ms) != 1 || len(ms[0].Unused) != 0 || !strings.HasPrefix(ms[0].UnusedStatus, "HELD") {
+		t.Fatalf("%+v", ms)
+	}
+	a.Wires = []WireRow{{Connector: "P7", Cavity: "14"}}
+	ms = buildCavityModels(&a, nil)
+	for _, m := range ms {
+		if m.Tag == "P7" && (len(m.Unused) != 0 || len(m.Conflicts) == 0) {
+			t.Fatalf("%+v", m)
+		}
+	}
+}
