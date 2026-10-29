@@ -21,7 +21,7 @@ const d=faceContext.faceData({tag:'P1',occupied:'A'},'rear');
 equal(Array.from(d.missingPositions),['a']);
 equal(d.unlabelledPositions,1);
 if(!d.mirrored||d.pts[0].x>=200)throw Error('rear mirror did not flip X');
-if(!src.includes('tableIds=[...new Set([...d.pts.map(p=>p.id).filter(Boolean),...d.all])]'))throw Error('missing inventory cavities in details table');
+if(!src.includes('ids=[...new Set([...d.pts.map(p=>p.id).filter(Boolean),...d.all])]'))throw Error('missing inventory cavities in details table');
 console.log('PASS: synthetic face geometry detection, mirror, missing/unlabeled cavities');
 
 // A source cavity model separates explicit unused rows from conductors.
@@ -359,3 +359,45 @@ cutCtx.st.harnessLength={text:'48 IN'};cutCtx.resetCutListState();
 equal([cutCtx.st.harnessLength,cutCtx.st.shieldTerm,cutCtx.st.cableSpec,cutCtx.st.quote.wireCost,cutCtx.st.quote.bomCost],[null,{},{},{},{}]);
 if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="2"'))throw Error('default excess missing');
 console.log('PASS: harness length applies only to conductors without their own length, is flagged, and never carries across drawings');
+
+// With no drawn positions the face view must not draw a shell or a square block of cavities
+// that looks like the real connector; it is a plain wrapping list that stays inside its box.
+{
+ const gridCtx={st:{raw:{},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs};
+ vm.createContext(gridCtx);
+ vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),gridCtx);
+ const labels=Array.from({length:37},(_,i)=>String(i+1));
+ const g=gridCtx.faceData({tag:'P1',occupied:'',labels},'front');
+ equal(g.kind,'assumed-grid');equal(g.pts.length,37);
+ if(!g.gridBox||g.gridBox.w<=0||g.gridBox.h<=0)throw Error('list has no box');
+ for(const p of g.pts)if(p.x-p.r<0||p.x+p.r>g.gridBox.w||p.y+p.r+12>g.gridBox.h+1)throw Error('cavity '+p.id+' outside list box');
+ if(g.gridBox.w<=g.gridBox.h)throw Error('37 cavities should wrap into a wide list, not a square block');
+ const ids=new Set(g.pts.map(p=>p.x+','+p.y));if(ids.size!==37)throw Error('overlapping cavities');
+ const d2=gridCtx.faceData({tag:'P1',occupied:'',labels:['1','2']},'front');
+ if(d2.gridBox.w<48)throw Error('small list box');
+ if(!src.includes("${list?'':'<circle"))throw Error('assumed list must not draw a connector shell outline');
+ if(!src.includes('positions and shell shape are NOT shown'))throw Error('list must state it is not the physical layout');
+ console.log('PASS: face view without drawn positions is a bounded list with no shell or square grid');
+}
+
+// Front and rear are both shown, and open cavities (plug) are separated from wired ones (contact + wire).
+{
+ const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4'],allVerified:true,unused:['3','4'],unusedStatus:'',explicitUnused:[],conflicts:[]}]},nets:[{wire:'W1',endpoints:'P1:1,J1:1',awg:'22',color:'WHT'}]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,safe:s=>String(s).replace(/[&<>"]/g,'')};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const c={tag:'P1',part:'X',occupied:'1, 2',labels:['1','2','3','4']},net=ctx.faceNetRows('P1'),d=ctx.faceData(c,'front');
+ equal(ctx.faceStatus(d,'1',net),'wired');
+ equal(ctx.faceStatus(d,'3',net),'open');
+ equal(ctx.faceStatus(d,'2',net),'wired'); // typed occupancy counts as wired
+ // a held model never reports open
+ ctx.st.raw.cavityModels[0].unusedStatus='HELD — no wire paths recognized at this connector';
+ const h=ctx.faceData(c,'front');equal(ctx.faceStatus(h,'3',net),'unresolved');
+ ctx.st.raw.cavityModels[0].unusedStatus='';
+ // no verified inventory: open only against a user-entered occupied list, never otherwise
+ const nm=ctx.faceData({tag:'Q1',part:'Y',occupied:'',labels:['1','2']},'front');
+ equal(ctx.faceStatus(nm,'2',new Map()),'unresolved');
+ const html=ctx.renderFaceView?'':'';
+ if(!src.includes("faceSvg(c,i,'front',net)")||!src.includes("faceSvg(c,i,'rear',net)"))throw Error('front and rear views must both be rendered');
+ if(!src.includes('sealing plug')||!src.includes('Crimp contact, insert wire'))throw Error('open vs wired action text missing');
+ console.log('PASS: front and rear views, wired vs open (plug) status, held inventory never reports open');
+}
