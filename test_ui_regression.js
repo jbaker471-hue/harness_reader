@@ -601,3 +601,11 @@ console.log('PASS: harness length applies only to conductors without their own l
  c=mk({});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('No used-contact count is stated'))throw Error('not-stated text missing');
  console.log('PASS: stated used-contact count agrees, holds or conflicts with the wiring; manual not-used marks conflict with wires');
 }
+
+// The brand mark is an inline SVG (no external file) and the tab icon is an inline data URI, both allowed by the page's CSP.
+{
+ if(!html.includes('class="brandmark"')||!html.includes('aria-label="Trivex"'))throw Error('sidebar mark missing or unlabeled');
+ if(!/<link rel="icon" href="data:image\/svg\+xml,/.test(html))throw Error('tab icon missing');
+ if(/<img[^>]+(?:src|href)=["']https?:/i.test(html))throw Error('the page must not load an external image');
+ console.log('PASS: logo mark and tab icon are inline, labeled, and load nothing external');
+}
