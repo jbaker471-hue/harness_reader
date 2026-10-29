@@ -125,7 +125,8 @@ func parseCavityList(s string) []string {
 	s = strings.NewReplacer(",", " , ", ";", " , ", "&", " , ").Replace(s)
 	toks := strings.Fields(s)
 	out := []string{}
-	stop := map[string]bool{"TO": true, "BE": true, "OF": true, "IN": true, "ON": true, "AT": true, "IS": true, "BY": true, "OR": true, "AS": true, "NO": true}
+	// Words that follow a list in prose ("UNUSED CAVITIES PER FIND NO. 3") must never read as cavity labels, although two letters plus a letter fits the label pattern.
+	stop := map[string]bool{"TO": true, "BE": true, "OF": true, "IN": true, "ON": true, "AT": true, "IS": true, "BY": true, "OR": true, "AS": true, "NO": true, "PER": true, "SEE": true, "REF": true, "FOR": true, "THE": true, "ALL": true, "ARE": true, "USE": true, "NOT": true, "ANY": true, "AND": true, "WITH": true, "FROM": true, "EACH": true, "WIRE": true, "NOTE": true, "UNLESS": true}
 	for i := 0; i < len(toks); i++ {
 		t := toks[i]
 		if t == "," || strings.EqualFold(t, "AND") {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
@@ -155,5 +156,37 @@ func TestStatedUsedCountSurvivesPDFExtraction(t *testing.T) {
 	}
 	if m := model("NOTE: SEE SHEET 2"); m.UsedStated != 0 {
 		t.Fatalf("no statement must give no count: %+v", m)
+	}
+}
+
+func TestProseAfterUnusedCavitiesIsNotACavity(t *testing.T) {
+	for _, s := range []string{"PER FIND NO. 3", "SEE NOTE 4", "ALL CONTACTS", "PER M39029", "FOR EACH CONNECTOR"} {
+		if got := parseCavityList(s); len(got) != 0 {
+			t.Fatalf("%q read as cavities %v", s, got)
+		}
+	}
+	if got := strings.Join(parseCavityList("4, 7-9 PER FIND NO. 3"), ","); got != "4,7,8,9" {
+		t.Fatalf("a real list before prose must still read: %q", got)
+	}
+	d := PDFData{Pages: []Page{usedPage(1, "1. SEAL UNUSED CAVITIES PER FIND NO. 3.", "UNUSED CAVITIES P1: 4, 7-9")}}
+	got := []string{}
+	for _, u := range explicitUnusedFromNotes(d) {
+		got = append(got, u.Connector+":"+u.Cavity)
+	}
+	if strings.Join(got, ",") != "P1:4,P1:7,P1:8,P1:9" {
+		t.Fatalf("unused notes read %v", got)
+	}
+}
+
+// Developer helper: writes the used-count synthetic drawings so the built executable can be driven by hand.
+func TestWriteUsedCountSamples(t *testing.T) {
+	dir := os.Getenv("USED_SAMPLES_DIR")
+	if dir == "" {
+		t.Skip("set USED_SAMPLES_DIR")
+	}
+	for name, note := range map[string]string{"used_match": "P1: 4 CONTACTS USED", "used_more": "P1: 6 CONTACTS USED", "used_fewer": "P1: 2 CONTACTS USED", "used_none": "NOTE: SEE SHEET 2"} {
+		if err := os.WriteFile(dir+"/"+name+".pdf", synthWireListWithUsedNote(note), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
