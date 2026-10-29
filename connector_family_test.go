@@ -173,7 +173,7 @@ func TestAmphenolTablesLoadedCorrectly(t *testing.T) {
 		arr, cav string
 		x, y     float64
 		n        int
-	}{{"25-35", "1", -12.167, -7.087, 128}, {"25-35", "99", 6.325, 0, 128}, {"25-35", "104", 6.325, 12.065, 128}, {"15-35", "1", 1.143, -6.655, 37}} {
+	}{{"25-35", "1", -12.167, -7.087, 128}, {"25-35", "99", 6.325, 0, 128}, {"25-35", "104", 6.325, 12.065, 128}, {"15-35", "1", 1.143, -6.655, 37}, {"25-61", "PP", 0, 0, 61}, {"25-61", "k", 0, 10.211, 61}, {"25-61", "A", 4.978, -12.7, 61}, {"25-61", "a", -1.727, -11.532, 61}} {
 		g, p := insertGeometryFor("MIL-STD-1560", c.arr)
 		if g == nil || len(p) != 0 || len(g.Positions) != c.n {
 			t.Fatalf("%s: %+v %v", c.arr, g, p)
@@ -220,7 +220,7 @@ func TestAmphenolTablesLoadedCorrectly(t *testing.T) {
 		}
 	}
 	// arrangements that did not validate are absent rather than partial
-	for _, arr := range []string{"19-11", "25-61"} {
+	for _, arr := range []string{"19-11"} {
 		if g, _ := insertGeometryFor("MIL-STD-1560", arr); g != nil {
 			t.Fatalf("%s must not be loaded", arr)
 		}

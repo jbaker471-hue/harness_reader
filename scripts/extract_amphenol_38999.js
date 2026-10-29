@@ -20,7 +20,7 @@ const sha = crypto.createHash('sha256').update(buf).digest('hex');
 const text = mode => cp.execFileSync('pdftotext', [mode, pdf, '-'], { maxBuffer: 256 << 20, encoding: 'utf8' });
 
 const NUM = String.raw`[+-]?(?:\d+)?\.\d{3}`;
-const reTriple = new RegExp(String.raw`(?<![\w.+-])(\d{1,3}|[A-Za-z])\s+(${NUM})\s+(${NUM})(?![\d.])`, 'g');
+const reTriple = new RegExp(String.raw`(?<![\w.+-])(\d{1,3}|[A-Za-z]{1,2})\s+(${NUM})\s+(${NUM})(?![\d.])`, 'g');
 const reHead = /INSERT ARRANGEMENT\s*#\s*(\d{1,2})-(\d{1,2})\s*\/\s*(\d{1,2})-(\d{1,2})/i;
 const reSpec = /(?<!\S)(\d{1,3})\s+(22D|20|16|12)\s+(M|I{1,3})(?!\S)/;
 const shellLetter = { 9: 'A', 11: 'B', 13: 'C', 15: 'D', 17: 'E', 19: 'F', 21: 'G', 23: 'H', 25: 'J' };
