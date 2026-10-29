@@ -24,6 +24,8 @@ var librarySchemas = map[string][]string{
 	"SPECIALTY_CONTACTS_REFERENCE.csv":   {"contact", "family", "kind", "sex", "wire", "source", "status", "operations"},
 	"ACCESSORY_REFERENCE.csv":            {"kind", "match", "class", "requirement", "source", "status", "specification", "alternates", "alternate_source", "alternate_status"},
 	"WIRE_CABLE_REFERENCE.csv":           {"pattern", "family", "construction", "preparation", "termination", "test", "source", "status"},
+	"CONNECTOR_SPEC_REFERENCE.csv":     {"kind", "code", "title", "covers", "source", "status", "priority", "layout_standard", "note"},
+	"CONNECTOR_INSERT_GEOMETRY.csv":      {"arrangement_id", "standard", "shell_size", "cavity", "x_mm", "y_mm", "contact_size", "view", "keying", "source", "source_page", "source_figure", "status"},
 	"WIRE_SPEC_REFERENCE.csv":            {"kind", "code", "meaning", "spec", "source", "status", "note"},
 	"TOOL_EQUIVALENCE_REFERENCE.csv":     {"specification", "operation", "primary", "alternates", "conditions", "source_primary", "source_alternate", "status"},
 }

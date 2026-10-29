@@ -445,7 +445,7 @@ function faceData(c,requested,fam){
  const labels=new Set(all),viewLabels=new Set();
  // Open = inventory minus wired. Only from a verified inventory with no HELD status, or from the user-entered occupied list against the cavity inventory; otherwise unresolved.
  const heldModel=!m||!m.allVerified||String(m.unusedStatus||'').startsWith('HELD'),open=new Set(heldModel?(!m&&occupied.size?all.filter(id=>!occupied.has(id)):[]):(m.unused||[]).map(String));
- let pts=[],kind='unresolved',gridBox=null,geoShell=null;
+ let pts=[],kind='unresolved',gridBox=null,geoShell=null,geoRound=false,famFlip=false;
  if(v?.positions?.length){
   // Positions are relative to insert outline centre, in PDF display coordinates (Y down).
   const R=Number(v.r)||Math.max(1,...v.positions.map(p=>Math.hypot(Number(p.x),Number(p.y))+Number(p.r||0)));
@@ -455,10 +455,11 @@ function faceData(c,requested,fam){
  }else if(fam?.geometry?.positions?.length&&faceSex(c,fam)){
   // Standard layout for the family decoded from the part number. The geometry describes the male (pin) face;
   // a socket connector's front is the mirror of that, and each rear is the mirror of its front.
-  const g=fam.geometry,xs=g.outline?.length?g.outline.map(q=>Math.abs(q[0])):g.positions.map(q=>Math.abs(q.x)+q.r),half=Math.max(1,...xs),s=170/half,male=faceSex(c,fam)==='PIN',flip=(requested==='front')!==male;
-  pts=g.positions.map(q=>({id:String(q.label),x:200+(flip?-1:1)*q.x*s,y:200+q.y*s,r:Math.max(5,q.r*s)}));
+  const g=fam.geometry,round=g.shape==='circular',xs=g.outline?.length?g.outline.map(q=>Math.abs(q[0])):round?g.positions.map(q=>Math.hypot(q.x,q.y)+q.r):g.positions.map(q=>Math.abs(q.x)+q.r),half=Math.max(1,...xs),s=(round?150:170)/half,gv=g.view||'pin-front',gA=gv==='pin-front'||gv==='socket-rear',needA=(faceSex(c,fam)==='PIN')===(requested==='front'),flip=needA!==gA;
+  famFlip=flip;
+  pts=g.positions.map(q=>({id:String(q.label),x:200+(flip?-1:1)*q.x*s,y:200+q.y*s,r:Math.max(7,q.r*s)}));
   pts.forEach(p=>viewLabels.add(p.id));
-  kind='family';geoShell=g.outline?g.outline.map(q=>[200+(flip?-1:1)*q[0]*s,200+q[1]*s]):null;
+  kind='family';geoRound=round;geoShell=g.outline?g.outline.map(q=>[200+(flip?-1:1)*q[0]*s,200+q[1]*s]):null;
  }else if(all.length){
   // A plain wrapping list of numbered cavities, not a fabricated physical insert layout.
   // It has no shell outline and no grid shape so it cannot be mistaken for the connector face.
@@ -472,7 +473,7 @@ function faceData(c,requested,fam){
  const unknownPositions=placed?pts.filter(p=>p.id&&!labels.has(p.id)).map(p=>p.id):[];
  const unlabelledPositions=placed?pts.filter(p=>!p.id).length:0;
  const repeatedPositions=placed?pts.map(p=>p.id).filter((id,i,a)=>id&&a.indexOf(id)!==i):[];
- return {m,v,actual,mirrored,kind,pts,gridBox,geoShell,open,occupied,explicit,conflicts,all,missingPositions,unknownPositions,unlabelledPositions,repeatedPositions};
+ return {m,v,actual,mirrored:mirrored||famFlip,kind,pts,gridBox,geoShell,geoRound,open,occupied,explicit,conflicts,all,missingPositions,unknownPositions,unlabelledPositions,repeatedPositions};
 }
 function faceStatus(d,id,net){
  if(!id)return 'unresolved';
@@ -507,14 +508,16 @@ function faceSvg(c,i,side,net,fam){
  const d=faceData(c,side,fam),list=d.kind==='assumed-grid',geo=d.kind==='family';
  const colors={wired:'#168873',open:'#fff',conflict:'#c94b4b',unresolved:'#e0e8ee'};
  const kindGeo=d.kind==='family',dot=d.pts.map(p=>{const id=p.id,status=faceStatus(d,id,net),arg=JSON.stringify(id).replace(/"/g,'&quot;');return `<g class="face-cavity" tabindex="0" role="img" aria-label="${safe(faceDetail(c,id,d,net))}" onmouseenter="faceHover(${i},${arg},'${side}')" onfocus="faceHover(${i},${arg},'${side}')"><title>${safe(faceDetail(c,id,d,net))}</title><circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${colors[status]}" stroke="${status==='conflict'?'#9d2230':status==='open'?'#b27d29':'#426279'}" stroke-width="2" ${status==='open'?'stroke-dasharray="4 3"':''}/>${status==='open'?`<path d="M${p.x-4} ${p.y-4}l8 8 M${p.x+4} ${p.y-4}l-8 8" stroke="#b27d29" stroke-width="2"/>`:''}<text x="${p.x}" y="${kindGeo&&p.y<200?p.y-p.r-4:p.y+p.r+12}" text-anchor="middle" fill="#1d344b" font-size="10">${safe(id||'?')}</text></g>`}).join('');
- const src=list?`Cavity list only: no drawn or reviewed layout, so cavity positions are NOT shown${fam?.recognized?'':' and the connector family is not recognized'}`:geo?`Standard ${safe(fam.family)} layout, ${side==='front'===(faceSex(c,fam)==='PIN')?'':'mirrored, '}computed from the part number · UNVERIFIED`:`Drawing sheet ${safe(d.v.page)}: ${safe(d.actual)}${d.mirrored?' · mirrored visualization (not independently drawn)':''}`;
- return `<div class="faceside"><div class="small"><b>${FACE_SIDE_LABEL[side]}</b></div><div class="small muted">${src}</div>${list?shellIcon(fam):''}<svg viewBox="${list?`0 0 ${d.gridBox.w} ${d.gridBox.h}`:geo?'0 135 400 130':'0 0 400 400'}" role="group" aria-label="${safe(c.tag)} ${side} ${list?'cavity list':'connector cavities'}">${list?'':geo?(d.geoShell?`<polygon points="${d.geoShell.map(q=>q.join(',')).join(' ')}" fill="#f8fafc" stroke="#8ca2b6" stroke-width="2"/>`:''):'<circle cx="200" cy="200" r="183" fill="#f8fafc" stroke="#8ca2b6" stroke-width="2"/>'}${dot}</svg></div>`;
+ const src=list?`Cavity list only: no drawn or reviewed layout, so cavity positions are NOT shown${fam?.recognized?'':' and the connector family is not recognized'}`:geo?`Standard ${safe(fam.family)} layout, ${d.mirrored?'mirrored, ':''}${safe(fam.geometry.status||'UNVERIFIED')} · ${safe(fam.geometry.basis||'')}`:`Drawing sheet ${safe(d.v.page)}: ${safe(d.actual)}${d.mirrored?' · mirrored visualization (not independently drawn)':''}`;
+ return `<div class="faceside"><div class="small"><b>${FACE_SIDE_LABEL[side]}</b></div><div class="small muted">${src}</div>${list?shellIcon(fam):''}<svg viewBox="${list?`0 0 ${d.gridBox.w} ${d.gridBox.h}`:geo?(d.geoRound?'0 0 400 400':'0 135 400 130'):'0 0 400 400'}" role="group" aria-label="${safe(c.tag)} ${side} ${list?'cavity list':'connector cavities'}">${list?'':geo?(d.geoRound?'<circle cx="200" cy="200" r="175" fill="#f8fafc" stroke="#8ca2b6" stroke-width="2"/>':d.geoShell?`<polygon points="${d.geoShell.map(q=>q.join(',')).join(' ')}" fill="#f8fafc" stroke="#8ca2b6" stroke-width="2"/>`:''):'<circle cx="200" cy="200" r="183" fill="#f8fafc" stroke="#8ca2b6" stroke-width="2"/>'}${dot}</svg></div>`;
 }
 function famLine(fam,c){
  if(!String(c.part||'').trim())return '<p class="callout">No part number for this connector, so its family and shell shape cannot be determined.</p>';
  if(!fam)return '<p class="small muted">Reading the connector family from the part number…</p>';
  const bits=[fam.recognized?'<b>'+safe(fam.family)+'</b>':'<b>Family not recognized</b>',fam.shellSize?'shell size '+safe(fam.shellSize):'',fam.positions?safe(fam.positions)+' positions':'',fam.sex?safe(fam.sex)+' contacts':''].filter(Boolean).join(' · ');
- return `<p class="small">${bits} · <span class="muted">${safe(fam.status)}</span></p>${(fam.notes||[]).map(n=>`<p class="small muted">${safe(n)}</p>`).join('')}`;
+ const link=d=>(d.sources||[]).filter(u=>u.startsWith('https://')).map((u,k)=>`<a href="${safe(u)}" target="_blank" rel="noopener noreferrer">${safe(d.code)}${(d.sources||[]).length>1?' ['+(k+1)+']':''}</a>`).join(' ');
+ const docs=[...(fam.specs||[]).map(d=>'Family specification: '+link(d)),...(fam.layoutStandards||[]).map(d=>'Insert layout standard: '+link(d)+' <span class="muted">('+safe(d.status)+')</span>')];
+ return `<p class="small">${bits} · <span class="muted">${safe(fam.status)}</span></p>${docs.map(x=>`<p class="small">${x}</p>`).join('')}${(fam.notes||[]).map(n=>`<p class="small muted">${safe(n)}</p>`).join('')}`;
 }
 function renderFaceView(c,i){
  const fam=connFamily(c.part),d=faceData(c,'front',fam),net=faceNetRows(c.tag);

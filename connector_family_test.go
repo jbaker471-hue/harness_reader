@@ -72,3 +72,97 @@ func TestDSubWithoutSexOrWithWrongShellDrawsNoPositions(t *testing.T) {
 		t.Fatalf("three-row shell layout is not modelled: %+v", d)
 	}
 }
+
+func TestConnectorLibraryRowsAreSourceLinkedAndNeverVerified(t *testing.T) {
+	rows, err := connectorDocTable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) < 50 {
+		t.Fatalf("only %d rows", len(rows))
+	}
+	seen := map[string]bool{}
+	for _, r := range rows {
+		k := r.Kind + "|" + r.Code
+		if seen[k] {
+			t.Fatalf("duplicate row %s", k)
+		}
+		seen[k] = true
+		if strings.Contains(strings.ToUpper(r.Status), "VERIFIED") && !strings.Contains(r.Status, "UNVERIFIED") {
+			t.Fatalf("supplied row claims verification: %+v", r)
+		}
+		if len(r.Sources) == 0 && !strings.Contains(r.Status, "NO SOURCE URL") {
+			t.Fatalf("row without a source or an explicit no-source status: %+v", r)
+		}
+		for _, s := range r.Sources {
+			if !strings.HasPrefix(s, "https://") {
+				t.Fatalf("source is not https: %q", s)
+			}
+		}
+		for _, l := range r.Layout {
+			if lookupConnectorDoc("layout-standard", l) == nil {
+				t.Fatalf("%s names layout standard %q that is not in the library", r.Code, l)
+			}
+		}
+	}
+	if lookupConnectorDoc("layout-standard", "MIL-STD-1560") == nil || lookupConnectorDoc("tooling-spec", "SAE-AS81969") == nil {
+		t.Fatal("priority 1 documents missing")
+	}
+}
+
+func TestFamilyCarriesSpecAndLayoutStandard(t *testing.T) {
+	d := DecodeConnectorFamily("D38999/26FD35PN")
+	if len(d.Specs) != 1 || d.Specs[0].Code != "MIL-DTL-38999" || len(d.Layouts) != 1 || d.Layouts[0].Code != "MIL-STD-1560" || len(d.Layouts[0].Sources) == 0 {
+		t.Fatalf("%+v", d)
+	}
+	if !strings.Contains(strings.Join(d.Notes, " "), "No reviewed insert layout") {
+		t.Fatalf("missing-layout note absent: %v", d.Notes)
+	}
+	if d := DecodeConnectorFamily("M83723/71G1210N"); len(d.Layouts) != 2 {
+		t.Fatalf("83723 maps to two layout standards: %+v", d.Layouts)
+	}
+}
+
+func geoRow(arr, cav, x, y, view, src, page, status string) []string {
+	return []string{arr, "MIL-STD-1560", "9", cav, x, y, "22D", view, "normal", src, page, "fig", status}
+}
+
+func TestInsertGeometryRowsAreChecked(t *testing.T) {
+	good := [][]string{geoRow("9-35", "1", "0", "-3", "pin-front", "S", "5", "REVIEWED"), geoRow("9-35", "2", "3", "0", "pin-front", "S", "5", "REVIEWED")}
+	g, p := buildInsertGeometry(good, "MIL-STD-1560", "9-35")
+	if g == nil || len(p) != 0 || len(g.Positions) != 2 || g.View != "pin-front" || !strings.Contains(g.Basis, "page 5") {
+		t.Fatalf("%+v %v", g, p)
+	}
+	if g, p := buildInsertGeometry(good, "MIL-STD-1560", "11-35"); g != nil || len(p) != 0 {
+		t.Fatalf("other arrangement must be absent, not an error: %+v %v", g, p)
+	}
+	for name, rows := range map[string][][]string{
+		"duplicate":  {geoRow("9-35", "1", "0", "0", "pin-front", "S", "5", "R"), geoRow("9-35", "1", "1", "1", "pin-front", "S", "5", "R")},
+		"bad number": {geoRow("9-35", "1", "x", "0", "pin-front", "S", "5", "R")},
+		"bad view":   {geoRow("9-35", "1", "0", "0", "top", "S", "5", "R")},
+		"no source":  {geoRow("9-35", "1", "0", "0", "pin-front", "", "5", "R")},
+		"mixed view": {geoRow("9-35", "1", "0", "0", "pin-front", "S", "5", "R"), geoRow("9-35", "2", "1", "0", "socket-front", "S", "5", "R")},
+		"no status":  {geoRow("9-35", "1", "0", "0", "pin-front", "S", "5", "")},
+	} {
+		if g, p := buildInsertGeometry(rows, "MIL-STD-1560", "9-35"); g != nil || len(p) == 0 {
+			t.Fatalf("%s: a bad row must reject the whole arrangement: %+v %v", name, g, p)
+		}
+	}
+}
+
+func TestShippedInsertGeometryLibraryIsValid(t *testing.T) {
+	rows, err := readLibrary("CONNECTOR_INSERT_GEOMETRY.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	arr := map[string]bool{}
+	for _, r := range rows[1:] {
+		arr[r[1]+"|"+r[0]] = true
+	}
+	for k := range arr {
+		p := strings.SplitN(k, "|", 2)
+		if g, probs := buildInsertGeometry(rows[1:], p[0], p[1]); g == nil || len(probs) != 0 {
+			t.Fatalf("shipped arrangement %s is invalid: %v", k, probs)
+		}
+	}
+}

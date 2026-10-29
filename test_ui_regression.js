@@ -425,3 +425,26 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes("fetch('/api/connector-family?part='"))throw Error('part number must drive the family lookup');
  console.log('PASS: family from part number picks shell and placed layout, mirrors by face and sex, never draws without sex or family');
 }
+
+// Stored insert layouts are labelled with the view they were drawn from; the front and rear of a pin or socket connector
+// are derived from that view, and a circular layout gets a round shell. Documents link only over https.
+{
+ const ctx={st:{raw:{},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const mk=view=>({recognized:true,family:'X',shape:'circular',sex:'PIN',geometry:{shape:'circular',view,status:'REVIEWED',positions:[{label:'1',x:-10,y:0,r:0},{label:'2',x:10,y:0,r:0}]}});
+ const c={tag:'P1',part:'X',occupied:'',labels:['1','2']};
+ const x1=(fam,side,sex)=>ctx.faceData({...c},side,{...fam,sex}).pts[0].x;
+ // pin-front layout: pin front as drawn, pin rear mirrored, socket front mirrored, socket rear as drawn
+ const pf=mk('pin-front');
+ if(!(x1(pf,'front','PIN')<200&&x1(pf,'rear','PIN')>200&&x1(pf,'front','SOCKET')>200&&x1(pf,'rear','SOCKET')<200))throw Error('pin-front view orientation wrong');
+ // socket-front layout is the mirror of that
+ const sf=mk('socket-front');
+ if(!(x1(sf,'front','SOCKET')<200&&x1(sf,'front','PIN')>200&&x1(sf,'rear','PIN')<200))throw Error('socket-front view orientation wrong');
+ // a rear view of a socket connector shows the same picture as the pin front
+ const sr=mk('socket-rear');
+ if(!(x1(sr,'rear','SOCKET')<200&&x1(sr,'front','PIN')<200))throw Error('socket-rear view orientation wrong');
+ if(!ctx.faceData(c,'front',pf).geoRound)throw Error('circular layout needs a round shell');
+ if(!src.includes("u.startsWith('https://')")||!src.includes('Insert layout standard:'))throw Error('standards must link over https only');
+ console.log('PASS: stored insert layouts orient by view, pin/socket and side; circular shell; https-only document links');
+}

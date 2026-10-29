@@ -67,6 +67,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   const fam=await api('api/connector-family?part=DB25P',undefined,'GET');assert(fam.shape==='d-sub'&&fam.geometry.positions.length===25&&fam.status.includes('UNVERIFIED'),'connector family layout missing from packaged executable');
   assert.equal((await api('api/connector-family?part=ZZZ-1',undefined,'GET')).recognized,false);
   assert.equal((await fetch(url+'api/connector-family?part=DB25P')).status,403);
+  const f38=await api('api/connector-family?part=D38999/26FD35PN',undefined,'GET');assert(f38.layoutStandards.some(x=>x.code==='MIL-STD-1560'&&x.sources.length)&&f38.specs.length===1&&!f38.geometry,'connector documentation links or no-invented-geometry rule missing from packaged executable');
   assert(equivalences.some(x=>x.specification==='AS22520/1'&&x.primary.includes('AF8')&&x.conditions.includes('exact turret/positioner')),'AF8 powered-route conditions missing');
   assert(equivalences.some(x=>x.specification==='AS22520/23'&&x.status.includes('QUALIFICATION REVIEW')),'large-gauge qualification safeguard missing');
   const plan=await api('api/build-plan',{buildQty:2,policy:'plug-only',connectors:[{tag:'P1',part:'D38999/26FG35PA',all:['1','2'],allVerified:true,wired:[{cavity:'1',awg:'24'}]}]});

@@ -24,22 +24,25 @@ type FaceGeometry struct {
 	Shape     string       `json:"shape"`
 	Outline   [][2]float64 `json:"outline,omitempty"` // polygon, same units as Positions, Y down, centred
 	Positions []GeoPos     `json:"positions"`
-	Face      string       `json:"face"` // which face the positions describe
+	View      string       `json:"view"` // pin-front, socket-front, pin-rear or socket-rear: the face the positions are drawn as seen
+	Face      string       `json:"face"` // the same, in words
 	Basis     string       `json:"basis"`
 	Status    string       `json:"status"`
 }
 
 type ConnectorFamilyInfo struct {
-	Part       string        `json:"part"`
-	Recognized bool          `json:"recognized"`
-	Family     string        `json:"family"`
-	Shape      string        `json:"shape"` // circular, d-sub, micro-d, rectangular, unknown
-	ShellSize  string        `json:"shellSize,omitempty"`
-	Sex        string        `json:"sex,omitempty"` // PIN, SOCKET or empty when the part number does not say
-	Positions  int           `json:"positions,omitempty"`
-	Geometry   *FaceGeometry `json:"geometry,omitempty"`
-	Notes      []string      `json:"notes"`
-	Status     string        `json:"status"`
+	Part       string            `json:"part"`
+	Recognized bool              `json:"recognized"`
+	Family     string            `json:"family"`
+	Shape      string            `json:"shape"` // circular, d-sub, micro-d, rectangular, unknown
+	ShellSize  string            `json:"shellSize,omitempty"`
+	Sex        string            `json:"sex,omitempty"` // PIN, SOCKET or empty when the part number does not say
+	Positions  int               `json:"positions,omitempty"`
+	Geometry   *FaceGeometry     `json:"geometry,omitempty"`
+	Specs      []ConnectorDocRef `json:"specs"`           // family specification(s) from the connector reference library
+	Layouts    []ConnectorDocRef `json:"layoutStandards"` // standards that define this family's insert arrangements
+	Notes      []string          `json:"notes"`
+	Status     string            `json:"status"`
 }
 
 const familyStatus = "FAMILY FROM PART-NUMBER PATTERN — UNVERIFIED"
@@ -70,7 +73,7 @@ func dsubGeometry(n int) *FaceGeometry {
 	if !ok {
 		return nil
 	}
-	g := &FaceGeometry{Shape: "d-sub", Face: "male (pin) face, as seen from the mating side", Status: "COMPUTED FROM STANDARD ROW COUNTS — UNVERIFIED",
+	g := &FaceGeometry{Shape: "d-sub", View: "pin-front", Face: "male (pin) face, as seen from the mating side", Status: "COMPUTED FROM STANDARD ROW COUNTS — UNVERIFIED",
 		Basis: fmt.Sprintf("Standard-density D-subminiature: %d + %d contacts, %.2f mm pitch, %.2f mm between rows; shell outline is schematic. Numbering runs left to right along the wide row, then the narrow row.", rows[0], rows[1], dsubPitch, dsubRowSpace)}
 	half := float64(rows[0]-1) * dsubPitch / 2
 	top, bot := half+4.2, half+2.0
@@ -89,36 +92,54 @@ func dsubGeometry(n int) *FaceGeometry {
 
 func DecodeConnectorFamily(part string) ConnectorFamilyInfo {
 	p := strings.ToUpper(strings.TrimSpace(part))
-	out := ConnectorFamilyInfo{Part: p, Shape: "unknown", Notes: []string{}, Status: "UNRESOLVED"}
+	out := ConnectorFamilyInfo{Part: p, Shape: "unknown", Notes: []string{}, Specs: []ConnectorDocRef{}, Layouts: []ConnectorDocRef{}, Status: "UNRESOLVED"}
 	if p == "" {
 		out.Notes = append(out.Notes, "No part number: the connector family cannot be determined.")
 		return out
 	}
-	set := func(family, shape string) {
+	set := func(family, shape, specCode string) {
 		out.Recognized, out.Family, out.Shape, out.Status = true, family, shape, familyStatus
+		if d := lookupConnectorDoc("family-spec", specCode); d != nil {
+			out.Specs = append(out.Specs, *d)
+			for _, l := range d.Layout {
+				if ls := lookupConnectorDoc("layout-standard", l); ls != nil {
+					out.Layouts = append(out.Layouts, *ls)
+				}
+			}
+		}
 	}
 	switch {
 	case re38999.MatchString(p):
-		set("MIL-DTL-38999 circular", "circular")
+		set("MIL-DTL-38999 circular", "circular", "MIL-DTL-38999")
 		out.Notes = append(out.Notes, "Insert arrangement and keyway positions are set by the arrangement code; they are not drawn here.")
 		if m := seriesIII35.FindStringSubmatch(p); m != nil {
 			out.ShellSize = shellSeriesIII[m[3]]
 			if rc := ResolveConnectorContacts(p); rc.PositionCount > 0 {
 				out.Positions, out.Sex = rc.PositionCount, rc.ContactSex
+				g, problems := insertGeometryFor("MIL-STD-1560", rc.Arrangement)
+				out.Notes = append(out.Notes, problems...)
+				switch {
+				case g != nil && len(g.Positions) != rc.PositionCount:
+					out.Notes = append(out.Notes, fmt.Sprintf("CONFLICT: the stored insert layout %s has %d cavities but the part number resolves to %d; no positions are drawn.", rc.Arrangement, len(g.Positions), rc.PositionCount))
+				case g != nil:
+					out.Geometry = g
+				default:
+					out.Notes = append(out.Notes, "No reviewed insert layout for arrangement "+rc.Arrangement+" is stored yet, so cavity positions are not drawn.")
+				}
 			}
 		}
 	case reMS3xxx.MatchString(p):
-		set("MIL-spec circular (MS3xxx; confirm the governing specification)", "circular")
+		set("MIL-spec circular (MS3xxx; confirm the governing specification)", "circular", "MIL-DTL-5015 / SAE-AS50151")
 		out.Notes = append(out.Notes, "The exact specification behind an MS3 number should be confirmed against the connector standard.")
 	case reM83723.MatchString(p):
-		set("MIL-DTL-83723 circular", "circular")
+		set("MIL-DTL-83723 circular", "circular", "MIL-DTL-83723")
 	case reMicroD.MatchString(p):
-		set("MIL-DTL-83513 micro-D", "micro-d")
+		set("MIL-DTL-83513 micro-D", "micro-d", "MIL-DTL-83513")
 	case reM24308.MatchString(p):
-		set("MIL-DTL-24308 D-subminiature", "d-sub")
+		set("MIL-DTL-24308 D-subminiature", "d-sub", "MIL-DTL-24308")
 		out.Notes = append(out.Notes, "Contact count and density are not read from the M24308 part number here, so no positions are drawn.")
 	case reDeutschDT.MatchString(p):
-		set("Deutsch DT / DTM / DTP", "rectangular")
+		set("Deutsch DT / DTM / DTP", "rectangular", "")
 	default:
 		if m := reDSubPart.FindStringSubmatch(p); m != nil {
 			n, sex, shellLetter := 0, "", m[1]
@@ -129,7 +150,7 @@ func DecodeConnectorFamily(part string) ConnectorFamilyInfo {
 				n, _ = strconv.Atoi(m[4])
 				sex = m[5]
 			}
-			set("D-subminiature", "d-sub")
+			set("D-subminiature", "d-sub", "MIL-DTL-24308")
 			out.Positions = n
 			out.Sex = map[string]string{"P": "PIN", "S": "SOCKET"}[sex]
 			if shellLetter != "" {
