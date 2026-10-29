@@ -271,3 +271,36 @@ near(usesLabor.hours,1.5,'labor tab hours used when field blank');
 const nonNum=cutCtx.computeQuote(Object.assign({},quoteBase,{bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
 if(!nonNum.blockers.some(b=>/not a plain number/.test(b)))throw Error('A/R BOM quantity must be a blocker, not priced');
 console.log('PASS: length parsing and units, cut-list merge/conflict/missing handling, quote totals and blockers');
+
+// Multi-conductor cable: a twisted shielded pair is one cut and one cost, not two.
+const pairNets=[];
+[['8','15'],['9','16'],['10','18']].forEach(([a,b],i)=>{
+ pairNets.push({id:'WIRE-'+(i*2+1),endpoints:'GSE-P3:'+a+', CB-P3:'+a,awg:'24',color:'WHT',length:'30 IN'});
+ pairNets.push({id:'WIRE-'+(i*2+2),endpoints:'GSE-P3:'+b+', CB-P3:'+b,awg:'24',color:'BLU',length:'30 IN'});
+});
+pairNets.push({id:'WIRE-7',endpoints:'GSE-P3:1, CB-P3:1',awg:'22',color:'WHT',length:'10 IN'});
+const detected=cutCtx.detectCableSpecs([{item:'5',part:'M27500-24TG2T14',description:'CABLE, TWISTED SHIELDED PAIR, 24 AWG'},{item:'6',part:'D38999/26FJ35SN',description:'CONNECTOR'}]);
+equal(cutCtx.effectiveCables(detected,{}),{'24':2});
+const single=cutCtx.buildCutList(pairNets,{cables:{}});
+equal(single.counts.total,7);                                           // today's doubled behavior when no cable is known
+const cabled=cutCtx.buildCutList(pairNets,{cables:cutCtx.effectiveCables(detected,{})});
+equal([cabled.counts.total,cabled.counts.cables],[4,3]);                // 3 cables + the lone 22 AWG wire
+const g24=cabled.groups.find(g=>g.label==='24 · 2-conductor cable');
+equal([g24.count,g24.inches/12],[3,7.5]);                              // 3 cables x 30 in, not 6 x 30 in
+const cab=cabled.rows.find(r=>r.cable);
+if(!cab.notes.some(n=>/confirm against the drawing/.test(n)))throw Error('cable grouping must be flagged as inferred');
+equal([cab.awg,cab.color,cab.conductors],['24','WHT + BLU',2]);
+if(cab.nets.length!==2)throw Error('cable must keep both conductor nets so a typed length reaches both');
+equal(cabled.rows.find(r=>r.awg==='22').cable,undefined);
+// repeated colors, leftovers and user override
+const bad=cutCtx.buildCutList([{id:'A',endpoints:'X:1, Y:1',awg:'24',color:'WHT'},{id:'B',endpoints:'X:2, Y:2',awg:'24',color:'WHT'},{id:'C',endpoints:'X:3, Y:3',awg:'24',color:'BLU'}],{cables:{'24':2}});
+equal(bad.counts.cables,0);
+if(!bad.rows.every(r=>r.notes.some(n=>/pairing uncertain|cable incomplete/.test(n))))throw Error('ungroupable conductors must say why');
+equal(cutCtx.effectiveCables(detected,{'24':'1'}),{'24':1});            // user can force plain single wire
+equal(cutCtx.effectiveCables(detected,{'24':''}),{'24':2});             // blank keeps the BOM reading
+for(const [txt,n] of [['TWISTED SHIELDED PAIR',2],['CABLE 3 CONDUCTOR SHIELDED',3],['SHIELDED CABLE 4C',4]]){const p=cutCtx.parseCableLine({part:'M27500-X',description:txt+' 22 AWG'});if(!p||p.n!==n)throw Error('cable text not read: '+txt)}
+equal(cutCtx.parseCableLine({part:'M27500-22TG3T14',description:'WIRE'}).n,3);
+if(cutCtx.parseCableLine({part:'D38999/26FJ35SN',description:'CONNECTOR'})!==null)throw Error('connectors must not read as cable');
+const amb=cutCtx.detectCableSpecs([{part:'M27500-24TG2T14',description:'CABLE'},{part:'M27500-24TG3T14',description:'CABLE'}]);
+if(!amb.get('24').ambiguous||cutCtx.effectiveCables(amb,{})['24']!==undefined)throw Error('conflicting BOM cable lines must not be guessed');
+console.log('PASS: multi-conductor cables are one cut and one cost, flagged as inferred, with BOM detection and user override');

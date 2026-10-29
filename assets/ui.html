@@ -72,11 +72,11 @@ P1&#9;54&#9;VBUS&#9;USB_DN1&#9;1"></textarea></div><div class="callout" id="past
 <details><summary>Advanced: estimate by operation times</summary><p>Enter reviewed operation counts per harness and your minutes per operation. Drawing recognition does not populate these fields. Work remains local; save reference jobs to a file before closing. Reference files are separate from saved drawing projects.</p><div class="tablebox"><table><thead><tr><th>Operation</th><th>Count per harness</th><th>Minutes each</th></tr></thead><tbody id="laborRows"></tbody></table></div><div class="row"><label>Build quantity <input id="laborQty" type="number" min="1" value="1"></label><label>Setup hours per job <input id="laborSetup" type="number" min="0" value="0" step="0.1"></label></div><button onclick="laborCalculate()">Estimate target job</button><div id="laborOutput" class="callout" aria-live="polite">DRAFT. Enter operation times before calculating. No production rates are assumed.</div><h3>Reference jobs</h3><p>To add a reference, enter that job's counts, quantity and setup above, then its total hours below. After adding references, change the counts above to the new target job. Actual hours take precedence over estimated hours when calibrating. Only add comparable work. Allow for assembly, routing, inspection or other work not represented by the operation list.</p><div class="row"><label>Local job name <input id="laborName"></label><label>Estimated total hours <input id="laborEstimated" type="number" min="0" step="0.1"></label><label>Actual total hours <input id="laborActual" type="number" min="0" step="0.1"></label></div><button onclick="laborAdd()">Add current inputs as reference</button></details><button onclick="laborExport()">Save reference file</button><label>Load reference file <input type="file" accept=".json" onchange="laborImport(this.files[0])"></label><pre id="laborReferenceList" style="white-space:pre-wrap">No reference jobs entered.</pre></div></section><section class="tab" id="tab-buildplan"><div class="panel"><h2>Contact, plug and crimp build plan</h2><p class="help">DRAFT ONLY. Quantities are not released for production until cavity inventory, contact selection, manufacturer tooling and drawing notes are independently checked.</p><div class="row"><label for="planPolicy">Unused cavity treatment</label><select id="planPolicy"><option value="contact+plug">Filler contact + sealing plug</option><option value="plug-only">Sealing plug only</option></select><button class="primary" onclick="runBuildPlan()">Calculate build plan</button></div><p class="small muted">Build quantity follows Kitting checklist. An unverified cavity inventory produces unresolved quantities.</p><div id="buildPlanResults" aria-live="polite">Open a drawing, then calculate the build plan.</div></div></section>
 <section class="tab" id="tab-cutlist"><div class="panel"><h2>Cut list</h2><p class="help">One line per conductor, built from the conductor / net map. Lengths come only from a LENGTH column read from the drawing or from what you type here. Nothing is guessed. A conductor with no length stays flagged and is left out of footage totals.</p>
 <div class="row"><label>Length unit when the drawing does not state one <select id="cutUnit" onchange="renderCutList()"><option value="IN">inches</option><option value="FT">feet</option><option value="MM">millimetres</option><option value="CM">centimetres</option><option value="M">metres</option></select></label><label>Service loop / strip allowance added to each cut (inches) <input id="cutAllowance" type="number" min="0" step="0.05" value="0" onchange="renderCutList()" style="width:90px"></label><button onclick="exportCutCSV()">Export cut list (CSV)</button></div>
-<div id="cutStatus" class="callout"></div><div id="cutSummary"></div>
+<div id="cutCables"></div><div id="cutStatus" class="callout"></div><div id="cutSummary"></div>
 <div class="tablebox"><table><thead><tr><th>Wire</th><th>AWG</th><th>Color</th><th>From</th><th>To</th><th>Length on drawing (editable)</th><th>Cut length (in)</th><th>Status</th></tr></thead><tbody id="cutRows"><tr><td colspan="8">No conductors yet. Read a drawing or add nets.</td></tr></tbody></table></div></div></section>
 <section class="tab" id="tab-quote"><div class="panel"><h2>Quote summary</h2><p class="help">A draft estimate that combines cut-list wire, BOM parts and labor. It is not a binding quote. Anything that cannot be priced from your inputs is listed as a blocker instead of being assumed.</p><div id="quoteStatus"></div><div id="quoteTotals"></div></div>
 <div class="panel"><h3>Your rates</h3><div class="row"><label>Harnesses to build <b id="quoteQty">1</b> <span class="small muted">(set on the Kitting tab)</span></label><label>Labor hours per harness <input id="qLabor" type="number" min="0" step="0.1" onchange="quoteSet('laborHours',this.value)" style="width:100px"></label><label>Labor rate ($/hour) <input id="qRate" type="number" min="0" step="0.5" onchange="quoteSet('rate',this.value)" style="width:100px"></label><label>Wire scrap allowance (%) <input id="qScrap" type="number" min="0" step="1" onchange="quoteSet('scrap',this.value)" style="width:90px"></label><label>Markup / overhead (%) <input id="qMarkup" type="number" min="0" step="1" onchange="quoteSet('markup',this.value)" style="width:90px"></label></div><p class="small muted" id="quoteLaborHint"></p></div>
-<div class="panel"><h3>Wire from the cut list</h3><div class="tablebox"><table><thead><tr><th>Wire (AWG, color)</th><th>Conductors</th><th>Feet per harness</th><th>Feet to buy (incl. scrap)</th><th>Your cost ($/ft)</th></tr></thead><tbody id="quoteWireRows"><tr><td colspan="5">No cut list yet.</td></tr></tbody></table></div></div>
+<div class="panel"><h3>Wire from the cut list</h3><div class="tablebox"><table><thead><tr><th>Wire or cable</th><th>Cuts</th><th>Feet per harness</th><th>Feet to buy (incl. scrap)</th><th>Your cost ($/ft)</th></tr></thead><tbody id="quoteWireRows"><tr><td colspan="5">No cut list yet.</td></tr></tbody></table></div></div>
 <div class="panel"><h3>Parts from the BOM</h3><p class="help">Quantities are per harness. Wire and cable lines are priced from the cut list above and are skipped here.</p><div class="tablebox"><table><thead><tr><th>Item</th><th>Part</th><th>Description</th><th>Qty / harness</th><th>Your unit cost ($)</th></tr></thead><tbody id="quoteBomRows"><tr><td colspan="5">No BOM yet.</td></tr></tbody></table></div></div>
 <div class="panel"><h3>Tooling</h3><div id="quoteTooling"></div></div></section>
 <section class="tab" id="tab-kit"><div class="panel"><h2>Physical kitting checklist</h2><div class="split"><div class="field"><label>Work order / assembly</label><input id="workorder" oninput="showReport()"></div><div class="field"><label>Number of harnesses being built</label><input id="buildQty" type="number" min="1" value="1" onchange="kitReset()"></div><div class="field"><label>Kitted by</label><input id="kitter" oninput="showReport()"></div><div class="field"><label>Independently checked by</label><input id="checker" oninput="showReport()"></div></div><div id="kitSummary" class="callout">No kit verified.</div><div class="tablebox"><table><thead><tr><th>Checked</th><th>Part number</th><th>Qty needed</th><th>Qty pulled</th><th>Lot / serial / trace</th><th>Notes</th></tr></thead><tbody id="kitRows"></tbody></table></div></div></section>
@@ -129,7 +129,7 @@ P1&#9;54&#9;VBUS&#9;USB_DN1&#9;1"></textarea></div><div class="callout" id="past
 </main></div><div class="modal" id="probeModal"><div style="background:#fff;border-radius:9px;padding:16px;display:flex;flex-direction:column;height:100%"><div class="row" style="justify-content:space-between"><b>Recognition probe — structure only, review before sharing</b><span><button onclick="copyProbe()">Copy to clipboard</button> <button onclick="$('probeModal').classList.remove('on')">Close</button></span></div><p class="small">Only generic heading words (QTY, PIN, FROM…) are shown. Every other word is replaced by ▢, short numbers by ‹n›, designators by ‹desig›; part numbers appear only as counts per public specification family. Read it yourself and share it only if your CUI policy permits.</p><textarea id="probeText" readonly spellcheck="false" style="width:100%;flex:1;font:12px/1.45 Consolas,monospace"></textarea></div></div><div class="modal" id="pdfModal"><div class="row"><b>Original drawing · local preview</b><button onclick="document.getElementById('pdfModal').classList.remove('on')">Close</button></div><iframe id="pdfFrame" title="Source PDF"></iframe></div>
 <script>
 'use strict';const TOKEN='__SESSION_TOKEN__';const APP_VERSION='__APP_VERSION__';const $=id=>document.getElementById(id);const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let st={quote:null,laborUnitHours:null,raw:null,filename:'Untitled',sourceMatched:false,connectors:[],branches:[],nets:[],bom:[],notes:[],cots:[],lookupQueue:[],securityPolicy:{classification:'restricted',egress:'blocked'},tooling:[],importedTools:[],assemblyRefs:[],wireCableRefs:[],toolEquivalences:[],pdfURL:null,visualEvidence:[],evidenceLedger:[],pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,pageView:null,region:null,highlight:null};
+let st={quote:null,laborUnitHours:null,cableSpec:{},raw:null,filename:'Untitled',sourceMatched:false,connectors:[],branches:[],nets:[],bom:[],notes:[],cots:[],lookupQueue:[],securityPolicy:{classification:'restricted',egress:'blocked'},tooling:[],importedTools:[],assemblyRefs:[],wireCableRefs:[],toolEquivalences:[],pdfURL:null,visualEvidence:[],evidenceLedger:[],pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,pageView:null,region:null,highlight:null};
 
 
 function localRecognitionCheck(d){
@@ -833,40 +833,102 @@ function buildCutList(nets,opts){
   if(L.invalid)r.invalid.push(L.text);else if(L.inches!=null){r.lens.push(Math.round(L.inches*100)/100);r.stated.push(L.text);if(L.assumed)r.assumed=true}
  }
  const allowance=Number(o.allowance)>0?Number(o.allowance):0;
- const counts={total:0,ok:0,missing:0,conflict:0,invalid:0,assumed:0},groups=new Map();
- const rows=[...map.values()].map(r=>{
+ const counts={total:0,ok:0,missing:0,conflict:0,invalid:0,assumed:0,cables:0},groups=new Map();
+ const conds=[...map.values()];
+ for(const r of conds){
+  r.notes=[];
+  if(r.conflicts.length)r.notes.push('Conflicting '+r.conflicts.join('/')+' between sources');
+  if(r.splice)r.notes.push('Joins '+(r.to.split(' / ').length+1)+' endpoints (splice or branch); confirm how many cuts');
+ }
+ // Multi-conductor cable (for example a twisted shielded pair): one cut and one
+ // cost for the whole cable, not one per conductor. Conductors are grouped by
+ // gauge and connector pair in drawing order; the pairing is inferred, so it is flagged.
+ const cableN=a=>{const n=Number((o.cables||{})[String(a||'').trim()]);return Number.isInteger(n)&&n>=2?n:1};
+ const tagOf=e=>String(e).split(':')[0];
+ const items=[],buckets=new Map();let cableNo=0;
+ for(const r of conds){
+  const n=cableN(r.awg);
+  if(n<2){items.push(r);continue}
+  const bk=[r.awg,tagOf(r.from),tagOf(r.to.split(' / ')[0])].join('|');
+  let b=buckets.get(bk);if(!b){b=[];buckets.set(bk,b)}
+  b.push(r);
+  if(b.length<n)continue;
+  buckets.set(bk,[]);
+  const colors=b.map(m=>m.color);
+  if(colors.some(c=>!c)||new Set(colors).size<n){
+   for(const m of b){m.notes.push('Expected a '+n+'-conductor cable but the colors in this group are missing or repeated; pairing uncertain');items.push(m)}
+   continue;
+  }
+  cableNo++;
+  const cab={key:'C:'+b.map(m=>m.key).join('+'),cable:true,conductors:n,members:b,wire:'CABLE '+cableNo,awg:b[0].awg,color:colors.join(' + '),signal:'',from:b.map(m=>m.from).join(', '),to:b.map(m=>m.to).join(', '),splice:false,sources:b.reduce((s,m)=>s+m.sources,0),lens:[].concat(...b.map(m=>m.lens)),stated:[].concat(...b.map(m=>m.stated)),invalid:[].concat(...b.map(m=>m.invalid)),assumed:b.some(m=>m.assumed),conflicts:[],nets:[].concat(...b.map(m=>m.nets)),notes:['Conductors grouped into one cable by gauge, connector pair and drawing order; confirm against the drawing and BOM: '+b.map(m=>m.wire+' ('+m.color+')').join(' + ')]};
+  for(const m of b)for(const nt of m.notes)if(!cab.notes.includes(nt))cab.notes.push(nt);
+  items.push(cab);
+ }
+ for(const [bk,b] of buckets)for(const m of b){m.notes.push('Expected a '+cableN(m.awg)+'-conductor cable but only '+b.length+' matching conductor(s) found; cable incomplete');items.push(m)}
+ const rows=items.map(r=>{
   const distinct=[...new Set(r.lens)];let status,inches=null;
   if(distinct.length>1)status='CONFLICTING LENGTHS';
   else if(distinct.length===1){inches=distinct[0];status=r.assumed?'UNIT ASSUMED':'OK'}
   else if(r.invalid.length)status='INVALID LENGTH';
   else status='NO LENGTH';
-  const notes=[];
-  if(r.conflicts.length)notes.push('Conflicting '+r.conflicts.join('/')+' between sources');
-  if(r.splice)notes.push('Joins '+(r.to.split(' / ').length+1)+' endpoints (splice or branch); confirm how many cuts');
+  const notes=r.notes.slice();
   if(r.invalid.length&&distinct.length)notes.push('Unreadable length ignored: '+r.invalid.join(', '));
   const cut=inches!=null?Math.round((inches+allowance)*100)/100:null;
-  counts.total++;
+  counts.total++;if(r.cable)counts.cables++;
   if(status==='OK')counts.ok++;else if(status==='UNIT ASSUMED'){counts.ok++;counts.assumed++}else if(status==='CONFLICTING LENGTHS')counts.conflict++;else if(status==='INVALID LENGTH')counts.invalid++;else counts.missing++;
-  const label=(r.awg||'AWG ?')+' · '+(r.color||'color ?');
-  let g=groups.get(label);if(!g){g={label,awg:r.awg,color:r.color,count:0,inches:0,unmeasured:0};groups.set(label,g)}
+  const label=r.cable?(r.awg||'AWG ?')+' · '+r.conductors+'-conductor cable':(r.awg||'AWG ?')+' · '+(r.color||'color ?');
+  let g=groups.get(label);if(!g){g={label,awg:r.awg,color:r.cable?'':r.color,count:0,inches:0,unmeasured:0};groups.set(label,g)}
   g.count++;if(cut!=null)g.inches+=cut;else g.unmeasured++;
   return Object.assign(r,{status,inches,cut,notes});
  });
  return {rows,groups:[...groups.values()],counts,skipped};
 }
+// Conductor count of a cable, read from BOM wording (never assumed). M27500
+// part numbers carry the conductor count after the two-letter construction code.
+function parseCableLine(b){
+ const text=String(b&&b.part||'')+' '+String(b&&b.description||'');
+ if(!WIRE_LINE.test(text))return null;
+ let n=0,basis='',awg='';
+ const mil=text.match(/M27500[-\s]?(\d{2})[A-Z]{1,3}(\d)[A-Z]\d{2}/i);
+ const word=text.match(/(\d+)\s*[- ]?\s*(?:CONDUCTOR|COND\b|CNDTR)|\b(\d)C\b/i);
+ if(/TWISTED[\s,-]*(?:SHIELDED[\s,-]*)?PAIR|\bTSP\b/i.test(text)){n=2;basis='description says twisted pair'}
+ else if(word){n=Number(word[1]||word[2]);basis='description says '+word[0].trim()}
+ else if(mil){n=Number(mil[2]);basis='M27500 part number format'}
+ const g=text.match(/\b(\d{2})\s*(?:AWG|GA(?:UGE|GE)?)\b|\bAWG\s*(\d{2})\b/i);
+ awg=g?String(g[1]||g[2]):(mil?mil[1]:'');
+ return n>=1?{awg,n,basis,text:text.trim()}:null;
+}
+function detectCableSpecs(bom){
+ const by=new Map();
+ for(const b of bom||[]){const c=parseCableLine(b);if(!c||c.n<2||!c.awg)continue;const k=String(Number(c.awg));const e=by.get(k);if(!e)by.set(k,{awg:k,n:c.n,basis:c.basis,text:c.text,ambiguous:false});else if(e.n!==c.n)e.ambiguous=true}
+ return by;
+}
+function effectiveCables(detected,overrides){
+ const out={};
+ for(const [k,e] of detected)if(!e.ambiguous)out[k]=e.n;
+ for(const [k,v] of Object.entries(overrides||{})){const s=String(v).trim();if(s!=='')out[String(Number(k))]=Number(s)}
+ return out;
+}
 let lastCut={rows:[],groups:[],counts:{total:0,ok:0,missing:0,conflict:0,invalid:0,assumed:0},skipped:0};
-function cutOpts(){return {defUnit:$('cutUnit')?$('cutUnit').value:'IN',allowance:$('cutAllowance')?$('cutAllowance').value:0}}
+function cutOpts(){return {defUnit:$('cutUnit')?$('cutUnit').value:'IN',allowance:$('cutAllowance')?$('cutAllowance').value:0,cables:effectiveCables(detectCableSpecs(st.bom),st.cableSpec)}}
+function cableSet(awg,v){if(!st.cableSpec)st.cableSpec={};st.cableSpec[awg]=String(v).trim();renderCutList()}
+function renderCableSpecs(){
+ const el=$('cutCables');if(!el)return;
+ const det=detectCableSpecs(st.bom),awgs=[...new Set([...st.nets.map(n=>String(n.awg||'').trim()).filter(Boolean).map(a=>String(Number(a)||a)),...det.keys()])].sort((a,b)=>Number(a)-Number(b));
+ if(!awgs.length){el.innerHTML='';return}
+ el.innerHTML='<h3>Cable construction</h3><p class="help">If the BOM wire is a multi-conductor cable (for example a twisted shielded pair), its conductors are one cut and one cost, not one each. The conductor count is read from the BOM wire description or part number; set it here if it is missing or wrong. Leave blank to use what the BOM says; enter 1 for plain single wire.</p><div class="tablebox"><table><thead><tr><th>Wire gauge (AWG)</th><th>Conductors per cable</th><th>What the BOM says</th></tr></thead><tbody>'+awgs.map(a=>{const d=det.get(a),ov=(st.cableSpec||{})[a];return `<tr><td>${safe(a)}</td><td><input type="number" min="1" max="12" step="1" value="${safe(ov==null?'':ov)}" placeholder="${d&&!d.ambiguous?d.n:'1'}" aria-label="Conductors per cable for ${safe(a)} AWG" onchange="cableSet('${safe(a)}',this.value)" style="width:80px"></td><td class="small">${d?(d.ambiguous?'BOM wire lines for this gauge disagree on conductor count; set it here.':safe(d.n+' conductors ('+d.basis+'): '+d.text.slice(0,90))):'No multi-conductor wire found in the BOM for this gauge; treated as single wire.'}</td></tr>`}).join('')+'</tbody></table></div>';
+}
 function renderCutList(){
  const el=$('cutRows');if(!el)return;
- lastCut=buildCutList(st.nets,cutOpts());const c=lastCut.counts;
+ lastCut=buildCutList(st.nets,cutOpts());const c=lastCut.counts;renderCableSpecs();
  $('cutStatus').className='callout '+(!c.total||c.ok<c.total?'bad':'good');
- $('cutStatus').textContent=c.total?`${c.total} conductor(s). ${c.ok} with a usable length${c.assumed?' ('+c.assumed+' with an assumed unit: confirm)':''}, ${c.missing} with no length, ${c.conflict} with conflicting lengths, ${c.invalid} unreadable. DRAFT: verify every length against the drawing.`:'No conductors yet. Read a drawing or add nets.';
- $('cutSummary').innerHTML=lastCut.groups.length?'<div class="tablebox"><table><thead><tr><th>Wire (AWG, color)</th><th>Conductors</th><th>Total cut length (ft)</th><th>Conductors without length</th></tr></thead><tbody>'+lastCut.groups.map(g=>`<tr><td>${safe(g.label)}</td><td>${g.count}</td><td>${(g.inches/12).toFixed(2)}</td><td>${g.unmeasured||'—'}</td></tr>`).join('')+'</tbody></table></div>':'';
- el.innerHTML=lastCut.rows.length?lastCut.rows.map((r,i)=>`<tr><td>${safe(r.wire)}${r.sources>1?` <span class="small muted">(${r.sources} sources merged)</span>`:''}</td><td>${safe(r.awg||'?')}</td><td>${safe(r.color||'?')}</td><td>${safe(r.from)}</td><td>${safe(r.to)}</td><td><input value="${safe(r.stated[0]||r.invalid[0]||'')}" placeholder="e.g. 12.5 or 3 FT" aria-label="Length for ${safe(r.wire)}" onchange="cutEdit(${i},this.value)" style="width:120px"></td><td>${r.cut!=null?r.cut.toFixed(2):'—'}</td><td><span class="tag ${r.status==='OK'?'good':(r.status==='UNIT ASSUMED'?'warn':'bad')}">${safe(r.status)}</span>${r.notes.map(n=>'<div class="small muted">'+safe(n)+'</div>').join('')}</td></tr>`).join(''):'<tr><td colspan="8">No conductors yet. Read a drawing or add nets.</td></tr>';
+ $('cutStatus').textContent=c.total?`${c.total} cut(s)${c.cables?' ('+c.cables+' multi-conductor cable(s) counted once each)':''}. ${c.ok} with a usable length${c.assumed?' ('+c.assumed+' with an assumed unit: confirm)':''}, ${c.missing} with no length, ${c.conflict} with conflicting lengths, ${c.invalid} unreadable. DRAFT: verify every length against the drawing.`:'No conductors yet. Read a drawing or add nets.';
+ $('cutSummary').innerHTML=lastCut.groups.length?'<div class="tablebox"><table><thead><tr><th>Wire or cable</th><th>Cuts</th><th>Total cut length (ft)</th><th>Cuts without length</th></tr></thead><tbody>'+lastCut.groups.map(g=>`<tr><td>${safe(g.label)}</td><td>${g.count}</td><td>${(g.inches/12).toFixed(2)}</td><td>${g.unmeasured||'—'}</td></tr>`).join('')+'</tbody></table></div>':'';
+ el.innerHTML=lastCut.rows.length?lastCut.rows.map((r,i)=>`<tr><td>${safe(r.wire)}${r.cable?` <span class="tag">${r.conductors} conductors</span>`:''}${r.sources>1&&!r.cable?` <span class="small muted">(${r.sources} sources merged)</span>`:''}</td><td>${safe(r.awg||'?')}</td><td>${safe(r.color||'?')}</td><td>${safe(r.from)}</td><td>${safe(r.to)}</td><td><input value="${safe(r.stated[0]||r.invalid[0]||'')}" placeholder="e.g. 12.5 or 3 FT" aria-label="Length for ${safe(r.wire)}" onchange="cutEdit(${i},this.value)" style="width:120px"></td><td>${r.cut!=null?r.cut.toFixed(2):'—'}</td><td><span class="tag ${r.status==='OK'?'good':(r.status==='UNIT ASSUMED'?'warn':'bad')}">${safe(r.status)}</span>${r.notes.map(n=>'<div class="small muted">'+safe(n)+'</div>').join('')}</td></tr>`).join(''):'<tr><td colspan="8">No conductors yet. Read a drawing or add nets.</td></tr>';
  renderQuote();
 }
 function cutEdit(i,v){const r=lastCut.rows[i];if(!r)return;for(const n of r.nets)n.length=String(v).trim();renderCutList();showReport()}
-function exportCutCSV(){csv('Trivex_Cut_List_DRAFT.csv',[['Wire','AWG','Color','From','To','Length on drawing','Cut length (in) incl. allowance','Status','Notes'],...lastCut.rows.map(r=>[r.wire,r.awg,r.color,r.from,r.to,r.stated[0]||'',r.cut!=null?r.cut:'',r.status,r.notes.join('; ')])])}
+function exportCutCSV(){csv('Trivex_Cut_List_DRAFT.csv',[['Wire / cable','Conductors','AWG','Color','From','To','Length on drawing','Cut length (in) incl. allowance','Status','Notes'],...lastCut.rows.map(r=>[r.wire,r.cable?r.conductors:1,r.awg,r.color,r.from,r.to,r.stated[0]||'',r.cut!=null?r.cut:'',r.status,r.notes.join('; ')])])}
 function freshQuote(){return {laborHours:'',rate:'',markup:'',scrap:'10',wireCost:{},bomCost:{}}}
 const WIRE_LINE=/\b(?:WIRE|CABLE)\b|M22759|M27500|M81044|M5086|MIL-W-/i;
 function computeQuote(x){
@@ -949,8 +1011,8 @@ function exportBOM(){csv('Trivex_BOM.csv',[['Item','Part','Description','Qty per
 function exportKit(){csv('Trivex_Kitting.csv',[['Part','Description','Qty Required','Qty Pulled','Traceability','Verified','Notes'],...st.bom.map(r=>[r.part,r.description,requiredKitQty(r,Math.max(1,Number($('buildQty').value)||1))||(asRequired(r)?'A/R - UNRESOLVED':0),r.count,r.trace,r.verified?'yes':'no',r.notes])])}
 function exportTooling(){exportRequirements()}
 
-function saveProject(){if(!confirm('The project file contains data derived from the drawing (part numbers, cavity assignments, BOM, notes, evidence locations and any lookup-release records). Store and transmit it under the same controls as the source drawing (e.g. CUI). Save it now?'))return;let inputs={};for(let id of ['toolParts','specialtyParts','toolNA','workorder','buildQty','kitter','checker'])inputs[id]=$(id).value;download('Trivex_Harness_Project.json',new Blob([JSON.stringify({version:13,filename:st.filename,raw:st.raw,connectors:st.connectors,branches:st.branches,nets:st.nets,bom:st.bom,notes:st.notes,cots:st.cots,visualEvidence:st.visualEvidence,evidenceLedger:st.evidenceLedger,lookupQueue:st.lookupQueue,securityPolicy:st.securityPolicy,importedTools:st.importedTools,quote:st.quote,inputs},null,2)],{type:'application/json'}))}
-async function loadProject(f){if(!f)return;try{let d=JSON.parse(await f.text());if(![12,13].includes(d.version)||!Array.isArray(d.connectors))throw Error('Not a supported Trivex project');st={...st,raw:d.raw,filename:d.filename||'',sourceMatched:false,connectors:d.connectors.map(c=>({...c,verified:false})),branches:d.branches||d.raw?.branches||[],nets:(d.nets||[]).map(n=>({...n,reviewed:false})),bom:(d.bom||[]).map(b=>({...b,verified:false})),notes:(d.notes||[]).map(n=>({...n,reviewed:false,status:'DRAFT — REVIEW REQUIRED'})),cots:(d.cots||[]).map(x=>({...x,reviewed:false})),visualEvidence:(d.visualEvidence||[]).map(e=>({...e,reviewed:false})),evidenceLedger:d.evidenceLedger||[],lookupQueue:d.lookupQueue||[],securityPolicy:d.securityPolicy||{classification:'restricted',egress:'blocked'},pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,importedTools:d.importedTools||[]};for(let [id,v]of Object.entries(d.inputs||{}))if($(id))$(id).value=v;$('bomVerified').checked=false;$('toolVerified').checked=false;st.quote=d.quote&&typeof d.quote==='object'?Object.assign(freshQuote(),d.quote,{wireCost:{...(d.quote.wireCost||{})},bomCost:{...(d.quote.bomCost||{})}}):freshQuote();sourcePreview(null);render();alert('Project loaded as DRAFT. Reattach source PDF to verify its checksum and repeat sign-offs. External lookup remains subject to the saved data-handling policy and a new release confirmation.')}catch(e){alert('Cannot open project: '+e.message)}}
+function saveProject(){if(!confirm('The project file contains data derived from the drawing (part numbers, cavity assignments, BOM, notes, evidence locations and any lookup-release records). Store and transmit it under the same controls as the source drawing (e.g. CUI). Save it now?'))return;let inputs={};for(let id of ['toolParts','specialtyParts','toolNA','workorder','buildQty','kitter','checker'])inputs[id]=$(id).value;download('Trivex_Harness_Project.json',new Blob([JSON.stringify({version:13,filename:st.filename,raw:st.raw,connectors:st.connectors,branches:st.branches,nets:st.nets,bom:st.bom,notes:st.notes,cots:st.cots,visualEvidence:st.visualEvidence,evidenceLedger:st.evidenceLedger,lookupQueue:st.lookupQueue,securityPolicy:st.securityPolicy,importedTools:st.importedTools,quote:st.quote,cableSpec:st.cableSpec,inputs},null,2)],{type:'application/json'}))}
+async function loadProject(f){if(!f)return;try{let d=JSON.parse(await f.text());if(![12,13].includes(d.version)||!Array.isArray(d.connectors))throw Error('Not a supported Trivex project');st={...st,raw:d.raw,filename:d.filename||'',sourceMatched:false,connectors:d.connectors.map(c=>({...c,verified:false})),branches:d.branches||d.raw?.branches||[],nets:(d.nets||[]).map(n=>({...n,reviewed:false})),bom:(d.bom||[]).map(b=>({...b,verified:false})),notes:(d.notes||[]).map(n=>({...n,reviewed:false,status:'DRAFT — REVIEW REQUIRED'})),cots:(d.cots||[]).map(x=>({...x,reviewed:false})),visualEvidence:(d.visualEvidence||[]).map(e=>({...e,reviewed:false})),evidenceLedger:d.evidenceLedger||[],lookupQueue:d.lookupQueue||[],securityPolicy:d.securityPolicy||{classification:'restricted',egress:'blocked'},pageImages:{},pageImageSources:{},embeddedImages:[],pendingRegion:null,importedTools:d.importedTools||[]};for(let [id,v]of Object.entries(d.inputs||{}))if($(id))$(id).value=v;$('bomVerified').checked=false;$('toolVerified').checked=false;st.cableSpec=d.cableSpec&&typeof d.cableSpec==='object'?{...d.cableSpec}:{};st.quote=d.quote&&typeof d.quote==='object'?Object.assign(freshQuote(),d.quote,{wireCost:{...(d.quote.wireCost||{})},bomCost:{...(d.quote.bomCost||{})}}):freshQuote();sourcePreview(null);render();alert('Project loaded as DRAFT. Reattach source PDF to verify its checksum and repeat sign-offs. External lookup remains subject to the saved data-handling policy and a new release confirmation.')}catch(e){alert('Cannot open project: '+e.message)}}
 function printReview(){tab('reports');window.print()}
 
 // Offline manufacturer reference data served by this executable. NEVER marks tooling approved.
