@@ -70,7 +70,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   const refHeaders={'X-Trivex-Token':token,'Content-Type':'application/pdf'};
   const refBanner=await (await fetch(url+'api/reference-validate',{method:'POST',headers:refHeaders,body:'<html><title>Warning Banner</title></html>'})).json();assert(!refBanner.ok&&refBanner.status==='MANUAL_DOWNLOAD_REQUIRED','HTML banner must not be accepted as a reference PDF');
   assert.equal((await fetch(url+'api/reference-validate',{method:'POST',body:'x'})).status,403);
-  const f38=await api('api/connector-family?part=D38999/26FD35PN',undefined,'GET');assert(f38.layoutStandards.some(x=>x.code==='MIL-STD-1560'&&x.sources.length)&&f38.specs.length===1&&!f38.geometry,'connector documentation links or no-invented-geometry rule missing from packaged executable');
+  const f38=await api('api/connector-family?part=D38999/26FD35PN',undefined,'GET');assert(f38.layoutStandards.some(x=>x.code==='MIL-STD-1560'&&x.sources.length)&&f38.specs.length===1&&f38.geometry&&f38.geometry.positions.length===37&&f38.geometry.status.includes('UNREVIEWED'),'connector documentation links or stored insert layout missing from packaged executable');
   assert(equivalences.some(x=>x.specification==='AS22520/1'&&x.primary.includes('AF8')&&x.conditions.includes('exact turret/positioner')),'AF8 powered-route conditions missing');
   assert(equivalences.some(x=>x.specification==='AS22520/23'&&x.status.includes('QUALIFICATION REVIEW')),'large-gauge qualification safeguard missing');
   const plan=await api('api/build-plan',{buildQty:2,policy:'plug-only',connectors:[{tag:'P1',part:'D38999/26FG35PA',all:['1','2'],allVerified:true,wired:[{cavity:'1',awg:'24'}]}]});

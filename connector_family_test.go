@@ -21,9 +21,9 @@ func TestConnectorFamilyFromPartNumber(t *testing.T) {
 	}
 }
 
-func TestSeriesIIIReadsShellSizeSexCountButNoPositions(t *testing.T) {
+func TestSeriesIIIReadsShellSizeSexCountAndStoredLayout(t *testing.T) {
 	d := DecodeConnectorFamily("D38999/26FD35PN")
-	if d.ShellSize != "15" || d.Positions != 37 || d.Sex != "PIN" || d.Geometry != nil {
+	if d.ShellSize != "15" || d.Positions != 37 || d.Sex != "PIN" || d.Geometry == nil || len(d.Geometry.Positions) != 37 {
 		t.Fatalf("%+v", d)
 	}
 	if !strings.Contains(d.Status, "UNVERIFIED") {
@@ -115,8 +115,8 @@ func TestFamilyCarriesSpecAndLayoutStandard(t *testing.T) {
 	if len(d.Specs) != 1 || d.Specs[0].Code != "MIL-DTL-38999" || len(d.Layouts) != 1 || d.Layouts[0].Code != "MIL-STD-1560" || len(d.Layouts[0].Sources) == 0 {
 		t.Fatalf("%+v", d)
 	}
-	if !strings.Contains(strings.Join(d.Notes, " "), "No reviewed insert layout") {
-		t.Fatalf("missing-layout note absent: %v", d.Notes)
+	if d.Geometry == nil || d.Geometry.View != "pin-front" || !strings.Contains(d.Geometry.Status, "UNREVIEWED") || !strings.Contains(d.Geometry.Basis, "page 21") {
+		t.Fatalf("stored layout must carry its view, source page and unreviewed status: %+v", d.Geometry)
 	}
 	if d := DecodeConnectorFamily("M83723/71G1210N"); len(d.Layouts) != 2 {
 		t.Fatalf("83723 maps to two layout standards: %+v", d.Layouts)
@@ -163,6 +163,66 @@ func TestShippedInsertGeometryLibraryIsValid(t *testing.T) {
 		p := strings.SplitN(k, "|", 2)
 		if g, probs := buildInsertGeometry(rows[1:], p[0], p[1]); g == nil || len(probs) != 0 {
 			t.Fatalf("shipped arrangement %s is invalid: %v", k, probs)
+		}
+	}
+}
+
+func TestAmphenolTablesLoadedCorrectly(t *testing.T) {
+	// Spot values read by eye from the printed Contact Hole Locations tables (inches x 25.4, Y flipped to point down).
+	for _, c := range []struct {
+		arr, cav string
+		x, y     float64
+		n        int
+	}{{"25-35", "1", -12.167, -7.087, 128}, {"25-35", "99", 6.325, 0, 128}, {"25-35", "104", 6.325, 12.065, 128}, {"15-35", "1", 1.143, -6.655, 37}} {
+		g, p := insertGeometryFor("MIL-STD-1560", c.arr)
+		if g == nil || len(p) != 0 || len(g.Positions) != c.n {
+			t.Fatalf("%s: %+v %v", c.arr, g, p)
+		}
+		found := false
+		for _, q := range g.Positions {
+			if q.Label == c.cav {
+				found = true
+				if d := q.X - c.x; d > 0.002 || d < -0.002 {
+					t.Fatalf("%s/%s x = %v, want %v", c.arr, c.cav, q.X, c.x)
+				}
+				if d := q.Y - c.y; d > 0.002 || d < -0.002 {
+					t.Fatalf("%s/%s y = %v, want %v", c.arr, c.cav, q.Y, c.y)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s cavity %s missing", c.arr, c.cav)
+		}
+	}
+	// every loaded series III x35 arrangement matches its reviewed cavity inventory, and none overlap
+	for shell, letter := range map[string]string{"15": "D", "17": "E", "21": "G", "23": "H", "25": "J"} {
+		g, _ := insertGeometryFor("MIL-STD-1560", shell+"-35")
+		inv, _ := guideInventory("D38999/26F" + letter + "35PN")
+		if g == nil || len(g.Positions) != len(inv.IDs) {
+			t.Fatalf("%s-35 has %v positions, inventory %d", shell, g, len(inv.IDs))
+		}
+		have := map[string]bool{}
+		for _, q := range g.Positions {
+			have[q.Label] = true
+		}
+		for _, id := range inv.IDs {
+			if !have[id] {
+				t.Fatalf("%s-35 lacks inventory cavity %s", shell, id)
+			}
+		}
+		for i := range g.Positions {
+			for j := i + 1; j < len(g.Positions); j++ {
+				dx, dy := g.Positions[i].X-g.Positions[j].X, g.Positions[i].Y-g.Positions[j].Y
+				if dx*dx+dy*dy < 1.2*1.2 {
+					t.Fatalf("%s-35 contacts %s and %s overlap", shell, g.Positions[i].Label, g.Positions[j].Label)
+				}
+			}
+		}
+	}
+	// arrangements that did not validate are absent rather than partial
+	for _, arr := range []string{"19-11", "25-61"} {
+		if g, _ := insertGeometryFor("MIL-STD-1560", arr); g != nil {
+			t.Fatalf("%s must not be loaded", arr)
 		}
 	}
 }

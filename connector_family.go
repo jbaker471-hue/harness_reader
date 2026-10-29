@@ -111,7 +111,7 @@ func DecodeConnectorFamily(part string) ConnectorFamilyInfo {
 	switch {
 	case re38999.MatchString(p):
 		set("MIL-DTL-38999 circular", "circular", "MIL-DTL-38999")
-		out.Notes = append(out.Notes, "Insert arrangement and keyway positions are set by the arrangement code; they are not drawn here.")
+		out.Notes = append(out.Notes, "Keyway positions and alternate rotations are not drawn; a stored layout is shown for normal rotation only.")
 		if m := seriesIII35.FindStringSubmatch(p); m != nil {
 			out.ShellSize = shellSeriesIII[m[3]]
 			if rc := ResolveConnectorContacts(p); rc.PositionCount > 0 {
