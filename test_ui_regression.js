@@ -539,3 +539,26 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes("fetch('/api/arrangement-register'"))throw Error('register not loaded from the endpoint');
  console.log('PASS: arrangement register shows only read values, lists unread arrangements bare, filters by family, escapes');
 }
+
+// The catalog's stated contact count is checked against the cavity inventory, entered capacity and wiring.
+{
+ const ctx={safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('function expectedSizes(','function renderFaceView('),ctx);
+ const fam={expected:{id:'20-14',contacts:5,contactSize:'2x8;3x12',serviceRating:'A',source:'Amphenol <catalog>',sourcePage:'7',status:'EXTRACTED FROM CATALOG TEXT — UNREVIEWED'}};
+ const ok=ctx.expectedHtml(fam,5,5,3);
+ if(!ok.includes('COUNT AGREES')||!ok.includes('2 × #8, 3 × #12')||!ok.includes('page 7')||ok.includes('MISMATCH'))throw Error('agreeing connector shown wrong');
+ if(ok.includes('<catalog>')||!ok.includes('&lt;catalog&gt;'))throw Error('source must be escaped');
+ const inv=ctx.expectedHtml(fam,6,5,3);
+ if(!inv.includes('MISMATCH')||!inv.includes('lists 6 cavities but the catalog arrangement has 5'))throw Error('inventory mismatch missed');
+ const cap=ctx.expectedHtml(fam,5,8,3);
+ if(!cap.includes('insert capacity is 8'))throw Error('capacity mismatch missed');
+ const wired=ctx.expectedHtml(fam,5,5,7);
+ if(!wired.includes('7 cavities carry wires but the arrangement has only 5'))throw Error('too many wired cavities missed');
+ const none=ctx.expectedHtml(fam,0,0,0);
+ if(!none.includes('NOT COMPARED')||none.includes('COUNT AGREES'))throw Error('nothing to compare must not read as agreement');
+ if(ctx.expectedHtml({},5,5,5)!==''||ctx.expectedHtml(null,5,5,5)!=='')throw Error('no expectation, no line');
+ if(ctx.expectedSizes('16')!=='#16')throw Error('single size format');
+ if(!src.includes('${expectedHtml(fam,d.all.length,c.capacity,cnt.wired)}'))throw Error('connector card does not show the expectation');
+ console.log('PASS: catalog contact count compared with inventory, capacity and wiring; mismatches shown, nothing compared is not agreement');
+}

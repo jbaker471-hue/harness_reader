@@ -238,3 +238,72 @@ func arrangementRegister() ([]ArrangementRecord, error) {
 	}
 	return out, nil
 }
+
+// ExpectedArrangement is what a catalog states an insert arrangement holds. It lets the application
+// compare a connector's cavity inventory and wiring against the arrangement its part number names.
+type ExpectedArrangement struct {
+	ID          string `json:"id"`
+	Contacts    int    `json:"contacts"`
+	ContactSize string `json:"contactSize,omitempty"`
+	Rating      string `json:"serviceRating,omitempty"`
+	Source      string `json:"source"`
+	SourcePage  string `json:"sourcePage"`
+	Status      string `json:"status"`
+}
+
+// msArrangementID reads the arrangement from an MS3xxx part number, for example MS3106A18-1S gives 18-1.
+func msArrangementID(part string) string {
+	m := reMS5015Arr.FindStringSubmatch(part)
+	if m == nil {
+		return ""
+	}
+	shell := m[1]
+	suffix := ""
+	if strings.HasSuffix(shell, "S") {
+		shell, suffix = strings.TrimSuffix(shell, "S"), "S"
+	}
+	n, err := strconv.Atoi(shell)
+	if err != nil {
+		return ""
+	}
+	return strconv.Itoa(n) + suffix + "-" + m[2]
+}
+
+// expectedFor finds the contact count a catalog states for the arrangement a part number (or a chosen
+// layout) names. It never guesses: no match, or two catalog rows that disagree, gives nothing.
+func expectedFor(part, arrangement string) *ExpectedArrangement {
+	if reMS3xxx.MatchString(part) {
+		id := msArrangementID(part)
+		if id == "" {
+			return nil
+		}
+		reg, err := arrangementRegister()
+		if err != nil {
+			return nil
+		}
+		var found []ArrangementRecord
+		for _, r := range reg {
+			if r.ID == id && r.Contacts > 0 && strings.HasPrefix(r.Family, "MIL-DTL-5015") {
+				found = append(found, r)
+			}
+		}
+		if len(found) != 1 {
+			return nil
+		}
+		r := found[0]
+		return &ExpectedArrangement{ID: r.ID, Contacts: r.Contacts, ContactSize: r.ContactSize, Rating: r.Rating, Source: r.Source, SourcePage: r.SourcePage, Status: r.Status}
+	}
+	if arrangement == "" {
+		return nil
+	}
+	list, err := listInsertLayouts()
+	if err != nil {
+		return nil
+	}
+	for _, l := range list {
+		if l.ID == arrangement && l.Contacts > 0 {
+			return &ExpectedArrangement{ID: l.ID, Contacts: l.Contacts, ContactSize: l.ContactSize, Source: l.Source, SourcePage: l.SourcePage, Status: "FROM MANUFACTURER CATALOG — UNREVIEWED"}
+		}
+	}
+	return nil
+}

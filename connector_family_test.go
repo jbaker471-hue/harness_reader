@@ -419,3 +419,35 @@ func TestArrangementRegisterIsHonestAndAgreesWithTheCoordinateCatalog(t *testing
 		t.Fatalf("only %d fiber arrangements could be cross-checked", matched)
 	}
 }
+
+func TestExpectedArrangementFromPartNumber(t *testing.T) {
+	cases := []struct {
+		part, arr string
+		id        string
+		n         int
+		size      string
+	}{
+		{"D38999/26FD35PN", "", "15-35", 37, "22D"},
+		{"D38999/26WB35SA", "", "11-35", 13, "22D"}, // not stored with coordinates, but the catalog states the count
+		{"D38999/24WJ61SN", "", "25-61", 61, "20"},
+		{"MS3106A20-29S", "", "20-29", 17, "16"},
+		{"MS3106A28-12P", "", "28-12", 26, "16"},
+		{"MS3106A16S-1S", "", "16S-1", 7, "16"},
+		{"", "25-35", "25-35", 128, "22D"},
+	}
+	for _, c := range cases {
+		d := DecodeConnectorFamilyWith(c.part, c.arr)
+		e := d.Expected
+		if e == nil || e.ID != c.id || e.Contacts != c.n || e.ContactSize != c.size || e.Source == "" || e.SourcePage == "" || !strings.Contains(e.Status, "UNREVIEWED") {
+			t.Fatalf("%q/%q: %+v", c.part, c.arr, e)
+		}
+	}
+	for _, p := range []string{"ZZZ-1", "MS3106A99-99S", "MS3106", "D38999/26FD99PN"} {
+		if e := DecodeConnectorFamily(p).Expected; e != nil {
+			t.Fatalf("%q must not produce an expectation: %+v", p, e)
+		}
+	}
+	if got := msArrangementID("MS3102R14S-2P"); got != "14S-2" {
+		t.Fatalf("shell with S: %q", got)
+	}
+}

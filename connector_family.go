@@ -31,18 +31,19 @@ type FaceGeometry struct {
 }
 
 type ConnectorFamilyInfo struct {
-	Part       string            `json:"part"`
-	Recognized bool              `json:"recognized"`
-	Family     string            `json:"family"`
-	Shape      string            `json:"shape"` // circular, d-sub, micro-d, rectangular, unknown
-	ShellSize  string            `json:"shellSize,omitempty"`
-	Sex        string            `json:"sex,omitempty"` // PIN, SOCKET or empty when the part number does not say
-	Positions  int               `json:"positions,omitempty"`
-	Geometry   *FaceGeometry     `json:"geometry,omitempty"`
-	Specs      []ConnectorDocRef `json:"specs"`           // family specification(s) from the connector reference library
-	Layouts    []ConnectorDocRef `json:"layoutStandards"` // standards that define this family's insert arrangements
-	Notes      []string          `json:"notes"`
-	Status     string            `json:"status"`
+	Part       string               `json:"part"`
+	Recognized bool                 `json:"recognized"`
+	Family     string               `json:"family"`
+	Shape      string               `json:"shape"` // circular, d-sub, micro-d, rectangular, unknown
+	ShellSize  string               `json:"shellSize,omitempty"`
+	Sex        string               `json:"sex,omitempty"` // PIN, SOCKET or empty when the part number does not say
+	Positions  int                  `json:"positions,omitempty"`
+	Geometry   *FaceGeometry        `json:"geometry,omitempty"`
+	Expected   *ExpectedArrangement `json:"expected,omitempty"` // what the catalogs state this arrangement holds
+	Specs      []ConnectorDocRef    `json:"specs"`              // family specification(s) from the connector reference library
+	Layouts    []ConnectorDocRef    `json:"layoutStandards"`    // standards that define this family's insert arrangements
+	Notes      []string             `json:"notes"`
+	Status     string               `json:"status"`
 }
 
 const familyStatus = "FAMILY FROM PART-NUMBER PATTERN — UNVERIFIED"
@@ -53,6 +54,7 @@ var (
 	reMicroD       = regexp.MustCompile(`^M83513/`)
 	reDeutschDT    = regexp.MustCompile(`^DT[MP]?\d{2}-\d{1,2}[PS]`)
 	reMS3xxx       = regexp.MustCompile(`^MS3(?:10[0-8]|11\d|12\d|4\d\d)`)
+	reMS5015Arr    = regexp.MustCompile(`^MS3\d{3}[A-Z]{0,3}-?(\d{1,2}S?)-(\d{1,3})[A-Z]{0,3}\d*$`)
 	reM83723       = regexp.MustCompile(`^M83723/`)
 	reSeriesIIIAny = regexp.MustCompile(`^D38999/2[0-6]([A-Z])([A-HJ])(\d{1,2})([PSHJAB])`)
 	re38999        = regexp.MustCompile(`^(?:D|M)38999/`)
@@ -194,6 +196,7 @@ func DecodeConnectorFamilyWith(part, arrangement string) ConnectorFamilyInfo {
 			}
 		}
 	}
+	out.Expected = expectedFor(p, arr)
 	if !out.Recognized {
 		out.Notes = append(out.Notes, "Connector family not recognized from this part number. No shell shape is drawn.")
 	}

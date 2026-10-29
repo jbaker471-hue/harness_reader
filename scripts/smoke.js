@@ -70,6 +70,8 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   const layouts=await api('api/insert-layouts',undefined,'GET');assert(layouts.length>=24&&layouts.filter(x=>x.loaded).length>=8&&layouts.filter(x=>!x.loaded).every(x=>x.reason),'insert layout library missing or unexplained gaps in packaged executable');
   assert.equal((await api('api/insert-layout?id=25-35',undefined,'GET')).positions.length,128);
   assert.equal((await fetch(url+'api/insert-layouts')).status,403);
+  const ms=await api('api/connector-family?part=MS3106A20-29S',undefined,'GET');assert(ms.expected&&ms.expected.contacts===17&&ms.expected.contactSize==='16'&&ms.expected.status.includes('UNREVIEWED'),'catalog expectation for an MS part missing from packaged executable');
+  assert(!(await api('api/connector-family?part=ZZZ-1',undefined,'GET')).expected,'unknown part must have no expectation');
   const reg=await api('api/arrangement-register',undefined,'GET');assert(reg.length>=250&&reg.every(x=>!/^VERIFIED/.test(x.status)&&x.sourcePage)&&reg.filter(x=>x.status.startsWith('SEEN')).every(x=>x.contacts===0),'arrangement register missing or inventing values in packaged executable');
   const cov=await api('api/family-coverage',undefined,'GET');assert(cov.length>=10&&cov.every(x=>x.auditStatus!=='COMPLETE'&&x.note),'family coverage audit missing or claims completeness in packaged executable');
   const refHeaders={'X-Trivex-Token':token,'Content-Type':'application/pdf'};
