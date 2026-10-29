@@ -52,73 +52,130 @@ func regWords(t *testing.T, path string) (*DocExtraction, [][]LayoutWord) {
 	return x, pages
 }
 
-// verticalBlocks reads "id / rating / count / size" stacks printed beneath each arrangement id.
+// verticalBlocks reads the stack printed beneath each arrangement id: a rating row, then a row of contact
+// counts and a row of contact sizes. A mixed arrangement prints one count/size column per contact size
+// (for example 2 x #8 beside 3 x #12); a single-size arrangement prints one column.
 func verticalBlocks(words []LayoutWord, family, source string, page int, view string) ([]regRow, []regSkip) {
 	var rows []regRow
 	var skips []regSkip
 	type tok struct {
-		t        string
-		cx, y0   float64
-		y1, size float64
+		t      string
+		cx, y0 float64
+		y1     float64
 	}
 	ws := []tok{}
 	for _, w := range words {
 		t := strings.TrimSpace(w.Text)
-		if t != "" {
-			ws = append(ws, tok{t, w.Box.CX(), w.Box.Y0, w.Box.Y1, w.Box.H()})
+		// the catalogs print a vertical tab index (III, HD, Dualok, SJT ...) in the outer margin; it is not table content
+		if t != "" && w.Box.X1 > 48 && w.Box.X0 < 564 {
+			ws = append(ws, tok{t, w.Box.CX(), w.Box.Y0, w.Box.Y1})
 		}
 	}
+	reRatingTok := regexp.MustCompile(`^[A-Za-z0-9,;:=. \-*]+$`)
+	reCountTok := regexp.MustCompile(`^(\d{1,3})([†‡*]*)$`)
 	for _, id := range ws {
 		if !reRegID.MatchString(id.t) {
 			continue
 		}
+		skip := func(why string) { skips = append(skips, regSkip{source, strconv.Itoa(page), id.t, why, family}) }
 		var col []tok
 		for _, w := range ws {
-			if w.y0 > id.y1-1 && w.y0 < id.y1+64 && math.Abs(w.cx-id.cx) <= 14 {
+			if w.y0 > id.y1-1 && w.y0 < id.y1+70 && math.Abs(w.cx-id.cx) <= 42 {
 				col = append(col, w)
 			}
 		}
 		sort.Slice(col, func(a, b int) bool { return col[a].y0 < col[b].y0 })
-		toks := []string{}
+		// group into printed rows
+		var lines [][]tok
 		last := id.y1
 		for _, w := range col {
-			if reRegID.MatchString(w.t) || w.y0-last > 16 || strings.Contains(w.t, "Rotation") || w.t == "of" {
+			if reRegID.MatchString(w.t) || strings.Contains(w.t, "Rotation") || w.t == "of" {
 				break
 			}
-			toks = append(toks, w.t)
+			if w.y0-last > 16 {
+				break
+			}
+			if n := len(lines); n > 0 && math.Abs(w.y0-lines[n-1][0].y0) <= 2.5 {
+				lines[n-1] = append(lines[n-1], w)
+			} else {
+				lines = append(lines, []tok{w})
+			}
 			last = w.y1
 		}
-		skip := func(why string) { skips = append(skips, regSkip{source, strconv.Itoa(page), id.t, why, family}) }
-		if len(toks) == 0 {
+		for _, l := range lines {
+			sort.Slice(l, func(a, b int) bool { return l[a].cx < l[b].cx })
+		}
+		if len(lines) == 0 {
 			skip("no cells beneath the id")
 			continue
 		}
+		join := func(l []tok) string {
+			p := []string{}
+			for _, w := range l {
+				p = append(p, w.t)
+			}
+			return strings.Join(p, " ")
+		}
+		isCountRow := func(l []tok) bool {
+			for _, w := range l {
+				if !reCountTok.MatchString(w.t) {
+					return false
+				}
+			}
+			return true
+		}
 		i, rating := 0, ""
-		if reRegRating.MatchString(toks[0]) {
-			rating, i = toks[0], 1
+		if !isCountRow(lines[0]) {
+			ok := true
+			hasLetter := false
+			for _, w := range lines[0] {
+				if !reRatingTok.MatchString(w.t) {
+					ok = false
+				}
+				if regexp.MustCompile(`[A-Za-z]`).MatchString(w.t) {
+					hasLetter = true
+				}
+			}
+			if !ok || !hasLetter {
+				skip("rating row unclear: " + join(lines[0]))
+				continue
+			}
+			rating, i = join(lines[0]), 1
 		}
-		if i >= len(toks) || !reRegInt.MatchString(toks[i]) {
-			skip("no clean contact count: " + strings.Join(toks, " "))
+		if len(lines) != i+2 {
+			skip(fmt.Sprintf("expected a count row and a size row; found %d row(s) after the rating: %s", len(lines)-i, join(lines[len(lines)-1])))
 			continue
 		}
-		count, _ := strconv.Atoi(toks[i])
-		sizes := toks[i+1:]
-		if len(sizes) != 1 {
-			skip("mixed or unclear contact sizes, so the count cannot be trusted: " + strings.Join(toks, " "))
+		counts, sizes := lines[i], lines[i+1]
+		if !isCountRow(counts) || len(counts) != len(sizes) || len(counts) > 6 {
+			skip("count and size rows do not pair: " + join(counts) + " / " + join(sizes))
 			continue
 		}
-		ok := true
-		for _, s := range sizes {
-			if !reRegSize.MatchString(s) {
-				ok = false
+		total, parts, foot := 0, []string{}, false
+		okRow := true
+		for k := range counts {
+			if math.Abs(counts[k].cx-sizes[k].cx) > 6 || !reRegSize.MatchString(sizes[k].t) {
+				okRow = false
+				break
+			}
+			m := reCountTok.FindStringSubmatch(counts[k].t)
+			n, _ := strconv.Atoi(m[1])
+			if n < 1 || n > 200 {
+				okRow = false
+				break
+			}
+			if m[2] != "" {
+				foot = true
+			}
+			total += n
+			if len(counts) == 1 {
+				parts = append(parts, sizes[k].t)
+			} else {
+				parts = append(parts, fmt.Sprintf("%dx%s", n, sizes[k].t))
 			}
 		}
-		if !ok {
-			skip("unrecognized contact size: " + strings.Join(toks, " "))
-			continue
-		}
-		if count < 1 || count > 200 {
-			skip("implausible contact count")
+		if !okRow {
+			skip("count or size cell not recognized: " + join(counts) + " / " + join(sizes))
 			continue
 		}
 		clean := strings.TrimRight(id.t, "*")
@@ -130,7 +187,13 @@ func verticalBlocks(words []LayoutWord, family, source string, page int, view st
 		if strings.HasSuffix(id.t, "*") {
 			note += "; the source marks this arrangement with " + id.t[len(clean):] + " (footnote not read)"
 		}
-		rows = append(rows, regRow{family, clean, shell, strconv.Itoa(count), strings.Join(sizes, "/"), strings.TrimRight(rating, "*"), source, strconv.Itoa(page), "EXTRACTED FROM CATALOG TEXT — UNREVIEWED", note})
+		if foot {
+			note += "; a count carries a footnote mark (footnote not read)"
+		}
+		if len(counts) > 1 {
+			note += "; mixed contact sizes, shown as quantity x size, total is the sum"
+		}
+		rows = append(rows, regRow{family, clean, shell, strconv.Itoa(total), strings.Join(parts, ";"), rating, source, strconv.Itoa(page), "EXTRACTED FROM CATALOG TEXT — UNREVIEWED", note})
 	}
 	return rows, skips
 }

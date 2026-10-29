@@ -356,8 +356,44 @@ func TestArrangementRegisterIsHonestAndAgreesWithTheCoordinateCatalog(t *testing
 			}
 		}
 	}
-	if read < 100 || unread < 50 {
+	if read < 200 || unread > 10 {
 		t.Fatalf("register mix changed: %d read, %d unread", read, unread)
+	}
+	// a mixed-size arrangement prints quantity x size per group; its contact count must be the sum of the groups
+	mixed := 0
+	for _, r := range reg {
+		if r.Status != "EXTRACTED FROM CATALOG TEXT — UNREVIEWED" || !strings.Contains(r.ContactSize, "x") {
+			continue
+		}
+		mixed++
+		sum := 0
+		for _, g := range strings.Split(r.ContactSize, ";") {
+			q, _, ok := strings.Cut(g, "x")
+			n, err := strconv.Atoi(q)
+			if !ok || err != nil || n < 1 {
+				t.Fatalf("%s %s: malformed size group %q", r.Family, r.ID, g)
+			}
+			sum += n
+		}
+		if sum != r.Contacts {
+			t.Fatalf("%s %s: groups %q add to %d, not %d", r.Family, r.ID, r.ContactSize, sum, r.Contacts)
+		}
+	}
+	if mixed < 50 {
+		t.Fatalf("only %d mixed-size arrangements read", mixed)
+	}
+	// arrangements whose contact count is well known from the standard, read independently from the catalog text
+	known := map[string][2]string{"16S-1": {"7", "16"}, "20-29": {"17", "16"}, "24-28": {"24", "16"}, "28-12": {"26", "16"}}
+	for _, r := range reg {
+		if w, ok := known[r.ID]; ok && strings.HasPrefix(r.Family, "MIL-DTL-5015") {
+			if strconv.Itoa(r.Contacts) != w[0] || r.ContactSize != w[1] {
+				t.Fatalf("%s reads %d x %s, want %s x %s", r.ID, r.Contacts, r.ContactSize, w[0], w[1])
+			}
+			delete(known, r.ID)
+		}
+	}
+	if len(known) != 0 {
+		t.Fatalf("well-known arrangements missing from the register: %v", known)
 	}
 	// Independent check: fiber-optic CF38999 inserts reuse the 38999 patterns, so wherever the Amphenol 38999 catalog also lists
 	// the arrangement its contact count and size must agree with what was read from the fiber catalog.
