@@ -128,5 +128,6 @@ func harnessLengths(pages []Page) []HarnessLength {
 			add(p.Number, "CUT", text, tol)
 		}
 	}
+	out = append(out, harnessDimensions(pages)...)
 	return out
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -93,5 +94,34 @@ func TestCutLengthStatedInAnAssemblyStep(t *testing.T) {
 		if g := harnessLengths([]Page{usedPage(3, s)}); len(g) != 0 {
 			t.Fatalf("%q must not read as a cable cut length: %+v", s, g)
 		}
+	}
+}
+
+func TestUnlabelledDimensionsAreOfferedButSmallOnesAreNot(t *testing.T) {
+	pages := []Page{usedPage(1, "36.00 ±1.0", "24.00 ±1.0", "0.50 ±.25", "2.00 ±0.25", "SHEET 01 OF 09 REV A 30.00 ±1.0", "STRIP 12.00 ±1.0")}
+	got := harnessLengths(pages)
+	texts := []string{}
+	for _, g := range got {
+		if g.Label != "DIMENSION" || g.Tolerance != "±1.0" {
+			t.Fatalf("%+v", got)
+		}
+		texts = append(texts, g.Text)
+	}
+	sort.Strings(texts)
+	if len(got) != 2 || strings.Join(texts, ",") != "24.00,36.00" {
+		t.Fatalf("%+v", got)
+	}
+	// a labelled length is still found alongside them, and keeps its own label
+	both := harnessLengths([]Page{usedPage(1, "36.00 ±1.0", "HARNESS LENGTH: 48 IN")})
+	labels := []string{}
+	for _, g := range both {
+		labels = append(labels, g.Label)
+	}
+	sort.Strings(labels)
+	if len(both) != 2 || strings.Join(labels, ",") != "DIMENSION,HARNESS LENGTH" {
+		t.Fatalf("%+v", both)
+	}
+	if got := harnessLengths([]Page{usedPage(5, "36.00 ±1.0")}); len(got) != 0 {
+		t.Fatalf("only the first three sheets are read: %+v", got)
 	}
 }

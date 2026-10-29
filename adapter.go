@@ -245,6 +245,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 		v.Issues = append(v.Issues, x)
 	}
 	v.Issues = append(v.Issues, offInsertIssues(&a, v.CavityModels)...)
+	v.Issues = append(v.Issues, drawingWeaknessIssues(&a)...)
 	// ALL drawing-derived records are preliminary and must not bypass source verification.
 	v.Warnings = append(v.Warnings, "Engine: "+x.Engine)
 	v.Warnings = append(v.Warnings, "Interpretation: "+v.Interpretation)

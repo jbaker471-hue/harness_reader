@@ -689,3 +689,53 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!/Used \(4\):<\/b> 1–3, 9/.test(h))throw Error('the used list still includes the off-insert pin so the user can see it');
  console.log('PASS: pins wired off the insert are called out; remaining cavities are offered as provisional, never confirmed');
 }
+
+// A purchased cable is cut once: its BOM Ref. Des. links it to the far ends it serves, its conductors are not cut or priced
+// per foot, and the cable itself is priced as a BOM part. A far end that no cable line names stays loose wire.
+{
+ const eq=(a,b,m)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(m+': '+JSON.stringify(a)+' != '+JSON.stringify(b))};
+ eq(Array.from(cutCtx.expandRefs('ETH0, 1, PORT1')),['ETH0','ETH1','PORT1'],'numeric tokens inherit the stem');
+ eq(Array.from(cutCtx.expandRefs('USB DN 1, 2, 3, 4')),['USB DN 1','USB DN 2','USB DN 3','USB DN 4'],'USB tokens');
+ eq(Array.from(cutCtx.expandRefs('COM1, 2, MISC')),['COM1','COM2','MISC'],'a lone word after a one-word token stays');
+ eq(Array.from(cutCtx.expandRefs('AUDIO IN, OUT')),['AUDIO IN','AUDIO OUT'],'a lone word after a two-word token replaces the last word');
+ const mkNet=(id,far,pin,farPin)=>({id,endpoints:'P1:'+pin+', '+far+':'+farPin,color:'',awg:'',length:'',signal:'S'+pin,wire:''});
+ const nets=[mkNet('N1','USB_DN1',54,1),mkNet('N2','USB_DN1',6,2),mkNet('N3','USB_DN2',55,1),mkNet('N4','USB_DN2',7,2),mkNet('N5','ETH PORT1',52,1),mkNet('N6','LOOSE',9,1)];
+ const bom=[{item:'1',part:'D38999/26FG35SA',description:'38999 Connector SKT 79 POS',reference:'P1',qty:1},{item:'2',part:'M85049/38-21N',description:'Backshell strain relief',reference:'P1',qty:1},
+  {item:'7',part:'CSMUAX-3M',description:'Premium USB Cable Type A Male/Female Extension Cable, 3.0m',reference:'USB DN 1, 2',qty:2},{item:'5',part:'TRD695ABL-10',description:'Premium Cat6a Cable, RJ45/ RJ45',reference:'ETH0, 1, PORT1',qty:3}];
+ const A=cutCtx.bomCableAssemblies(bom,nets);
+ eq(A.assemblies.map(a=>a.farEnd+':'+a.item+':'+a.conductors),['ETH PORT1:5:1','USB_DN1:7:2','USB_DN2:7:2'],'assemblies');
+ if(!A.problems.some(p=>p.includes('BOM item 5')&&p.includes('lists quantity 3 but 1 far end')))throw Error('a quantity that disagrees with the matched far ends must be reported: '+A.problems);
+ if(A.assemblies.some(a=>a.farEnd==='LOOSE'))throw Error('an unnamed far end must stay loose wire');
+ const cut=cutCtx.buildCutList(nets,{defUnit:'IN',allowance:2,harness:{inches:60,text:'5.0 FT'},assemblies:A.assemblies});
+ eq(cut.rows.length,4,'three cables and one loose wire');
+ const cab=cut.rows.filter(r=>r.purchased);
+ if(cab.length!==3||cab.some(r=>r.cut!==62||r.status!=='HARNESS LENGTH'))throw Error('each cable is one cut at the stated length plus excess');
+ if(!cab.find(r=>r.part==='CSMUAX-3M'&&r.conductors===2))throw Error('conductor count missing');
+ eq(cut.assemblyItems.sort(),['5','7','7'].sort(),'items used');
+ // the quote: no $/ft for purchased cables, the cable BOM lines are priced as parts, the loose wire still needs a cost
+ const q=cutCtx.computeQuote({quote:{},qty:1,cut,bom:bom.map(b=>({...b,qty:b.qty})),laborUnitHours:1});
+ if(q.wireLines.some(l=>l.label.includes('purchased cable')))throw Error('purchased cables must not need a $/ft cost');
+ if(q.wireLines.length!==1)throw Error('the loose wire group is still priced per foot');
+ if(!q.bomLines.some(l=>l.part==='CSMUAX-3M')||!q.bomLines.some(l=>l.part==='TRD695ABL-10'))throw Error('purchased cables are priced as BOM parts');
+ // a far end named by two cable lines is not linked
+ const dup=bom.concat([{item:'9',part:'OTHER',description:'Another Cable',reference:'USB DN 1',qty:1}]);
+ const D=cutCtx.bomCableAssemblies(dup,nets);
+ if(D.assemblies.some(a=>a.farEnd==='USB_DN1')||!D.problems.some(p=>p.includes('USB_DN1')&&p.includes('2 cable lines')))throw Error('an ambiguous far end must stay loose and be reported');
+ // no cable lines: nothing changes
+ eq(cutCtx.bomCableAssemblies(bom.slice(0,2),nets).assemblies.length,0,'no cable lines, no assemblies');
+ console.log('PASS: purchased cables are linked by BOM Ref. Des., cut once, priced as parts; ambiguous or unnamed far ends stay loose wire');
+}
+
+// Unlabelled dimensions are candidates only: a single labelled length is still selected automatically, dimensions alone never are.
+{
+ cutCtx.st={raw:{harnessLengths:[{page:3,label:'CUT',text:'5.0 FT',tolerance:'±2'},{page:1,label:'DIMENSION',text:'36.00',tolerance:'±1.0'},{page:1,label:'DIMENSION',text:'24.00',tolerance:'±1.0'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('the single labelled length must still be selected automatically');
+ cutCtx.st={raw:{harnessLengths:[{page:1,label:'DIMENSION',text:'36.00',tolerance:'±1.0'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(cutCtx.st.harnessLength)throw Error('a dimension alone must never be selected automatically');
+ cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'CUT',text:'5 FT'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(cutCtx.st.harnessLength)throw Error('two different labelled lengths must still be left for the user');
+ console.log('PASS: unlabelled dimensions are candidates only; a single labelled length is still auto-selected');
+}
