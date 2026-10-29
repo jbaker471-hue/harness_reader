@@ -125,11 +125,149 @@ console.log('PASS: secondary BOM part references remain separate and visible in 
 
 const reviewed={};vm.createContext(reviewed);
 vm.runInContext(block('function reviewedDrawingLabor(', 'function laborUseDrawing(')+block('function preparationRows(', 'function laborTotalReference('),reviewed);
-const state={sourceMatched:true,raw:{},connectors:[{verified:true},{verified:true}],nets:[{reviewed:true,endpoints:'P8:A, J9:a'}]};
-equal(reviewed.reviewedDrawingLabor(state,true),{conductors:1,connectors:2});
+const state={sourceMatched:true,raw:{branches:['CB-P3']},connectors:[{verified:true},{verified:true}],nets:[{reviewed:true,endpoints:'P8:A, J9:a'}]};
+equal(reviewed.reviewedDrawingLabor(state,true),{conductors:1,connectors:2,branches:1});
 for(const bad of [{...state,sourceMatched:false},{...state,nets:[{reviewed:false}]},{...state,nets:[...state.nets,...state.nets]},{...state,nets:[{reviewed:true,endpoints:'P8:A, @UNRESOLVED'}]}]){
  let rejected=false;try{reviewed.reviewedDrawingLabor(bad,true)}catch{rejected=true}if(!rejected)throw Error('Unsafe automatic drawing counts');
 }
 equal(reviewed.preparationRows({connectors:[{tag:'P8',unusedComplete:false,unused:['A'],kit:[]} ]})[0].cavities,'HELD');
 equal(reviewed.preparationRows({connectors:[{tag:'P8',unusedComplete:true,unused:['A','a'],issues:[],kit:[]} ]})[0].cavities,'A, a');
 console.log('PASS: reviewed drawing count transfer and preparation holds');
+
+if(src.includes("part:'UNRESOLVED COTS / BRANCH END'"))throw Error('branch endpoint is still promoted to a connector');
+if(!src.includes('branches:[...new Set(d.branches||[])]'))throw Error('branch endpoint evidence is not retained separately');
+console.log('PASS: branch endpoints remain evidence and do not inflate connector count');
+
+const govNodes={};const govAlerts=[];
+const govNode=()=>({value:'',checked:false,disabled:false,textContent:'',innerHTML:'',className:''});
+const governance={
+ st:{raw:{graphicalCallouts:[
+  {kind:'note definition candidate',reference:'7',matches:['APPLY SEALANT TO THE IDENTIFIED TERMINATION'],page:2,box:{x0:10,y0:20,x1:30,y1:40}},
+  {kind:'note reference candidate',reference:'7',matches:['APPLY SEALANT TO THE IDENTIFIED TERMINATION'],page:1,box:{x0:50,y0:60,x1:70,y1:80},definitionPage:2,definitionBox:{x0:10,y0:20,x1:200,y1:50}}
+ ]},connectors:[],bom:[{item:'4',part:'ACME-101',description:'PURCHASED MODULE',vendor:'ACME',page:3}],notes:[],cots:[],lookupQueue:[],evidenceLedger:[],securityPolicy:{classification:'restricted',egress:'blocked'}},
+ $:id=>govNodes[id]||(govNodes[id]=govNode()),safe:s=>String(s??''),alert:m=>govAlerts.push(m),csv(){},showReport(){},viewEvidence(){}
+};
+vm.createContext(governance);vm.runInContext(block('// Source-grounded note, supplier-item and controlled lookup registries.','// Window lifecycle:'),governance);
+governance.importDetectedNotes();equal(vm.runInContext('st.notes.length',governance),1);equal(vm.runInContext('st.notes[0].references.length',governance),1);
+governance.seedCOTSFromBOM();equal(vm.runInContext('st.cots[0].itemClass',governance),'Unresolved — review');
+governance.$('lookupPart').value='ACME-101';governance.$('lookupProvider').value='manufacturer';governance.$('releaseAuthority').checked=true;
+governance.queueLookup();equal(vm.runInContext('st.lookupQueue.length',governance),0);
+vm.runInContext("st.securityPolicy={classification:'public',egress:'part-only'}",governance);governance.queueLookup();equal(vm.runInContext('st.lookupQueue.length',governance),1);
+equal(vm.runInContext('st.lookupQueue[0].payload.drawingContextIncluded',governance),false);
+equal(Array.from(vm.runInContext('Object.keys(st.lookupQueue[0].payload)',governance)),['partNumber','provider','requestedFields','drawingContextIncluded']);
+console.log('PASS: notes retain definition/reference locations, COTS is never inferred, and restricted lookup is blocked');
+
+const bandTooling={
+ unique:a=>[...new Set(a)],
+ st:{
+  raw:{pdfText:'',assemblyFeatures:[]},connectors:[],
+  bom:[
+   {item:'3',part:'M85049/82-25N',partReference:'M85049/82-25N',description:'BANDING BACKSHELL'},
+   {item:'10',part:'600-052',partReference:'HDW-470',description:'BAND, 0.240 IN'}
+  ],
+  assemblyRefs:[{kind:'band',matches:['600-052','600-052-1'],class:'Standard shield termination band',requirement:'Glenair 600-058',source:'manufacturer',status:'source-review',specification:'M81306/1A',alternates:['DMC DBS-2100'],alternateSource:'DMC manufacturer',alternateStatus:'qualified-equivalent-by-shared-specification'}]
+ }
+};
+vm.createContext(bandTooling);
+vm.runInContext(block('function recognizedWireCableRows(', 'function renderAssemblyRefs(')+block('function inferredContactForConnector(', 'function allRequirementRows('),bandTooling);
+let bandRows=bandTooling.requiredAssemblyRows().filter(x=>x.operation==='Shield-band installation');
+if(!bandRows.some(x=>x.item==='600-052'&&x.tool.includes('600-058')))throw Error('exact band did not select its referenced tool');
+if(!bandRows.some(x=>x.item==='600-052'&&x.tool.includes('DMC DBS-2100')&&x.tool.includes('M81306/1A')))throw Error('qualified DMC alternate and governing specification were not shown');
+if(!bandRows.some(x=>x.item==='M85049/82-25N'&&x.tool.includes('600-052')&&x.status==='VERIFY BAND APPLICATION'))throw Error('banded backshell was not linked to the exact band/tool pair');
+bandTooling.st.bom=bandTooling.st.bom.slice(0,1);
+bandRows=bandTooling.requiredAssemblyRows().filter(x=>x.operation==='Shield-band installation');
+if(!bandRows.some(x=>x.status==='BAND PART UNRESOLVED'&&x.tool.includes('exact band P/N required')))throw Error('banded backshell without a band must remain unresolved');
+console.log('PASS: exact shield-band tooling and unresolved banded-backshell safeguards');
+
+const backshellTooling={
+ unique:a=>[...new Set(a)],
+ st:{raw:{pdfText:'',assemblyFeatures:[]},connectors:[],assemblyRefs:[],bom:[
+  {item:'1',part:'M85049/20-25N',description:'BANDING BACKSHELL'},
+  {item:'2',part:'M85049/38S25W',description:'STRAIN RELIEF CLAMP'},
+  {item:'3',part:'TXR54AB00-2216AI',description:'TINEL-LOCK BACKSHELL'},
+  {item:'4',part:'203M0XX',description:'FACTORY-ATTACHED BRAID WITH MAGNEFORM CRIMP RING'}
+ ]}
+};
+vm.createContext(backshellTooling);
+vm.runInContext(block('function recognizedWireCableRows(', 'function renderAssemblyRefs(')+block('function inferredContactForConnector(', 'function allRequirementRows('),backshellTooling);
+const terminationRows=backshellTooling.requiredAssemblyRows();
+if(!terminationRows.some(x=>x.item==='M85049/20-25N'&&x.operation==='Crimp-ring shield termination'&&x.status==='CRIMP TOOL UNRESOLVED'))throw Error('M85049/20 crimp-ring tooling hold missing');
+if(terminationRows.some(x=>x.item==='M85049/20-25N'&&x.operation==='Shield-band installation'))throw Error('M85049/20 misleading description incorrectly produced a banding-backshell requirement');
+if(!terminationRows.some(x=>x.item==='M85049/38S25W'&&x.operation==='Backshell clamp fastening'&&x.tool.includes('flat-blade')))throw Error('clamp backshell flat-blade driver requirement missing');
+if(!terminationRows.some(x=>x.item==='TXR54AB00-2216AI'&&x.operation==='Tinel-Lock ring installation'&&x.tool.includes('AD-5000')))throw Error('Tinel-Lock tool requirement missing');
+if(terminationRows.some(x=>x.item==='203M0XX'&&x.status==='CRIMP TOOL UNRESOLVED'))throw Error('factory-preterminated braid incorrectly demands a field crimp tool');
+console.log('PASS: clamp, crimp-ring, Tinel-Lock, and factory-preterminated backshell tooling are distinct');
+
+const wireTooling={
+ unique:a=>[...new Set(a)],
+ st:{raw:{pdfText:'',assemblyFeatures:[]},connectors:[],assemblyRefs:[],toolEquivalences:[],bom:[{item:'1',part:'M22759/16-22-9',description:'PRIMARY WIRE'}],wireCableRefs:[{pattern:'\\b(?:M|AS)?22759/(?:16|17)-[0-9][0-9]?(?:-[0-9][0-9]?)?\\b',family:'AS22759 medium-weight wire',construction:'Modified ETFE',preparation:'Resolve exact OD and strip process',termination:'Confirm conductor dimensions and contact barrel',test:'Continuity and workmanship inspection',source:'manufacturer',status:'FAMILY MATCH — EXACT SLASH SHEET AND OD REQUIRED'}]}
+};
+vm.createContext(wireTooling);
+vm.runInContext(block('function recognizedWireCableRows(', 'function renderAssemblyRefs(')+block('function inferredContactForConnector(', 'function allRequirementRows('),wireTooling);
+const wireRows=wireTooling.requiredAssemblyRows().filter(x=>x.item==='M22759/16-22-9');
+if(wireRows.length!==3||!wireRows.some(x=>x.operation==='Wire/cable preparation'&&x.tool.includes('exact OD'))||!wireRows.some(x=>x.operation==='Wire/cable inspection and test'))throw Error('wire family did not generate preparation, termination, and test requirements');
+wireTooling.st.toolEquivalences=[{specification:'AS22520/2',primary:'DMC AFM8 + exact positioner',alternates:[['DMC WA22 pneumatic'],['DMC AFME8B battery']],conditions:'exact positioner and application required',sourceAlternate:'DMC',status:'ALTERNATIVE POWER ROUTE'}];
+const eq=wireTooling.toolEquivalenceForText('AFM8 + K13-1');
+if(!eq||eq.specification!=='AS22520/2')throw Error('AFM8 documented powered-frame alternatives were not matched');
+console.log('PASS: wire construction requirements and documented crimp-frame alternatives');
+
+// Workflow navigation and job-status summary.
+for(const g of ['1 · Inspect the drawing','2 · Quote','3 · Build'])if(!html.includes('<div class="navgroup">'+g+'</div>'))throw Error('missing nav group '+g);
+const navIds=[...html.matchAll(/class="nav[^"]*" data-id="(\w+)"/g)].map(m=>m[1]);
+for(const t of [...html.matchAll(/<section class="tab[^"]*" id="tab-(\w+)"/g)].map(m=>m[1]))if(!navIds.includes(t))throw Error('tab without navigation: '+t);
+const jobCtx={$:id=>jobCtx.els[id]||(jobCtx.els[id]={}),els:{},safe:s=>String(s),tab(){},gates:()=>[['a',true,''],['b',false,'']],
+ st:{raw:{issues:[{Severity:'ERROR'},{severity:'WARN'}],wires:[{}],boms:[]},connectors:[{verified:true},{verified:false}]}};
+vm.createContext(jobCtx);
+vm.runInContext(block('function renderJobStatus(','function render()'),jobCtx);
+jobCtx.renderJobStatus();
+const jh=jobCtx.els.jobStatus.innerHTML;
+if(!jh.includes('1 error(s) and 1 other')||!jh.includes('2 found, 1 confirmed')||!jh.includes('No BOM recognized')||!jh.includes('1 of 2 verification checks'))throw Error('job status summary wrong: '+jh);
+jobCtx.st.raw=null;jobCtx.renderJobStatus();
+if(!jobCtx.els.jobStatus.innerHTML.includes('No drawing loaded'))throw Error('empty job status');
+console.log('PASS: workflow navigation covers every tab; job status summarizes drawing state and empty state');
+
+// Cut list and quote.
+const cutCtx={safe:s=>String(s),$:()=>null};vm.createContext(cutCtx);
+vm.runInContext(block('/*CUTLIST-START*/','function renderCutList(').replace('const LENGTH_UNITS','var LENGTH_UNITS')+block('function freshQuote(','function quoteInput('),cutCtx);
+const near=(a,b,m)=>{if(Math.abs(a-b)>1e-6)throw Error((m||'value')+': '+a+' != '+b)};
+const pl=cutCtx.parseLength;
+near(pl('12.5','IN').inches,12.5,'plain inches');near(pl('3 FT','IN').inches,36,'feet suffix');near(pl('300 mm','IN').inches,300/25.4,'mm suffix');near(pl('12 1/2','IN').inches,12.5,'mixed fraction');
+near(pl('2','FT').inches,24,'default unit applies');if(!pl('2','FT').assumed||pl('2 IN','FT').assumed)throw Error('assumed-unit flag wrong');
+for(const bad of ['abc','0','-3','1/0','12..5','12 XX'])if(pl(bad,'IN').inches!==null||!pl(bad,'IN').invalid)throw Error('should be invalid: '+bad);
+if(pl('','IN').inches!==null||pl('','IN').invalid)throw Error('blank length must be missing, not invalid');
+const cl=cutCtx.buildCutList([
+ {id:'N1',endpoints:'P1:1, J2:4',wire:'w1',awg:'22',color:'red',length:'12.5'},
+ {id:'N2',endpoints:'J2:4, P1:1',wire:'W1',awg:'22',color:'RED',length:'12.5'},          // same wire from the other end: merge
+ {id:'N3',endpoints:'P1:2, J2:5',wire:'W2',awg:'22',color:'BLK'},                           // no length
+ {id:'N4',endpoints:'P1:3, J2:6',wire:'W3',awg:'20',color:'WHT',length:'10'},{id:'N5',endpoints:'P1:3, J2:6',wire:'W3',awg:'20',color:'WHT',length:'11'}, // conflict
+ {id:'N6',endpoints:'P1:4, J2:7',awg:'24',color:'GRN',length:'18 IN'},                      // no wire id: keyed by endpoints
+ {id:'N7',endpoints:'P1:5',wire:'W9'},                                                         // single endpoint: not a conductor
+ {id:'N8',endpoints:'P1:6, J2:8',wire:'W5',awg:'22',color:'BLU',length:'x'}
+],{defUnit:'IN',allowance:1});
+equal(cl.rows.length,5);equal(cl.skipped,1);
+const byWire=Object.fromEntries(cl.rows.map(r=>[r.wire,r]));
+equal([byWire.W1.status,byWire.W1.sources,byWire.W1.cut],['UNIT ASSUMED',2,13.5]);
+equal(byWire.W2.status,'NO LENGTH');equal(byWire.W2.cut,null);
+equal(byWire.W3.status,'CONFLICTING LENGTHS');equal(byWire.W3.cut,null);
+equal(byWire.W5.status,'INVALID LENGTH');
+equal(cl.rows.find(r=>r.awg==='24').cut,19);
+equal([cl.counts.total,cl.counts.ok,cl.counts.missing,cl.counts.conflict,cl.counts.invalid],[5,2,1,1,1]);
+const g22=cl.groups.find(g=>g.label==='22 · RED');near(g22.inches,13.5,'group inches');
+if(cl.groups.find(g=>g.label==='22 · BLK').unmeasured!==1)throw Error('unmeasured conductor not counted');
+const clash=cutCtx.buildCutList([{endpoints:'A:1, B:1',wire:'W1',awg:'22',color:'RED',length:'5 IN'},{endpoints:'A:1, B:1',wire:'W1',awg:'24',color:'RED',length:'5 IN'}],{}).rows[0];
+if(!clash.notes.some(n=>/awg/.test(n)))throw Error('AWG disagreement between merged sources was not flagged');
+// quote
+const cutOK=cutCtx.buildCutList([{endpoints:'P1:1, J2:1',wire:'W1',awg:'22',color:'RED',length:'120 IN'}],{});
+const quoteBase={quote:Object.assign(cutCtx.freshQuote(),{rate:'50',laborHours:'2',scrap:'10',markup:'20',wireCost:{'22 · RED':'0.5'},bomCost:{'1|M39029/58-360|0':'0.4'}}),qty:3,cut:cutOK,
+ bom:[{item:'1',part:'M39029/58-360',description:'CONTACT',qty:'2'},{item:'2',part:'M22759/16-22-9',description:'WIRE, 22 AWG',qty:'A/R'}],laborUnitHours:null,drawingErrors:0};
+let qr=cutCtx.computeQuote(quoteBase);
+near(qr.wireLines[0].buyFt,10*3*1.1,'wire feet incl scrap');near(qr.wireTotal,33*0.5,'wire cost');near(qr.partsTotal,2*3*0.4,'parts cost');near(qr.labor,2*50*3,'labor');
+near(qr.total,(16.5+2.4+300)*1.2,'total with markup');equal(qr.blockers,[]);equal(qr.bomSkippedWire,1);
+const miss=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:cutCtx.freshQuote(),drawingErrors:2,cut:cl}));
+for(const re of [/no length/,/conflicting/,/unreadable/,/\$\/ft/,/unit cost/,/Labor hours/,/Labor rate/,/2 drawing error/])if(!miss.blockers.some(b=>re.test(b)))throw Error('missing quote blocker '+re);
+if(miss.complete)throw Error('quote with blockers must not be complete');
+const usesLabor=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'10',wireCost:{'22 · RED':'1'},bomCost:{'1|M39029/58-360|0':'1'}}),laborUnitHours:1.5}));
+near(usesLabor.hours,1.5,'labor tab hours used when field blank');
+const nonNum=cutCtx.computeQuote(Object.assign({},quoteBase,{bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
+if(!nonNum.blockers.some(b=>/not a plain number/.test(b)))throw Error('A/R BOM quantity must be a blocker, not priced');
+console.log('PASS: length parsing and units, cut-list merge/conflict/missing handling, quote totals and blockers');

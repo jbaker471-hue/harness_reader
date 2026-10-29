@@ -18,7 +18,16 @@ $env:GOOS="windows"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"
 go build -trimpath -ldflags="-H=windowsgui -s -w" -o Trivex_Harness_Auditor_v2.8.exe .
 ```
 
-The same steps are in `build_windows.ps1` and `build.sh`.
+`build_windows.ps1` is the full local release-parity check: it verifies Go 1.24.7,
+runs the JavaScript regression, Go vet and tests, builds the GUI executable, runs
+the executable API/lifecycle smoke test, and prints the SHA-256 hash. Set
+`TRIVEX_GO_EXE` when the required compiler is not on `PATH`; on the Codex
+workstation the script also detects the verified portable toolchain under
+`Documents\Codex\_toolchains`.
+
+`build.sh` performs the offline Go vet, test and Windows cross-build steps on
+Linux/macOS. Run `node test_ui_regression.js` separately on those systems; the
+Windows executable smoke test requires Windows.
 
 Optional local regression on the authorized 9-page drawing:
 `$env:TRIVEX_REGRESSION_PDF="C:\path\to\authorized\copy.pdf"; go test -count=1 ./...`

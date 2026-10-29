@@ -637,7 +637,34 @@ func run() error {
 		if !secure(w, r) {
 			return
 		}
-		jsonAnswer(w, []any{})
+		v, e := accessoryReference()
+		if e != nil {
+			http.Error(w, "Accessory reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/wire-cable-library", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := wireCableReference()
+		if e != nil {
+			http.Error(w, "Wire/cable reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/tool-equivalence-library", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := toolEquivalenceReference()
+		if e != nil {
+			http.Error(w, "Tool-equivalence reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
 	})
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

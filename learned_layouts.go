@@ -38,7 +38,7 @@ type learnedStore struct {
 var learned = &learnedStore{entries: map[string]LearnedHeading{}}
 
 var validRoles = map[string]bool{"item": true, "qty": true, "part": true, "desc": true, "cage": true, "vendor": true, "ref": true, "um": true, "note": true,
-	"pin": true, "wire": true, "signal": true, "color": true, "awg": true, "from": true, "to": true, "frompin": true, "topin": true, "other": true}
+	"pin": true, "wire": true, "signal": true, "color": true, "awg": true, "from": true, "to": true, "frompin": true, "topin": true, "length": true, "other": true}
 
 func learnedPath() string {
 	if p := os.Getenv("TRIVEX_LAYOUT_FILE"); p != "" {

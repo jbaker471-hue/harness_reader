@@ -37,6 +37,7 @@ type WireRow struct {
 	Wire          string `json:"wire,omitempty"`
 	Color         string `json:"color,omitempty"`
 	AWG           string `json:"awg,omitempty"`
+	Length        string `json:"length,omitempty"`
 	Method        string `json:"method,omitempty"`
 	Corroboration int    `json:"corroboration,omitempty"`
 }

@@ -417,4 +417,82 @@ func specialtyReference() (map[string]any, error) {
 	}
 	return map[string]any{"contacts": out, "guidance": []any{}}, nil
 }
+
+func accessoryReference() ([]any, error) {
+	rows, err := libraryCSV("ACCESSORY_REFERENCE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for _, r := range rows[1:] {
+		if len(r) < 6 {
+			continue
+		}
+		out = append(out, map[string]any{
+			"kind":        r[0],
+			"matches":     splitAliases(r[1]),
+			"class":       r[2],
+			"requirement": r[3],
+			"source":      r[4],
+			"status":      r[5],
+			"specification": func() string {
+				if len(r) > 6 {
+					return r[6]
+				}
+				return ""
+			}(),
+			"alternates": func() []string {
+				if len(r) > 7 {
+					return splitAliases(r[7])
+				}
+				return []string{}
+			}(),
+			"alternateSource": func() string {
+				if len(r) > 8 {
+					return r[8]
+				}
+				return ""
+			}(),
+			"alternateStatus": func() string {
+				if len(r) > 9 {
+					return r[9]
+				}
+				return ""
+			}(),
+		})
+	}
+	return out, nil
+}
+
+func wireCableReference() ([]any, error) {
+	rows, err := libraryCSV("WIRE_CABLE_REFERENCE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for _, r := range rows[1:] {
+		out = append(out, map[string]any{
+			"pattern": r[0], "family": r[1], "construction": r[2],
+			"preparation": r[3], "termination": r[4], "test": r[5],
+			"source": r[6], "status": r[7],
+		})
+	}
+	return out, nil
+}
+
+func toolEquivalenceReference() ([]any, error) {
+	rows, err := libraryCSV("TOOL_EQUIVALENCE_REFERENCE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for _, r := range rows[1:] {
+		out = append(out, map[string]any{
+			"specification": r[0], "operation": r[1], "primary": r[2],
+			"alternates": splitToolRoutes(r[3]), "conditions": r[4],
+			"sourcePrimary": r[5], "sourceAlternate": r[6], "status": r[7],
+		})
+	}
+	return out, nil
+}
 func noUnknownCitation() io.Reader { return strings.NewReader("") }

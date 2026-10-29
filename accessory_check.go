@@ -48,8 +48,8 @@ type AccCheck struct {
 }
 
 type accRef struct {
-	kind, class, requirement, source string
-	match                            []string
+	kind, class, requirement, source, specification, alternates, alternateSource, alternateStatus string
+	match                                                                                         []string
 }
 
 func loadAccessoryRefs() ([]accRef, error) {
@@ -59,18 +59,43 @@ func loadAccessoryRefs() ([]accRef, error) {
 	}
 	out := []accRef{}
 	for _, r := range rows[1:] {
-		out = append(out, accRef{kind: r[0], match: strings.Split(r[1], "|"), class: r[2], requirement: r[3], source: r[4]})
+		ref := accRef{kind: r[0], match: strings.Split(r[1], "|"), class: r[2], requirement: r[3], source: r[4]}
+		if len(r) > 9 {
+			ref.specification, ref.alternates, ref.alternateSource, ref.alternateStatus = r[6], r[7], r[8], r[9]
+		}
+		out = append(out, ref)
 	}
 	return out, nil
 }
 
 var (
-	reSeries3   = regexp.MustCompile(`^D38999/(2[0-9])([A-Z])([A-HJ])([0-9]{2})([PSHJAB])([NABCDE])?$`)
-	shellByCode = map[string]int{"A": 9, "B": 11, "C": 13, "D": 15, "E": 17, "F": 19, "G": 21, "H": 23, "J": 25}
-	reBackshell = regexp.MustCompile(`^M85049/(38|39)(S|-)?([0-9]{1,2})([ANWS])?$`)
-	reAnyM85049 = regexp.MustCompile(`^(?:M|AS|SAE-AS)85049/`)
-	reContactPN = regexp.MustCompile(`^M39029/([0-9]{1,3})-([0-9]{1,4})$`)
+	reSeries3              = regexp.MustCompile(`^D38999/(2[0-9])([A-Z])([A-HJ])([0-9]{2})([PSHJAB])([NABCDE])?$`)
+	shellByCode            = map[string]int{"A": 9, "B": 11, "C": 13, "D": 15, "E": 17, "F": 19, "G": 21, "H": 23, "J": 25}
+	reBackshell            = regexp.MustCompile(`^M85049/(38|39)(S|-)?([0-9]{1,2})([ANWS])?$`)
+	reAnyM85049            = regexp.MustCompile(`^(?:M|AS|SAE-AS)85049/`)
+	reContactPN            = regexp.MustCompile(`^M39029/([0-9]{1,3})-([0-9]{1,4})$`)
+	reCrimpRingBackshellPN = regexp.MustCompile(`^(?:M|AS|SAE-AS)85049/(?:20|26-[123])(?:-|$)`)
+	reClampBackshellPN     = regexp.MustCompile(`^(?:M|AS|SAE-AS)85049/(?:38|39|118|120|121|123|124|126)(?:-|$)`)
+	reTinelBackshellPN     = regexp.MustCompile(`^(?:TXR|STXR|SETR)[A-Z0-9-]*$`)
 )
+
+func backshellTerminationStyle(b AccBOM) string {
+	p, d := cleanPN(b.Part), strings.ToUpper(b.Description)
+	// An exact, sourced family wins over a loose or misleading BOM description.
+	if reCrimpRingBackshellPN.MatchString(p) || strings.Contains(d, "CRIMP RING") || strings.Contains(d, "MAGEFORM") || strings.Contains(d, "MAGNEFORM") {
+		if strings.Contains(d, "PRE-TERMINATED BRAID") || strings.Contains(d, "PRETERMINATED BRAID") || strings.Contains(d, "FACTORY ATTACHED BRAID") || strings.Contains(d, "FACTORY-ATTACHED BRAID") {
+			return "factory-crimp-ring"
+		}
+		return "crimp-ring"
+	}
+	if reTinelBackshellPN.MatchString(p) || strings.Contains(d, "TINEL-LOCK") || strings.Contains(d, "TINEL LOCK") || strings.Contains(d, "TINEL RING") {
+		return "tinel"
+	}
+	if reClampBackshellPN.MatchString(p) || strings.Contains(d, "CLAMP BACKSHELL") || strings.Contains(d, "CABLE CLAMP") || strings.Contains(d, "STRAIN RELIEF CLAMP") || strings.Contains(d, "SADDLE CLAMP") {
+		return "clamp"
+	}
+	return ""
+}
 
 // SeriesIIIShell returns the shell size of a MIL-DTL-38999 Series III/IV part.
 func SeriesIIIShell(part string) (int, string, bool) {
@@ -199,14 +224,50 @@ func CheckAccessories(req AccRequest) ([]AccCheck, error) {
 	// Contact and sealing-plug quantities are calculated in MakeBuildPlan,
 	// using the selected fill policy. Do not duplicate those checks here.
 
-	// --- Bands and their tools --------------------------------------------
+	// --- Backshell termination styles and their tooling --------------------
+	const crimpRingSource = "https://www.glenair.com/mil-spec/pdf/b/as85049-20.pdf"
+	const clampSource = "https://cdn.glenair.com/space-mechanisms/pdf/d/as85049-118.pdf"
+	const tinelSource = "https://www.te.com/en/industries/defense-military/insights/tinel-lock-backshells-for-military-applications.html"
 	for _, b := range bom {
+		switch backshellTerminationStyle(b) {
+		case "crimp-ring":
+			out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Crimp-ring termination tooling", Status: "UNRESOLVED", Expected: "Dedicated crimp-ring installation tool/die qualified for the exact backshell and ring P/N", Found: b.Part + " recognized as a crimp-ring backshell/ring", Detail: "This is not a shield-band operation. Resolve the exact manufacturer-approved crimp-ring machine/tool, die or forming process from the approved application specification before release.", Tooling: []string{"UNRESOLVED — special crimp-ring tool/die and process required"}, Source: crimpRingSource})
+		case "factory-crimp-ring":
+			out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Factory crimp-ring termination", Status: "INFO", Expected: "No field crimp unless the drawing separately requires one", Found: "Description identifies factory-preterminated braid", Detail: "Verify the supplied assembly and do not create a field crimp-tool requirement solely from the factory attachment.", Source: crimpRingSource})
+		case "clamp":
+			out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Backshell clamp driver", Status: "VERIFY", Expected: "Correctly sized small flat-blade driver matching the clamp screw slot; torque per drawing/manufacturer instructions", Found: b.Part + " recognized as a clamp/strain-relief backshell", Detail: "Do not use an oversized driver or infer one universal blade size. Confirm the clamp screw size, slot width, tightening sequence and torque for the exact backshell.", Tooling: []string{"Small correctly sized flat-blade driver + approved torque method (exact blade/torque unresolved)"}, Source: clampSource})
+		case "tinel":
+			out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Tinel-Lock ring installation", Status: "INFO", Expected: "TE AD-5000 Tinel-Lock resistance-heating installation tool and applicable electrodes/procedure", Found: b.Part + " recognized as Tinel-Lock/Tinel ring", Detail: "Confirm the exact ring, electrode configuration and current TE application procedure before use.", Tooling: []string{"TE AD-5000 Tinel-Lock installation tool"}, Source: tinelSource})
+		}
+	}
+
+	// --- Bands and their tools --------------------------------------------
+	bandingBackshell := regexp.MustCompile(`(?i)\bBAND(?:ING|ED)?\b.*\bBACKSHELL\b|\bBACKSHELL\b.*\bBAND(?:ING|ED)?\b`)
+	bandingBackshellPN := regexp.MustCompile(`^M85049/(?:82|83|84|85|86|87|88|89|90)(?:-|$)`)
+	bandingBackshells := []AccBOM{}
+	recognizedBands := 0
+	for _, b := range bom {
+		if backshellTerminationStyle(b) != "crimp-ring" && backshellTerminationStyle(b) != "factory-crimp-ring" && (bandingBackshell.MatchString(b.Description) || bandingBackshellPN.MatchString(b.Part)) {
+			bandingBackshells = append(bandingBackshells, b)
+		}
 		for _, r := range refOf("band") {
 			for _, m := range r.match {
 				if b.Part == m || strings.HasPrefix(b.Part, m+"-") && !strings.HasPrefix(m, "600-0") {
-					out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Shield termination band", Status: "INFO", Expected: r.class, Found: b.Part + " qty " + b.Qty, Detail: "Bands must be installed with the matching tool; tool tension per manufacturer instructions.", Tooling: []string{r.requirement}, Source: r.source})
+					recognizedBands++
+					tooling := []string{r.requirement}
+					detail := "Bands must be installed with the matching tool; tool tension per manufacturer instructions."
+					if r.alternates != "" {
+						tooling = append(tooling, r.alternates+" — alternate under "+r.specification)
+						detail += " The alternate is listed because both tools map to " + r.specification + "; confirm the exact band/application, current qualification, calibration and OEM process before substitution."
+					}
+					out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Shield termination band", Status: "INFO", Expected: r.class, Found: b.Part + " qty " + b.Qty, Detail: detail, Tooling: tooling, Source: strings.Trim(strings.Join([]string{r.source, r.alternateSource}, " | "), " |")})
 				}
 			}
+		}
+	}
+	if len(bandingBackshells) > 0 && recognizedBands == 0 {
+		for _, b := range bandingBackshells {
+			out = append(out, AccCheck{Connector: "(BOM item " + b.Item + ")", Part: b.Part, Check: "Shield termination band/tool", Status: "UNRESOLVED", Expected: "Exact supported band P/N and its matching installation tool", Found: "Banded backshell without a recognized band P/N", Detail: "Do not select a banding tool from the backshell alone. Resolve the exact band from the approved BOM/drawing, then use its manufacturer-specified tool.", Tooling: []string{"UNRESOLVED — exact band P/N required"}})
 		}
 	}
 	return out, nil

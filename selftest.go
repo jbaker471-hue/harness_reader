@@ -22,7 +22,9 @@ var librarySchemas = map[string][]string{
 	"DMC_EXPANDED_REFERENCE.csv":         {"contact", "superseded_aliases", "type", "mating_size", "barrel_size", "wire_range", "alternate_crimp_paths", "insertion", "removal", "source_locator", "verification_status"},
 	"MANUFACTURER_CONTACT_REFERENCE.csv": {"Manufacturer", "Contact P/N", "Alternate Identities", "Family", "Sex", "Wire AWG range", "Required Operation / Tool Combinations", "Verified Tooling Status", "Reference URL", "Review Notes"},
 	"SPECIALTY_CONTACTS_REFERENCE.csv":   {"contact", "family", "kind", "sex", "wire", "source", "status", "operations"},
-	"ACCESSORY_REFERENCE.csv":            {"kind", "match", "class", "requirement", "source", "status"},
+	"ACCESSORY_REFERENCE.csv":            {"kind", "match", "class", "requirement", "source", "status", "specification", "alternates", "alternate_source", "alternate_status"},
+	"WIRE_CABLE_REFERENCE.csv":           {"pattern", "family", "construction", "preparation", "termination", "test", "source", "status"},
+	"TOOL_EQUIVALENCE_REFERENCE.csv":     {"specification", "operation", "primary", "alternates", "conditions", "source_primary", "source_alternate", "status"},
 }
 
 func readLibrary(name string) ([][]string, error) {
