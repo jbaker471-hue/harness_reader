@@ -683,6 +683,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  const h=ctx.pinUsageHtml(c,0);
  if(!h.includes('NOT ON INSERT 1')||!h.includes('Not on this insert (1):</b> 9')||!h.includes('has only 6 cavities'))throw Error('off-insert callout missing: '+h.slice(0,300));
  if(!h.includes('Probably not used, provisional (3):</b> 4–6')||!h.includes('Not confirmed because the sources conflict'))throw Error('provisional list missing');
+ if(!h.includes('1 off-insert wire is real, each needs one of these cavities, so 2 to 3 of them are unused'))throw Error('range for the unused count missing: '+h);
  if(h.includes('every cavity carries a wire'))throw Error('must not claim nothing is unused');
  if(!/NOT USED \(provisional\) 3/.test(h))throw Error('the count tag must say provisional');
  if(!/Used \(4\):<\/b> 1–3, 9/.test(h))throw Error('the used list still includes the off-insert pin so the user can see it');

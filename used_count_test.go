@@ -217,3 +217,35 @@ func TestConflictsHoldUnusedButOfferProvisionalList(t *testing.T) {
 		}
 	}
 }
+
+func TestOffInsertPinsBecomeADrawingDiscrepancy(t *testing.T) {
+	ws := []WireRow{}
+	for i, c := range []string{"1", "2", "3", "4", "5", "112", "113"} {
+		ws = append(ws, WireRow{Page: 8, Connector: "P7", Cavity: c, Signal: "SIG" + itoa(i), End: "AUDIO OUT", EndCavity: "X"})
+	}
+	a := Analysis{Connectors: []Connector{{Tag: "P7", Part: "D38999/26WB35PN", CavityCount: 13}}, Wires: ws}
+	iss := offInsertIssues(&a, buildCavityModels(&a, nil))
+	if len(iss) != 1 {
+		t.Fatalf("%+v", iss)
+	}
+	x := iss[0]
+	if x.Code != "PIN_NOT_ON_INSERT" || x.Severity != "REVIEW" || x.Connector != "P7" || strings.Join(x.Cavities, ",") != "112,113" || len(x.Pages) != 1 || x.Pages[0] != 8 {
+		t.Fatalf("%+v", x)
+	}
+	// 13 cavities, 5 valid wired: 8 have no wire; 2 wires need a real cavity, so 6 to 8 are unused
+	for _, want := range []string{"pins 112, 113 are wired", "6 to 8 of the 8 cavities", "SIG5 (pin 112)", "SIG6 (pin 113)"} {
+		if !strings.Contains(x.Message, want) {
+			t.Fatalf("message lacks %q: %s", want, x.Message)
+		}
+	}
+	// no off-insert pin, no issue
+	b := Analysis{Connectors: []Connector{{Tag: "P7", Part: "D38999/26WB35PN", CavityCount: 13}}, Wires: ws[:5]}
+	if iss := offInsertIssues(&b, buildCavityModels(&b, nil)); len(iss) != 0 {
+		t.Fatalf("%+v", iss)
+	}
+	// without a verified inventory nothing can be called off the insert
+	c := Analysis{Connectors: []Connector{{Tag: "P7", Part: "UNKNOWN", CavityCount: 0}}, Wires: ws}
+	if iss := offInsertIssues(&c, buildCavityModels(&c, nil)); len(iss) != 0 {
+		t.Fatalf("%+v", iss)
+	}
+}

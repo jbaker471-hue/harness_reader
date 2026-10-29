@@ -99,8 +99,8 @@ type ViewAnalysis struct {
 		BOMRows    int
 		Category   string
 	} `json:"pageSummary"`
-	PdfText          string   `json:"pdfText"`
-	AssemblyFeatures []string `json:"assemblyFeatures"`
+	PdfText          string          `json:"pdfText"`
+	AssemblyFeatures []string        `json:"assemblyFeatures"`
 	HarnessLengths   []HarnessLength `json:"harnessLengths"`
 }
 
@@ -244,6 +244,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 		}
 		v.Issues = append(v.Issues, x)
 	}
+	v.Issues = append(v.Issues, offInsertIssues(&a, v.CavityModels)...)
 	// ALL drawing-derived records are preliminary and must not bypass source verification.
 	v.Warnings = append(v.Warnings, "Engine: "+x.Engine)
 	v.Warnings = append(v.Warnings, "Interpretation: "+v.Interpretation)
