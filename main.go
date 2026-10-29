@@ -664,7 +664,12 @@ func run() error {
 			http.Error(w, "Part number too long", http.StatusBadRequest)
 			return
 		}
-		v, e := DecodeWirePart(part)
+		text := r.URL.Query().Get("description")
+		if len(text) > 300 {
+			http.Error(w, "Description too long", http.StatusBadRequest)
+			return
+		}
+		v, e := DecodeWireLine(part, text)
 		if e != nil {
 			http.Error(w, "Wire specification reference unavailable: "+e.Error(), 500)
 			return

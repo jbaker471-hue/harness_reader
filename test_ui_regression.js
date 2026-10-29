@@ -315,3 +315,21 @@ if(!card.includes('Unresolved: Shield code Q')||!card.includes('UNVERIFIED'))thr
 if(!cutCtx.decodeCardHtml({part:'X',recognized:false}).includes('Nothing was assumed'))throw Error('unrecognized part must say nothing was assumed');
 if(!cutCtx.decodeCardHtml({part:'X',error:true}).includes('Nothing is assumed'))throw Error('lookup failure must be visible');
 console.log('PASS: wire decode cards show sources and status, link only https, escape text, and surface unresolved codes');
+
+// Cable construction: shield termination is required, recorded per end, and never guessed.
+const cabRow={cable:true,key:'C:A+B'};
+const shielded={shieldPresent:'yes'},unshielded={shieldPresent:'no'};
+equal(cutCtx.shieldTermStatus(cabRow,shielded,{}),{needed:true,a:'',b:'',complete:false});
+equal(cutCtx.shieldTermStatus(cabRow,shielded,{'C:A+B':{a:'Backshell',b:''}}).complete,false);
+equal(cutCtx.shieldTermStatus(cabRow,shielded,{'C:A+B':{a:'Backshell',b:'Ground point'}}).complete,true);
+equal(cutCtx.shieldTermStatus(cabRow,unshielded,{}).needed,false);
+equal(cutCtx.shieldTermStatus(cabRow,{shieldPresent:'unknown'},{}).needed,false);   // unknown shield: nothing is assumed either way
+equal(cutCtx.shieldTermStatus({cable:false,key:'W:1'},shielded,{}).needed,false);   // single wires carry no cable shield
+equal(cutCtx.shieldTermStatus(cabRow,null,{}).needed,false);
+const consHtml=cutCtx.constructionHtml({signalConductors:2,twist:{value:'',status:'NOT STATED'},groups:{value:'1 pair',status:'STATED IN BOM TEXT'},shieldPresent:'yes',overallShield:{value:'Single silver-coated copper braid',status:'DECODED FROM PART NUMBER'},individualShields:{value:'',status:'NOT STATED'},drain:{value:'',status:'NOT STATED'},notes:['CONFLICT: pair count <x> mismatch','The shield is not a signal conductor.']});
+if((consHtml.match(/NOT STATED/g)||[]).length!==3)throw Error('unstated attributes must read NOT STATED, not default');
+if(!consHtml.includes('CONFLICT</span>')||consHtml.includes('<x>'))throw Error('conflict not surfaced or text not escaped');
+const shieldBlock=cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:2}));
+if(!shieldBlock.blockers.some(b=>/2 shielded cable\(s\) have no shield termination/.test(b)))throw Error('open shield terminations must block the quote');
+if(cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:0})).blockers.some(b=>/shield/.test(b)))throw Error('no shield blocker expected when all are recorded');
+console.log('PASS: cable construction display, shield termination tracking and quote blocker');

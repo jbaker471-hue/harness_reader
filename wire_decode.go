@@ -29,17 +29,18 @@ type WireField struct {
 }
 
 type WireDecode struct {
-	Part          string      `json:"part"`
-	Recognized    bool        `json:"recognized"`
-	Decoded       bool        `json:"decoded"`
-	Family        string      `json:"family,omitempty"`
-	FamilySources []string    `json:"familySources,omitempty"`
-	FamilyStatus  string      `json:"familyStatus,omitempty"`
-	Gauge         string      `json:"gauge,omitempty"`
-	Conductors    int         `json:"conductors,omitempty"`
-	Fields        []WireField `json:"fields"`
-	Unresolved    []string    `json:"unresolved"`
-	Notes         []string    `json:"notes"`
+	Part          string             `json:"part"`
+	Recognized    bool               `json:"recognized"`
+	Decoded       bool               `json:"decoded"`
+	Family        string             `json:"family,omitempty"`
+	FamilySources []string           `json:"familySources,omitempty"`
+	FamilyStatus  string             `json:"familyStatus,omitempty"`
+	Gauge         string             `json:"gauge,omitempty"`
+	Conductors    int                `json:"conductors,omitempty"`
+	Fields        []WireField        `json:"fields"`
+	Unresolved    []string           `json:"unresolved"`
+	Notes         []string           `json:"notes"`
+	Construction  *CableConstruction `json:"construction,omitempty"`
 }
 
 var (
@@ -183,4 +184,152 @@ func decodeAS22759(out *WireDecode, rows []wireSpecRow, m []string) {
 		out.Unresolved = append(out.Unresolved, "Color code "+m[3]+" is not decoded: no color table has been supplied.")
 	}
 	out.Notes = append(out.Notes, "Confirm plating, insulation thickness, strands, temperature and voltage rating on the slash sheet.")
+}
+
+// CableAttr is one stated or decoded property of a cable. Anything the part
+// number or BOM text does not state is "NOT STATED" with an empty value; it is
+// never defaulted.
+type CableAttr struct {
+	Value  string `json:"value"`
+	Status string `json:"status"`
+}
+
+// CableConstruction describes how a cable is built, from its decoded part
+// number and BOM text only. Shield conductors and drain wires are never counted
+// as signal conductors, and conductor count is never used to infer cavity use.
+type CableConstruction struct {
+	SignalConductors  int       `json:"signalConductors"`
+	Groups            CableAttr `json:"groups"`
+	Twist             CableAttr `json:"twist"`
+	ShieldPresent     string    `json:"shieldPresent"` // yes | no | unknown
+	OverallShield     CableAttr `json:"overallShield"`
+	IndividualShields CableAttr `json:"individualShields"`
+	Drain             CableAttr `json:"drain"`
+	Notes             []string  `json:"notes"`
+}
+
+const (
+	attrNotStated = "NOT STATED"
+	attrFromPart  = "DECODED FROM PART NUMBER"
+	attrFromText  = "STATED IN BOM TEXT"
+)
+
+var (
+	reTextPairs     = regexp.MustCompile(`\b(\d{1,2})\s*(?:TWISTED\s*)?(?:SHIELDED\s*)?PAIRS\b`)
+	reTextPair      = regexp.MustCompile(`\b(?:TWISTED\s*(?:SHIELDED\s*)?PAIR|TSP|STP|PAIR)\b`)
+	reTextTriad     = regexp.MustCompile(`\b(?:TRIAD|TRIPLE)\b`)
+	reTextQuad      = regexp.MustCompile(`\bQUAD\b`)
+	reTextTwist     = regexp.MustCompile(`\b(?:TWISTED|TSP|STP|TWP|TRIAD|QUAD)\b`)
+	reTextUnshield  = regexp.MustCompile(`\bUNSHIELDED\b`)
+	reTextShield    = regexp.MustCompile(`\bSHIELD(?:ED)?\b|\bBRAID(?:ED)?\b`)
+	reTextIndiv     = regexp.MustCompile(`\bINDIVIDUAL(?:LY)?\s*SHIELD`)
+	reTextOverall   = regexp.MustCompile(`\bOVERALL\s*SHIELD|\bOVERALL\s*BRAID`)
+	reTextDrain     = regexp.MustCompile(`\bDRAIN\b`)
+	reTextNoOverall = regexp.MustCompile(`\bNO\s*OVERALL\b`)
+)
+
+// DescribeCableConstruction derives the cable construction. d must come from
+// DecodeWirePart; text is the BOM description of the same line.
+func DescribeCableConstruction(d WireDecode, text string) CableConstruction {
+	t := strings.ToUpper(text)
+	c := CableConstruction{SignalConductors: d.Conductors, ShieldPresent: "unknown", Notes: []string{}}
+	ns := CableAttr{Status: attrNotStated}
+	c.Groups, c.Twist, c.OverallShield, c.IndividualShields, c.Drain = ns, ns, ns, ns, ns
+
+	// Groups (pairs, triads, quads).
+	groupSize, groupCount := 0, 0
+	switch {
+	case reTextPairs.MatchString(t):
+		groupSize = 2
+		groupCount, _ = strconv.Atoi(reTextPairs.FindStringSubmatch(t)[1])
+	case reTextTriad.MatchString(t):
+		groupSize, groupCount = 3, 1
+	case reTextQuad.MatchString(t):
+		groupSize, groupCount = 4, 1
+	case reTextPair.MatchString(t):
+		groupSize, groupCount = 2, 1
+	}
+	if groupCount > 0 {
+		names := map[int]string{2: "pair", 3: "triad", 4: "quad"}
+		v := fmt.Sprintf("%d %s", groupCount, names[groupSize])
+		if groupCount > 1 {
+			v += "s"
+		}
+		c.Groups = CableAttr{Value: v, Status: attrFromText}
+		if d.Conductors > 0 && d.Conductors != groupCount*groupSize {
+			c.Notes = append(c.Notes, fmt.Sprintf("CONFLICT: the BOM text says %s (%d conductors) but the part number says %d conductors.", v, groupCount*groupSize, d.Conductors))
+		}
+	} else if d.Conductors > 0 {
+		c.Notes = append(c.Notes, "Pairing is not stated. Do not assume the conductors are twisted pairs.")
+	}
+	if reTextTwist.MatchString(t) {
+		c.Twist = CableAttr{Value: "twisted", Status: attrFromText}
+	}
+
+	// Shield presence: part-number letter first, BOM text as a second source.
+	if f := fieldFor(d, "Shield"); f != nil {
+		switch {
+		case f.Code == "U":
+			c.ShieldPresent = "no"
+			c.OverallShield = CableAttr{Value: "none", Status: attrFromPart}
+		case f.Value != "UNRESOLVED":
+			c.ShieldPresent = "yes"
+			c.OverallShield = CableAttr{Value: f.Value + " (overall per the supplied examples; confirm scope)", Status: attrFromPart + " — " + f.Status}
+		}
+	}
+	switch {
+	case reTextUnshield.MatchString(t):
+		if c.ShieldPresent == "yes" {
+			c.Notes = append(c.Notes, "CONFLICT: the BOM text says unshielded but the part number carries a shield code.")
+		} else {
+			c.ShieldPresent = "no"
+		}
+	case reTextShield.MatchString(t) && c.ShieldPresent == "unknown":
+		c.ShieldPresent = "yes"
+	case reTextShield.MatchString(t) && c.ShieldPresent == "no":
+		c.Notes = append(c.Notes, "CONFLICT: the BOM text mentions a shield but the part number shield code says unshielded.")
+	}
+	if reTextOverall.MatchString(t) && c.OverallShield.Status == attrNotStated {
+		c.OverallShield = CableAttr{Value: "overall shield", Status: attrFromText}
+	}
+	if reTextIndiv.MatchString(t) {
+		c.IndividualShields = CableAttr{Value: "individually shielded groups", Status: attrFromText}
+		if c.ShieldPresent == "unknown" {
+			c.ShieldPresent = "yes"
+		}
+	} else if c.ShieldPresent == "yes" {
+		if groupCount == 1 {
+			c.IndividualShields = CableAttr{Value: "single group: the one shield surrounds it", Status: attrFromText}
+		} else {
+			c.Notes = append(c.Notes, "Whether each pair has its own shield is not stated. Do not assume an overall shield means individual shields.")
+		}
+	}
+	if reTextDrain.MatchString(t) {
+		c.Drain = CableAttr{Value: "drain wire", Status: attrFromText}
+	}
+	if c.ShieldPresent == "yes" {
+		c.Notes = append(c.Notes, "The shield is not a signal conductor and does not use a connector cavity. Where and how it terminates must come from the drawing or specification.")
+	}
+	return c
+}
+
+func fieldFor(d WireDecode, label string) *WireField {
+	for i := range d.Fields {
+		if d.Fields[i].Label == label {
+			return &d.Fields[i]
+		}
+	}
+	return nil
+}
+
+// DecodeWireLine decodes a part number and describes its construction using
+// the BOM text of the same line.
+func DecodeWireLine(part, text string) (WireDecode, error) {
+	d, err := DecodeWirePart(part)
+	if err != nil || !d.Decoded {
+		return d, err
+	}
+	cc := DescribeCableConstruction(d, text)
+	d.Construction = &cc
+	return d, nil
 }

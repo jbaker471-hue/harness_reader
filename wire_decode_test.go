@@ -88,15 +88,15 @@ func TestNoTwistOrShieldScopeAssumptions(t *testing.T) {
 
 func TestOtherFamiliesAndSlashSheets(t *testing.T) {
 	for pn, family := range map[string]string{
-		"M22759/16-22-9":      "SAE AS22759",
-		"AS22759/11-22-9":     "SAE AS22759",
-		"M16878/4-22-9":       "MIL-DTL-16878",
-		"M25038/3-22":         "MIL-DTL-25038",
-		"MIL-DTL-24643/64":    "MIL-DTL-24643",
-		"MIL-DTL-24640/15":    "MIL-DTL-24640",
-		"RG-58C/U":            "MIL-DTL-17",
-		"M81044/9-22-9":       "SAE AS81044",
-		"AS85485-22":          "SAE AS85485",
+		"M22759/16-22-9":        "SAE AS22759",
+		"AS22759/11-22-9":       "SAE AS22759",
+		"M16878/4-22-9":         "MIL-DTL-16878",
+		"M25038/3-22":           "MIL-DTL-25038",
+		"MIL-DTL-24643/64":      "MIL-DTL-24643",
+		"MIL-DTL-24640/15":      "MIL-DTL-24640",
+		"RG-58C/U":              "MIL-DTL-17",
+		"M81044/9-22-9":         "SAE AS81044",
+		"AS85485-22":            "SAE AS85485",
 		"NEMA WC27500-22RC2S06": "M27500 / NEMA WC27500",
 	} {
 		d := decodeOrFail(t, pn)
@@ -159,5 +159,80 @@ func TestWireSpecLibraryRowsAreSourceLinkedAndNeverVerified(t *testing.T) {
 	}
 	if a := lookupWireCode(rows, "family", "85485"); a == nil || !strings.Contains(a.Note, "Not a general arc-resistant") {
 		t.Fatalf("AS85485 must not be described as an arc-resistant wire standard: %+v", a)
+	}
+}
+
+func constructionOf(t *testing.T, pn, text string) CableConstruction {
+	t.Helper()
+	d, err := DecodeWireLine(pn, text)
+	if err != nil || d.Construction == nil {
+		t.Fatalf("%s: %v %+v", pn, err, d)
+	}
+	return *d.Construction
+}
+
+func TestTwistedShieldedPairConstruction(t *testing.T) {
+	c := constructionOf(t, "M27500-22RC2S06", "CABLE, TWISTED SHIELDED PAIR, 22 AWG")
+	if c.SignalConductors != 2 || c.Groups.Value != "1 pair" || c.Twist.Value != "twisted" || c.ShieldPresent != "yes" {
+		t.Fatalf("%+v", c)
+	}
+	if !strings.Contains(c.OverallShield.Value, "silver-coated copper braid") || !strings.Contains(c.OverallShield.Status, "UNVERIFIED") {
+		t.Fatalf("shield must come from the part number and stay unverified: %+v", c.OverallShield)
+	}
+	if c.IndividualShields.Status != attrFromText || !strings.Contains(c.IndividualShields.Value, "single group") {
+		t.Fatalf("%+v", c.IndividualShields)
+	}
+	if c.Drain.Status != attrNotStated || c.Drain.Value != "" {
+		t.Fatalf("drain must not be assumed: %+v", c.Drain)
+	}
+	if !strings.Contains(strings.Join(c.Notes, " "), "does not use a connector cavity") {
+		t.Fatalf("shield must be called out as not a signal conductor: %v", c.Notes)
+	}
+}
+
+func TestPartNumberAloneStatesNeitherTwistNorPairing(t *testing.T) {
+	c := constructionOf(t, "M27500-22RC2S06", "CABLE")
+	if c.Twist.Status != attrNotStated || c.Groups.Status != attrNotStated || c.Twist.Value != "" {
+		t.Fatalf("twist and pairing must be NOT STATED: %+v", c)
+	}
+	if !strings.Contains(strings.Join(c.Notes, " "), "Do not assume the conductors are twisted pairs") {
+		t.Fatalf("%v", c.Notes)
+	}
+}
+
+func TestMultiPairOverallShieldDoesNotImplyIndividualShields(t *testing.T) {
+	c := constructionOf(t, "M27500-22RC6S06", "CABLE, 3 TWISTED PAIRS, OVERALL SHIELD")
+	if c.Groups.Value != "3 pairs" || c.SignalConductors != 6 {
+		t.Fatalf("%+v", c)
+	}
+	if c.IndividualShields.Status != attrNotStated || !strings.Contains(strings.Join(c.Notes, " "), "Do not assume an overall shield means individual shields") {
+		t.Fatalf("individual shielding must stay unstated: %+v %v", c.IndividualShields, c.Notes)
+	}
+	c = constructionOf(t, "M27500-22RC6S06", "CABLE, 3 PAIRS, INDIVIDUALLY SHIELDED, OVERALL SHIELD, DRAIN WIRE")
+	if c.IndividualShields.Status != attrFromText || c.Drain.Value != "drain wire" || c.SignalConductors != 6 {
+		t.Fatalf("drain is not a signal conductor and individual shields are stated: %+v", c)
+	}
+}
+
+func TestConstructionConflictsAreFlagged(t *testing.T) {
+	c := constructionOf(t, "M27500-22RC4S06", "CABLE, 3 TWISTED PAIRS")
+	if !strings.Contains(strings.Join(c.Notes, " "), "CONFLICT") {
+		t.Fatalf("pair count versus conductor count conflict not flagged: %v", c.Notes)
+	}
+	c = constructionOf(t, "M27500-22RC2S06", "CABLE, UNSHIELDED PAIR")
+	if c.ShieldPresent != "yes" || !strings.Contains(strings.Join(c.Notes, " "), "CONFLICT") {
+		t.Fatalf("unshielded text versus shield code: %+v", c)
+	}
+}
+
+func TestUnshieldedCodeAndUnknownShield(t *testing.T) {
+	if c := constructionOf(t, "M27500-22RC2U06", "CABLE"); c.ShieldPresent != "no" || c.OverallShield.Value != "none" {
+		t.Fatalf("%+v", c)
+	}
+	if c := constructionOf(t, "M27500-22RC2Q06", "CABLE"); c.ShieldPresent != "unknown" {
+		t.Fatalf("unknown shield code must stay unknown: %+v", c)
+	}
+	if d, _ := DecodeWireLine("D38999/26FJ35SN", "CONNECTOR"); d.Construction != nil {
+		t.Fatal("connectors have no cable construction")
 	}
 }
