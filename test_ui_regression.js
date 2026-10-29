@@ -375,8 +375,8 @@ console.log('PASS: harness length applies only to conductors without their own l
  const ids=new Set(g.pts.map(p=>p.x+','+p.y));if(ids.size!==37)throw Error('overlapping cavities');
  const d2=gridCtx.faceData({tag:'P1',occupied:'',labels:['1','2']},'front');
  if(d2.gridBox.w<48)throw Error('small list box');
- if(!src.includes("${list?'':'<circle"))throw Error('assumed list must not draw a connector shell outline');
- if(!src.includes('positions and shell shape are NOT shown'))throw Error('list must state it is not the physical layout');
+ if(!src.includes("${list?'':geo?"))throw Error('assumed list must not draw a connector shell outline');
+ if(!src.includes('cavity positions are NOT shown'))throw Error('list must state it is not the physical layout');
  console.log('PASS: face view without drawn positions is a bounded list with no shell or square grid');
 }
 
@@ -397,7 +397,31 @@ console.log('PASS: harness length applies only to conductors without their own l
  const nm=ctx.faceData({tag:'Q1',part:'Y',occupied:'',labels:['1','2']},'front');
  equal(ctx.faceStatus(nm,'2',new Map()),'unresolved');
  const html=ctx.renderFaceView?'':'';
- if(!src.includes("faceSvg(c,i,'front',net)")||!src.includes("faceSvg(c,i,'rear',net)"))throw Error('front and rear views must both be rendered');
+ if(!src.includes("faceSvg(c,i,'front',net,fam)")||!src.includes("faceSvg(c,i,'rear',net,fam)"))throw Error('front and rear views must both be rendered');
  if(!src.includes('sealing plug')||!src.includes('Crimp contact, insert wire'))throw Error('open vs wired action text missing');
  console.log('PASS: front and rear views, wired vs open (plug) status, held inventory never reports open');
+}
+
+// The family decoded from the part number picks the view: a stated layout is placed (and mirrored by face and
+// contact sex), other families get only a shell icon and a list, and a missing sex or family never draws positions.
+{
+ const ctx={st:{raw:{},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const pos=[];for(let i=0;i<9;i++)pos.push({label:String(i+1),x:(i%5)*2.77-5.54,y:i<5?-1.42:1.42,r:0.8});
+ const fam={recognized:true,family:'D-subminiature',shape:'d-sub',sex:'PIN',geometry:{positions:pos,outline:[[-10,-4],[10,-4],[8,4],[-8,4]]}};
+ const c={tag:'J1',part:'DE9P',occupied:'1',labels:pos.map(p=>p.label),contactType:''};
+ const f=ctx.faceData(c,'front',fam),r=ctx.faceData(c,'rear',fam);
+ equal(f.kind,'family');equal(f.pts.length,9);
+ if(!(f.pts[0].x<200)||!(r.pts[0].x>200))throw Error('male front keeps pin 1 left; rear mirrors it');
+ const sock=ctx.faceData({...c,part:'DE9S'},'front',{...fam,sex:'SOCKET'});
+ if(!(sock.pts[0].x>200))throw Error('socket front is the mirror of the pin face');
+ if(!f.geoShell||f.geoShell.length!==4)throw Error('shell outline missing');
+ equal(ctx.faceData(c,'front',{...fam,sex:''}).kind,'assumed-grid'); // sex unknown: no positions
+ equal(ctx.faceData({...c,contactType:'Pin'},'front',{...fam,sex:''}).kind,'family'); // sex from the connector entry
+ equal(ctx.faceData(c,'front',{recognized:false,shape:'unknown'}).kind,'assumed-grid');
+ const bad=ctx.faceData({...c,labels:['1','2']},'front',fam);
+ if(!bad.unknownPositions.length)throw Error('layout cavities missing from the inventory must be reported');
+ if(!src.includes("fetch('/api/connector-family?part='"))throw Error('part number must drive the family lookup');
+ console.log('PASS: family from part number picks shell and placed layout, mirrors by face and sex, never draws without sex or family');
 }

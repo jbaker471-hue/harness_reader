@@ -676,6 +676,17 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	mux.HandleFunc("/api/connector-family", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		part := r.URL.Query().Get("part")
+		if len(part) > 80 {
+			http.Error(w, "Part number too long", http.StatusBadRequest)
+			return
+		}
+		jsonAnswer(w, DecodeConnectorFamily(part))
+	})
 	mux.HandleFunc("/api/tool-equivalence-library", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {
 			return
