@@ -642,7 +642,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  c={id:'e',tag:'P1',part:'X',occupied:'1',labels:lab(6),capacity:6,manualUnused:['1']};
  h=ctx.pinUsageHtml(c,0);
  if(!h.includes('Conflict (1)')||!h.includes('both wired and marked not used'))throw Error('conflict missing');
- if(!html.includes('id="pin-usage-${i}"'))throw Error('usage block not placed on the card');
+ if(!src.includes('${pinUsageHtml(c,i)}')||!src.includes("+pinUsageHtml(c,i)+famPicker(c,i)+'</div>'"))throw Error('usage block missing from the view, with or without a layout');
  console.log('PASS: pin usage summary names used pins with their wires, not-used pins with the reason, and says when it cannot tell');
 }
 
@@ -651,4 +651,21 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes('appears only as a wire endpoint')||!src.includes("for(const m of d.cavityModels||[])"))throw Error('endpoint-only connectors must get a card');
  if(!src.includes("!(m.wired||[]).length)continue"))throw Error('a connector with no wired cavity must not get a card');
  console.log('PASS: endpoint-only connectors get a card when they have wired pins');
+}
+
+// The Connectors tab opens with this drawing's own connectors; the reference library follows them, collapsed.
+{
+ const tab=html.slice(html.indexOf('<section class="tab" id="tab-connectors">'),html.indexOf('<section class="tab" id="tab-nets">'));
+ const first=tab.indexOf('id="connectorCards"'),lib=tab.indexOf('id="layoutLibPanel"'),imp=tab.indexOf('id="refDocPanel"');
+ if(first<0||lib<0||imp<0||!(first<lib)||!(first<imp))throw Error('the reference library must come after the connectors');
+ if(!/<details class="panel" id="refLibraryDetails">/.test(tab)||/<details class="panel" id="refLibraryDetails" open/.test(tab))throw Error('the reference library must be collapsed');
+ if(!tab.includes('Connectors on this drawing'))throw Error('heading');
+ // on a card the layout comes before the entry fields
+ const card=src.slice(src.indexOf('function renderConnectors('));
+ if(!(card.indexOf('id="face-view-${i}"')>0&&card.indexOf('id="face-view-${i}"')<card.indexOf('<div class="split">')))throw Error('layout must precede the entry fields on a card');
+ // inside the view: the faces come before the identification and checks, and the pin usage sits between
+ const view=src.slice(src.indexOf('function renderFaceView('),src.indexOf('function renderConnectors('));
+ const s=view.indexOf('${sides}'),u=view.indexOf('${pinUsageHtml(c,i)}'),idn=view.indexOf('Connector identification and checks');
+ if(!(s>0&&s<u&&u<idn))throw Error('order inside the view must be faces, pin usage, identification');
+ console.log('PASS: Connectors tab leads with this drawing\'s connectors and their layout; reference library is below and collapsed');
 }
