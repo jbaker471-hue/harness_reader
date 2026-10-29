@@ -448,3 +448,18 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes("u.startsWith('https://')")||!src.includes('Insert layout standard:'))throw Error('standards must link over https only');
  console.log('PASS: stored insert layouts orient by view, pin/socket and side; circular shell; https-only document links');
 }
+
+// The reference-document importer reports blocked, rejected and accepted files without hiding the reason and escapes file names.
+{
+ const ctx={safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('function refDocHtml(','function renderConnectors('),ctx);
+ const blocked=ctx.refDocHtml({ok:false,status:'MANUAL_DOWNLOAD_REQUIRED',reason:'This is a web page, not a PDF.'},'x.pdf');
+ if(!blocked.includes('tag warn')||!blocked.includes('MANUAL DOWNLOAD REQUIRED')||!blocked.includes('not a PDF'))throw Error('blocked download not shown');
+ const bad=ctx.refDocHtml({ok:false,status:'REJECTED',reason:'The PDF did not parse.'},'<b>y</b>.pdf');
+ if(!bad.includes('tag bad')||bad.includes('<b>y</b>')||!bad.includes('&lt;b&gt;'))throw Error('rejection or escaping wrong');
+ const ok=ctx.refDocHtml({ok:true,status:'ACCEPTED',reason:'Valid PDF.',pages:194,bytes:1234,sha256:'ab'},'cat.pdf');
+ if(!ok.includes('tag good')||!ok.includes('194 pages')||!ok.includes('SHA-256 ab'))throw Error('accepted file not summarized');
+ if(!src.includes("fetch('/api/reference-validate'"))throw Error('importer must use the validator endpoint');
+ console.log('PASS: reference document importer shows blocked, rejected and accepted files and escapes names');
+}

@@ -676,6 +676,17 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	// Validates a reference PDF (standard or catalog) without loading it as the current drawing.
+	mux.HandleFunc("/api/reference-validate", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		b, ok := readPDF(w, r)
+		if !ok {
+			return
+		}
+		jsonAnswer(w, ValidateReferencePDF(b))
+	})
 	mux.HandleFunc("/api/connector-family", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {
 			return
