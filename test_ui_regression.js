@@ -669,3 +669,22 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!(s>0&&s<u&&u<idn))throw Error('order inside the view must be faces, pin usage, identification');
  console.log('PASS: Connectors tab leads with this drawing\'s connectors and their layout; reference library is below and collapsed');
 }
+
+// Two wired cavities that are not on the insert are called out, and the rest are offered as provisional, not confirmed.
+{
+ const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:[],unusedProvisional:['4','5','6'],unusedStatus:'HELD — resolve source and inventory conflicts',explicitUnused:[],conflicts:['Cavity 9 is wired but does not exist in the sourced cavity inventory.'],wired:['1','2','3','9']}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const c={id:'a',tag:'P1',part:'X',occupied:'1, 2, 3, 9',labels:['1','2','3','4','5','6'],capacity:6};
+ const d=ctx.faceData(c,'front'),net=ctx.faceNetRows('P1'),S=id=>ctx.faceStatus(d,id,net);
+ if(S('9')!=='offinsert')throw Error('a wired cavity that is not on the insert must be flagged: '+S('9'));
+ if(S('4')!=='provisional'||S('1')!=='wired')throw Error('provisional / wired wrong');
+ if(!ctx.faceFilterMatch('notused','provisional')||!ctx.faceFilterMatch('problem','offinsert'))throw Error('filters must include the new statuses');
+ const h=ctx.pinUsageHtml(c,0);
+ if(!h.includes('NOT ON INSERT 1')||!h.includes('Not on this insert (1):</b> 9')||!h.includes('has only 6 cavities'))throw Error('off-insert callout missing: '+h.slice(0,300));
+ if(!h.includes('Probably not used, provisional (3):</b> 4–6')||!h.includes('Not confirmed because the sources conflict'))throw Error('provisional list missing');
+ if(h.includes('every cavity carries a wire'))throw Error('must not claim nothing is unused');
+ if(!/NOT USED \(provisional\) 3/.test(h))throw Error('the count tag must say provisional');
+ if(!/Used \(4\):<\/b> 1–3, 9/.test(h))throw Error('the used list still includes the off-insert pin so the user can see it');
+ console.log('PASS: pins wired off the insert are called out; remaining cavities are offered as provisional, never confirmed');
+}

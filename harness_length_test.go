@@ -78,3 +78,20 @@ func TestHarnessLengthOnlyReadsFirstThreeSheets(t *testing.T) {
 		t.Fatalf("sheet 4 must be ignored: %v", got)
 	}
 }
+
+func TestCutLengthStatedInAnAssemblyStep(t *testing.T) {
+	// the step can be on any sheet, not only the first three
+	pages := []Page{
+		usedPage(5, "STEP 1 - CUT 5.0FT (+- 2IN) OF CABLE", "STEP 2 - ON THE EXPOSED END REMOVE 1IN OF JACKET"),
+		usedPage(6, "STEP 1 - CUT 5.0FT (+- 2IN) OF CABLE (FIND 7)"), // the same statement on another sheet is one value
+	}
+	got := harnessLengths(pages)
+	if len(got) != 1 || got[0].Label != "CUT" || got[0].Text != "5.0 FT" || got[0].Tolerance != "±2" {
+		t.Fatalf("%+v", got)
+	}
+	for _, s := range []string{"CUT 2 IN OF SLEEVING", "CUT TIE ENDS FLUSH", "DO NOT CUT 5 OF THE WIRES", "CUT 4 IN"} {
+		if g := harnessLengths([]Page{usedPage(3, s)}); len(g) != 0 {
+			t.Fatalf("%q must not read as a cable cut length: %+v", s, g)
+		}
+	}
+}

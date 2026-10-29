@@ -190,3 +190,30 @@ func TestWriteUsedCountSamples(t *testing.T) {
 		}
 	}
 }
+
+func TestConflictsHoldUnusedButOfferProvisionalList(t *testing.T) {
+	ws := []WireRow{}
+	for _, c := range []string{"1", "2", "3", "4", "5", "14"} { // 14 does not exist on a 13-cavity insert
+		ws = append(ws, WireRow{Connector: "P7", Cavity: c, End: "J8", EndCavity: "A"})
+	}
+	a := Analysis{Connectors: []Connector{{Tag: "P7", Part: "D38999/26WB35PN", CavityCount: 13}}, Wires: ws}
+	var m CavityModel
+	for _, v := range buildCavityModels(&a, nil) {
+		if v.Tag == "P7" {
+			m = v
+		}
+	}
+	if len(m.Conflicts) == 0 || !strings.HasPrefix(m.UnusedStatus, "HELD") || len(m.Unused) != 0 {
+		t.Fatalf("the confirmed unused list must stay held: %+v", m)
+	}
+	if strings.Join(m.UnusedProvisional, ",") != "6,7,8,9,10,11,12,13" {
+		t.Fatalf("provisional list wrong: %v", m.UnusedProvisional)
+	}
+	// one wire, and it is off the insert: the remaining cavities are still offered as provisional
+	b := Analysis{Connectors: []Connector{{Tag: "P7", Part: "D38999/26WB35PN", CavityCount: 13}}, Wires: []WireRow{{Connector: "P7", Cavity: "14", End: "J8", EndCavity: "A"}}}
+	for _, v := range buildCavityModels(&b, nil) {
+		if v.Tag == "P7" && len(v.UnusedProvisional) == 0 {
+			t.Fatalf("a connector whose only wire is off the insert should still offer a provisional list: %+v", v)
+		}
+	}
+}

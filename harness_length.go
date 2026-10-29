@@ -26,7 +26,9 @@ var (
 	reLengthExclude = regexp.MustCompile(`\b(STRIP|STRIPPED|STRIPPING|SLEEV|SLEEVING|SHRINK|TWIST|LAY|BARREL|CRIMP|SOLDER|BRAID|SPLICE|TAIL|PIGTAIL|BREAKOUT|BRANCH|LEG|TIE|LACING|MARKER|LABEL|SCREW|BOLT|THREAD|BAND|HEIGHT|WIDTH)\b`)
 	reLengthValue   = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(?:(FT|FEET|')\s*[-\s]?\s*(\d+(?:\.\d+)?)\s*(IN(?:CH(?:ES)?)?|")?|(IN(?:CH(?:ES)?)?|"|FT|FEET|'|MM|CM|M)\b)?`)
 	reLengthLead    = regexp.MustCompile(`^(?:[\s:=\-()]|\.{2,})*(?:(?:REF|APPROX|MIN|MAX|NOM)\.?(?:[\s:=\-()]|\.{2,})*)?`)
-	reLengthTol     = regexp.MustCompile(`(?:\+\s*/\s*-|\+-|±)\s*(\d+(?:\.\d+)?)`)
+	// "CUT 5.0FT (+- 2IN) OF CABLE": an assembly step that states the cut length of the cable or wire without the word LENGTH.
+	reCutOf     = regexp.MustCompile(`\bCUT\s+(\d+(?:\.\d+)?\s*(?:FT|FEET|'|IN(?:CH(?:ES)?)?|")?)(?:\s*\([^)]{0,24}\))?\s*OF\s+(?:CABLE|WIRE|HARNESS|ASSEMBLY)\b`)
+	reLengthTol = regexp.MustCompile(`(?:\+\s*/\s*-|\+-|±)\s*(\d+(?:\.\d+)?)`)
 )
 
 func normalizeLengthMatch(m []string) string {
@@ -99,6 +101,31 @@ func harnessLengths(pages []Page) []HarnessLength {
 				tol = "±" + tm[1]
 			}
 			add(p.Number, label, normalizeLengthMatch(m), tol)
+		}
+	}
+	// The cut length of a cable is often stated in an assembly step on any sheet. It is reported once per distinct value.
+	seenCut := map[string]bool{}
+	for _, p := range pages {
+		for _, l := range pageLines(p) {
+			t := strings.ToUpper(strings.Join(strings.Fields(l.Text), " "))
+			m := reCutOf.FindStringSubmatchIndex(t)
+			if m == nil {
+				continue
+			}
+			v := reLengthValue.FindStringSubmatch(t[m[2]:m[3]])
+			if v == nil {
+				continue
+			}
+			text := normalizeLengthMatch(v)
+			tol := ""
+			if tm := reLengthTol.FindStringSubmatch(t[m[3]:]); tm != nil {
+				tol = "±" + tm[1]
+			}
+			if text == "" || seenCut[text+"|"+tol] {
+				continue
+			}
+			seenCut[text+"|"+tol] = true
+			add(p.Number, "CUT", text, tol)
 		}
 	}
 	return out

@@ -46,6 +46,8 @@ type CavityModel struct {
 	Conflicts      []string       `json:"conflicts"`
 	UsedStated     int            `json:"usedStated"` // contacts the drawing states are used at this connector; 0 when not stated
 	UsedSource     string         `json:"usedSource"`
+	// Cavities that would be unused if the conflicts below were resolved. Shown to the user as provisional, never as confirmed.
+	UnusedProvisional []string `json:"unusedProvisional"`
 }
 
 // StatedUsed is a count of contacts a drawing says are used at one connector. The drawing may give only this
@@ -296,7 +298,7 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 	}
 	sort.Strings(tags)
 	for _, tag := range tags {
-		m := CavityModel{Tag: tag, Part: parts[tag], All: []string{}, Wired: []string{}, ExplicitUnused: []UnusedCavity{}, Unused: []string{}, SolidMarked: []string{}, OpenMarked: []string{}, Views: []FaceView{}, Conflicts: []string{}}
+		m := CavityModel{Tag: tag, Part: parts[tag], All: []string{}, Wired: []string{}, ExplicitUnused: []UnusedCavity{}, Unused: []string{}, SolidMarked: []string{}, OpenMarked: []string{}, Views: []FaceView{}, Conflicts: []string{}, UnusedProvisional: []string{}}
 		for _, d := range diagrams {
 			if d.NearTag != tag {
 				continue
@@ -463,6 +465,11 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 		m.UnusedStatus = "CANDIDATE — confirm every wiring sheet"
 		switch {
 		case len(m.Conflicts) > 0:
+			// A few conflicting cavities do not make the rest of the connector unknowable: keep the unused list held, but offer
+			// the remainder as provisional when the inventory is exact and some wiring was recognized.
+			if m.AllVerified && len(m.Wired) > 0 {
+				m.UnusedProvisional = append([]string{}, m.Unused...)
+			}
 			m.Unused = []string{}
 			m.UnusedStatus = "HELD — resolve source and inventory conflicts"
 		case len(m.Wired) == 0:
