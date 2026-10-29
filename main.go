@@ -655,6 +655,22 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	mux.HandleFunc("/api/wire-decode", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		part := r.URL.Query().Get("part")
+		if len(part) > 80 {
+			http.Error(w, "Part number too long", http.StatusBadRequest)
+			return
+		}
+		v, e := DecodeWirePart(part)
+		if e != nil {
+			http.Error(w, "Wire specification reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
 	mux.HandleFunc("/api/tool-equivalence-library", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {
 			return

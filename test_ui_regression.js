@@ -304,3 +304,14 @@ if(cutCtx.parseCableLine({part:'D38999/26FJ35SN',description:'CONNECTOR'})!==nul
 const amb=cutCtx.detectCableSpecs([{part:'M27500-24TG2T14',description:'CABLE'},{part:'M27500-24TG3T14',description:'CABLE'}]);
 if(!amb.get('24').ambiguous||cutCtx.effectiveCables(amb,{})['24']!==undefined)throw Error('conflicting BOM cable lines must not be guessed');
 console.log('PASS: multi-conductor cables are one cut and one cost, flagged as inferred, with BOM detection and user override');
+
+// Decoded wire/cable cards: sources are clickable only when https, everything is escaped, unresolved is visible.
+cutCtx.safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const card=cutCtx.decodeCardHtml({part:'M27500-22<b>',recognized:true,family:'M27500',familyStatus:'SUPPLIED REFERENCE — UNVERIFIED',familySources:['https://www.wiremasters.com/guides/m27500-anatomy-guide','javascript:alert(1)'],
+ fields:[{label:'Shield',value:'UNRESOLVED',code:'Q',status:'CODE NOT IN REFERENCE LIBRARY'},{label:'Outer jacket',value:'White PTFE',code:'06',sources:['https://www.wiremasters.com/guides/m27500-anatomy-guide','http://plain.example/x'],status:'SUPPLIED REFERENCE — UNVERIFIED'}],unresolved:['Shield code Q is not in the reference library.'],notes:['Twist is not stated']});
+if(card.includes('javascript:')||card.includes('http://plain')||card.includes('22<b>'))throw Error('decode card leaked an unsafe link or unescaped text');
+if(!card.includes('href="https://www.wiremasters.com/guides/m27500-anatomy-guide"')||!card.includes('rel="noopener noreferrer"'))throw Error('https source link missing');
+if(!card.includes('Unresolved: Shield code Q')||!card.includes('UNVERIFIED'))throw Error('unresolved/unverified status not shown');
+if(!cutCtx.decodeCardHtml({part:'X',recognized:false}).includes('Nothing was assumed'))throw Error('unrecognized part must say nothing was assumed');
+if(!cutCtx.decodeCardHtml({part:'X',error:true}).includes('Nothing is assumed'))throw Error('lookup failure must be visible');
+console.log('PASS: wire decode cards show sources and status, link only https, escape text, and surface unresolved codes');
