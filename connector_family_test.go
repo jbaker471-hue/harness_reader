@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -273,5 +274,44 @@ func TestArrangementFromAnyPartNumberOrChoice(t *testing.T) {
 	}
 	if d := DecodeConnectorFamilyWith("D38999/26FD35PN", "99-99"); d.Geometry != nil {
 		t.Fatalf("unknown arrangement must not draw: %+v", d)
+	}
+}
+
+func TestFamilyCoverageAuditNeverClaimsCompleteAndAgreesWithStoredLayouts(t *testing.T) {
+	cov, err := familyCoverage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	layouts, _ := listInsertLayouts()
+	stored, known := 0, len(layouts)
+	for _, l := range layouts {
+		if l.Loaded {
+			stored++
+		}
+	}
+	if len(cov) < 10 {
+		t.Fatalf("only %d families audited", len(cov))
+	}
+	allowed := map[string]bool{"NOT STARTED": true, "MANUAL DOWNLOAD REQUIRED": true, "DOCUMENTS RETRIEVED - NOT EXTRACTED": true, "PARTIAL": true, "INCOMPLETE": true}
+	for _, c := range cov {
+		if !allowed[c.AuditStatus] {
+			t.Fatalf("%s: audit status %q is not allowed; no family is complete without an arrangement-level audit", c.Family, c.AuditStatus)
+		}
+		if c.Note == "" {
+			t.Fatalf("%s: audit row needs a note", c.Family)
+		}
+		if c.AuditStatus == "MANUAL DOWNLOAD REQUIRED" && c.ManualRequired == "None" {
+			t.Fatalf("%s: says manual download but lists none", c.Family)
+		}
+	}
+	// the 38999 row must agree with the stored library, so the audit cannot drift from the data
+	var row *FamilyCoverage
+	for i := range cov {
+		if strings.HasPrefix(cov[i].Family, "MIL-DTL-38999 Series I") {
+			row = &cov[i]
+		}
+	}
+	if row == nil || row.ArrangementsStored != strconv.Itoa(stored) || row.ArrangementsKnown != strconv.Itoa(known) {
+		t.Fatalf("38999 coverage row %+v disagrees with the library (%d stored of %d)", row, stored, known)
 	}
 }

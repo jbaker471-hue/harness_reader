@@ -70,6 +70,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   const layouts=await api('api/insert-layouts',undefined,'GET');assert(layouts.length>=24&&layouts.filter(x=>x.loaded).length>=8&&layouts.filter(x=>!x.loaded).every(x=>x.reason),'insert layout library missing or unexplained gaps in packaged executable');
   assert.equal((await api('api/insert-layout?id=25-35',undefined,'GET')).positions.length,128);
   assert.equal((await fetch(url+'api/insert-layouts')).status,403);
+  const cov=await api('api/family-coverage',undefined,'GET');assert(cov.length>=10&&cov.every(x=>x.auditStatus!=='COMPLETE'&&x.note),'family coverage audit missing or claims completeness in packaged executable');
   const refHeaders={'X-Trivex-Token':token,'Content-Type':'application/pdf'};
   const refBanner=await (await fetch(url+'api/reference-validate',{method:'POST',headers:refHeaders,body:'<html><title>Warning Banner</title></html>'})).json();assert(!refBanner.ok&&refBanner.status==='MANUAL_DOWNLOAD_REQUIRED','HTML banner must not be accepted as a reference PDF');
   assert.equal((await fetch(url+'api/reference-validate',{method:'POST',body:'x'})).status,403);

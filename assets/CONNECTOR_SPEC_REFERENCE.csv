@@ -58,3 +58,16 @@ manufacturer,Astro Tool,Astro Tool,Crimp tooling,https://www.astrotool.com/,SUPP
 search,DLA ASSIST Quick Search,Official specification search,Specifications,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,1,,
 search,DLA MIL-DTL-38999 collection,Document collection,MIL-DTL-38999,https://weaponssupportapps.dla.mil/programs/milspec/ListDocs.aspx?BasicDoc=MIL-DTL-38999,SUPPLIED REFERENCE — UNVERIFIED,1,,
 search,SAE Standards,SAE standards catalog,SAE standards,https://www.sae.org/standards,SUPPLIED REFERENCE — UNVERIFIED,2,,
+layout-standard,MIL-STD-1674,Insert arrangements for MIL-C-85028 rectangular connectors,MIL-C-85028 rectangular,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37068,SUPPLIED REFERENCE — UNVERIFIED,3,,Revision and current status not checked
+reference-handbook,MIL-HDBK-536,38999 contacts and termini,MIL-DTL-38999 contacts and termini,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=284910,SUPPLIED REFERENCE — UNVERIFIED,1,,Not retrieved: DLA record pages need a browser
+family-spec,MIL-DTL-24308 (record 17161),D-sub document record,D-sub,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=17161,SUPPLIED REFERENCE — UNVERIFIED,3,,Second DLA record for the D-sub family; the /3 slash sheet record is listed separately
+family-spec,MIL-DTL-83527 (record 67471),Multiple insert rack-to-panel connectors,Rack and panel,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=67471,SUPPLIED REFERENCE — UNVERIFIED,3,,Document-specific record for the rack-and-panel family
+family-spec,MIL-DTL-55302/59,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29472,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/61,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29474,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/128,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29533,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/157,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29562,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/159,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=115576,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/176,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29581,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/190,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=67273,SUPPLIED REFERENCE — UNVERIFIED,3,,
+coax-spec,MIL-STD-348 (record 35726),RF connector interfaces document record,RF coax interfaces,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=35726,SUPPLIED REFERENCE — UNVERIFIED,4,,Document-specific record
+tooling-spec,SAE-AS22520,Crimp tooling,Crimp tools,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,1,,No document-specific URL supplied; general DLA search only

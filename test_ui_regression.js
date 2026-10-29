@@ -479,3 +479,16 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes("fetch('/api/insert-layouts'")||!html.includes('id="layoutLibrary"'))throw Error('library panel not wired');
  console.log('PASS: insert layout library lists every arrangement, disables unstored ones, escapes ids, and lets a connector choose a layout');
 }
+
+// The family coverage audit is shown with its status, never as complete, and is escaped.
+{
+ const ctx={safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('function familyCoverageHtml(','function renderLayoutLibrary('),ctx);
+ const h=ctx.familyCoverageHtml([{family:'<i>F</i>',standard:'S',auditStatus:'INCOMPLETE',arrangementsStored:'8',arrangementsKnown:'24',documentsRetrieved:'a',documentsManualRequired:'b',note:'n'},{family:'G',standard:'S',auditStatus:'MANUAL DOWNLOAD REQUIRED',arrangementsStored:'0',arrangementsKnown:'unknown',documentsRetrieved:'None',documentsManualRequired:'x',note:'n'}]);
+ if(!h.includes('8 of 24')||!h.includes('0 of unknown')||!h.includes('no family is complete'))throw Error('coverage counts or caveat missing');
+ if(h.includes('<i>F</i>')||!h.includes('&lt;i&gt;'))throw Error('family names must be escaped');
+ if(/>COMPLETE</.test(h))throw Error('a family must never read complete');
+ if(ctx.familyCoverageHtml([])!=='')throw Error('empty list should render nothing');
+ console.log('PASS: family coverage audit shown with status and counts, escaped, never complete');
+}

@@ -715,6 +715,17 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	mux.HandleFunc("/api/family-coverage", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := familyCoverage()
+		if e != nil {
+			http.Error(w, "Coverage audit unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
 	mux.HandleFunc("/api/insert-layout", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {
 			return

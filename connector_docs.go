@@ -185,3 +185,28 @@ func listInsertLayouts() ([]InsertLayoutInfo, error) {
 	}
 	return out, nil
 }
+
+// FamilyCoverage is the arrangement-level audit of one connector family. A family is never reported
+// complete: the status is one of the fixed audit states in the file, and counts that are not known say so.
+type FamilyCoverage struct {
+	Family             string `json:"family"`
+	Standard           string `json:"standard"`
+	Retrieved          string `json:"documentsRetrieved"`
+	ManualRequired     string `json:"documentsManualRequired"`
+	ArrangementsKnown  string `json:"arrangementsKnown"`
+	ArrangementsStored string `json:"arrangementsStored"`
+	AuditStatus        string `json:"auditStatus"`
+	Note               string `json:"note"`
+}
+
+func familyCoverage() ([]FamilyCoverage, error) {
+	rows, err := readLibrary("CONNECTOR_FAMILY_COVERAGE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []FamilyCoverage{}
+	for _, r := range rows[1:] {
+		out = append(out, FamilyCoverage{Family: r[0], Standard: r[1], Retrieved: r[2], ManualRequired: r[3], ArrangementsKnown: r[4], ArrangementsStored: r[5], AuditStatus: r[6], Note: r[7]})
+	}
+	return out, nil
+}

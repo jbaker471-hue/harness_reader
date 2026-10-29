@@ -527,6 +527,19 @@ function layoutLibGeometry(id){
 }
 function libPick(id){libSel=id;renderLayoutLibrary()}
 function libSexPick(s){libSex=s;renderLayoutLibrary()}
+let familyCoverage=null;
+function loadFamilyCoverage(){
+ if(familyCoverage!==null)return familyCoverage;
+ familyCoverage=[];
+ if(typeof fetch==='function')fetch('/api/family-coverage',{headers:{'X-Trivex-Token':TOKEN}}).then(r=>r.ok?r.json():Promise.reject(new Error('lookup failed'))).then(d=>{familyCoverage=d;renderLayoutLibrary()}).catch(()=>{});
+ return familyCoverage;
+}
+function familyCoverageHtml(rows){
+ if(!rows.length)return '';
+ const cls=s=>s==='PARTIAL'||s==='INCOMPLETE'?'warn':s==='DOCUMENTS RETRIEVED - NOT EXTRACTED'?'warn':'bad';
+ const body=rows.map(r=>`<tr><td>${safe(r.family)}<div class="small muted">${safe(r.standard)}</div></td><td><span class="tag ${cls(r.auditStatus)}">${safe(r.auditStatus)}</span></td><td>${safe(r.arrangementsStored)} of ${safe(r.arrangementsKnown)}</td><td>${safe(r.documentsRetrieved)}</td><td>${safe(r.documentsManualRequired)}</td><td>${safe(r.note)}</td></tr>`).join('');
+ return `<details><summary>Coverage audit by connector family (no family is complete)</summary><p class="small muted">Stored means cavity coordinates are in the library. A family is never marked complete without an arrangement-by-arrangement audit against its governing standard. Files marked manual need to be downloaded in a browser and imported.</p><div class="tablebox"><table><thead><tr><th>Family</th><th>Audit</th><th>Stored of known</th><th>Documents retrieved</th><th>Manual download needed</th><th>Note</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
+}
 function renderLayoutLibrary(){
  const box=$('layoutLibrary');if(!box)return;
  const list=loadInsertLayouts();
@@ -543,7 +556,7 @@ function renderLayoutLibrary(){
   view=`<div class="row" style="align-items:flex-start;gap:12px">${faceSvg(c,-1,'front',net,fam)}${faceSvg(c,-1,'rear',net,fam)}</div><p class="small muted">${safe(g.basis)} Source: ${safe(cur.source)}, page ${safe(cur.sourcePage)}. ${safe(cur.status)}.</p>`;
  }
  const rows=list.map(l=>`<tr><td>${safe(l.id)}</td><td>${safe(l.contacts)}</td><td>${safe(l.contactSize||'')}</td><td>${l.loaded?'stored':'not stored'}</td><td>${safe(l.sourcePage||'')}</td><td>${safe(l.reason||'')}</td></tr>`).join('');
- box.innerHTML=`<div class="row"><label for="libSel">Arrangement</label><select id="libSel" onchange="libPick(this.value)">${list.map(l=>`<option value="${safe(l.id)}" ${l.id===libSel?'selected':''}>${safe(l.id)} · ${safe(l.contacts)} contacts${l.loaded?'':' (not stored)'}</option>`).join('')}</select><label for="libSex">Contacts</label><select id="libSex" onchange="libSexPick(this.value)"><option value="PIN" ${libSex==='PIN'?'selected':''}>Pin connector</option><option value="SOCKET" ${libSex==='SOCKET'?'selected':''}>Socket connector</option></select></div>${view}<details><summary>All ${list.length} arrangements read from the catalog (${loaded} stored)</summary><div class="tablebox"><table><thead><tr><th>Arrangement</th><th>Contacts</th><th>Size</th><th>Coordinates</th><th>Page</th><th>Why not stored</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+ box.innerHTML=`<div class="row"><label for="libSel">Arrangement</label><select id="libSel" onchange="libPick(this.value)">${list.map(l=>`<option value="${safe(l.id)}" ${l.id===libSel?'selected':''}>${safe(l.id)} · ${safe(l.contacts)} contacts${l.loaded?'':' (not stored)'}</option>`).join('')}</select><label for="libSex">Contacts</label><select id="libSex" onchange="libSexPick(this.value)"><option value="PIN" ${libSex==='PIN'?'selected':''}>Pin connector</option><option value="SOCKET" ${libSex==='SOCKET'?'selected':''}>Socket connector</option></select></div>${view}<details><summary>All ${list.length} arrangements read from the catalog (${loaded} stored)</summary><div class="tablebox"><table><thead><tr><th>Arrangement</th><th>Contacts</th><th>Size</th><th>Coordinates</th><th>Page</th><th>Why not stored</th></tr></thead><tbody>${rows}</tbody></table></div></details>${familyCoverageHtml(loadFamilyCoverage())}`;
 }
 const FACE_SIDE_LABEL={front:'FRONT · mating face',rear:'REAR · wire / contact insertion side'};
 function faceSvg(c,i,side,net,fam){
