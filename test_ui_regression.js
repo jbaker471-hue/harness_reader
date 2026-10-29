@@ -562,3 +562,42 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes('${expectedHtml(fam,d.all.length,c.capacity,cnt.wired)}'))throw Error('connector card does not show the expectation');
  console.log('PASS: catalog contact count compared with inventory, capacity and wiring; mismatches shown, nothing compared is not agreement');
 }
+
+// A drawing may state only how many contacts are USED. That count is compared with the wired cavities, and a user can also mark cavities not used.
+{
+ const alerts=[];const ctx={st:{raw:{},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),$:()=>null,alert:m=>alerts.push(m),renderFaceView:()=>''};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const mk=(over)=>({id:'c1',tag:'P1',part:'X',occupied:'1, 2, 3',labels:['1','2','3','4','5','6'],...over});
+ const S=(c,id)=>{const d=ctx.faceData(c,'front');return ctx.faceStatus(d,id,ctx.faceNetRows('P1'))};
+ // no count stated: cavities with no wire stay "open" (derived), as before
+ let c=mk({});ctx.st.connectors=[c];
+ if(S(c,'4')!=='open')throw Error('with a typed occupied list the other inventory cavities are open (derived): '+S(c,'4'));
+ c=mk({usedCount:3});let d=ctx.faceData(c,'front');
+ if(d.usedState!=='agree'||d.usedStated!==3||d.usedSource!=='entered by you')throw Error('matching count not recognized');
+ c=mk({usedCount:5});d=ctx.faceData(c,'front');
+ if(d.usedState!=='held'||d.open.size!==0)throw Error('a stated count above the wired count must hold the unused decision');
+ c=mk({usedCount:2});d=ctx.faceData(c,'front');
+ if(d.usedState!=='over')throw Error('a stated count below the wired count is a conflict');
+ // the drawing's own count (from the model) wins over a typed one
+ ctx.st.raw={cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:['4','5','6'],unusedStatus:'CORROBORATED',usedStated:3,usedSource:'statement on sheet 1',explicitUnused:[],conflicts:[],wired:['1','2','3']}]};
+ c=mk({usedCount:9});d=ctx.faceData(c,'front');
+ if(d.usedStated!==3||d.usedSource!=='statement on sheet 1'||d.usedState!=='agree')throw Error('drawing count must win');
+ if(S(c,'4')!=='open'||!d.open.has('5'))throw Error('corroborated count should leave the unmatched cavities open');
+ // marking
+ c=mk({manualUnused:['6']});ctx.st.connectors=[c];
+ if(S(c,'6')!=='unused'||ctx.faceData(c,'front').explicitSrc.get('6')!=='marked by you')throw Error('manual mark not used');
+ c=mk({manualUnused:['2']});if(S(c,'2')!=='conflict')throw Error('a wired cavity marked unused must conflict');
+ c=mk({});ctx.st.connectors=[c];
+ ctx.faceToggleUnused(0,'2');if(!alerts.length||(c.manualUnused||[]).length)throw Error('must refuse to mark a wired cavity');
+ ctx.faceToggleUnused(0,'5');if(JSON.stringify(c.manualUnused)!=='["5"]')throw Error('mark not stored');
+ ctx.faceToggleUnused(0,'5');if(c.manualUnused.length!==0)throw Error('mark not cleared');
+ ctx.setUsedCount(0,'4.4');if(c.usedCount!==4)throw Error('count not stored as a whole number');
+ ctx.setUsedCount(0,'-3');if(c.usedCount!=='')throw Error('negative or empty count must clear');
+ // the card text
+ ctx.st.raw={};c=mk({usedCount:5});d=ctx.faceData(c,'front');
+ let h=ctx.usedCountHtml(c,0,d);if(!h.includes('HELD')||!h.includes('2 used cavities have no recognized wire'))throw Error('held text missing');
+ c=mk({usedCount:3});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('COUNT MATCHES WIRING'))throw Error('match text missing');
+ c=mk({});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('No used-contact count is stated'))throw Error('not-stated text missing');
+ console.log('PASS: stated used-contact count agrees, holds or conflicts with the wiring; manual not-used marks conflict with wires');
+}

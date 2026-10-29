@@ -77,6 +77,7 @@ type Analysis struct {
 	PageSummary    []PageSummary    `json:"pageSummary"`
 	ToolingMatches []ToolMatch      `json:"toolingMatches"`
 	Unused         []UnusedCavity   `json:"unused"`
+	UsedCounts     []StatedUsed     `json:"usedCounts"`
 }
 type PageSummary struct {
 	Page       int    `json:"page"`
@@ -627,6 +628,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		a.Unused = append(a.Unused, t.unusedRows()...)
 	}
 	a.Unused = dedupeUnused(a.Unused)
+	a.UsedCounts = statedUsedCounts(d)
 	a.Wires = mergeWireRows(a.Wires)
 	a.Connectors = connectorFromBOM(a.BOM)
 	if a.Connectors == nil {

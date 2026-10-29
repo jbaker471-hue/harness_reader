@@ -439,12 +439,17 @@ function faceData(c,requested,fam){
  const v=match||views.find(x=>(x.positions||[]).length)||null;
  const actual=String(v?.side||'not stated').toLowerCase();
  const mirrored=!!v&&((actual.startsWith('front')&&requested==='rear')||(actual.startsWith('rear')&&requested==='front'));
- const occupied=new Set(splitCavs(c.occupied)),explicit=new Set((m?.explicitUnused||[]).map(x=>String(x.cavity))),explicitSrc=new Map((m?.explicitUnused||[]).map(x=>[String(x.cavity),String(x.source||'drawing')]));
+ const occupied=new Set(splitCavs(c.occupied)),manual=new Set((c.manualUnused||[]).map(String)),explicit=new Set([...(m?.explicitUnused||[]).map(x=>String(x.cavity)),...manual]),explicitSrc=new Map([...(m?.explicitUnused||[]).map(x=>[String(x.cavity),String(x.source||'drawing')]),...[...manual].map(id=>[id,'marked by you'])]);
  const conflicts=new Set((m?.conflicts||[]).flatMap(x=>String(x).match(/\b[A-Za-z]*\d+[A-Za-z]*\b/g)||[]));
  const all=(m?.allVerified&&m.all?.length?m.all:c.labels||[]).map(String);
  const labels=new Set(all),viewLabels=new Set();
  // Open = inventory minus wired. Only from a verified inventory with no HELD status, or from the user-entered occupied list against the cavity inventory; otherwise unresolved.
  const heldModel=!m||!m.allVerified||String(m.unusedStatus||'').startsWith('HELD'),open=new Set(heldModel?(!m&&occupied.size?all.filter(id=>!occupied.has(id)):[]):(m.unused||[]).map(String));
+ // The drawing may state only how many contacts are USED, never which cavities are not. That count can corroborate or contradict the wiring.
+ const usedStated=Number(m?.usedStated)||Number(c.usedCount)||0,usedSource=m?.usedStated?String(m.usedSource||'the drawing'):c.usedCount?'entered by you':'';
+ const wiredSet=new Set([...occupied,...(m?.wired||[]).map(String),...faceNetRows(c.tag).keys()]);
+ const usedState=!usedStated?'':wiredSet.size===usedStated?'agree':wiredSet.size<usedStated?'held':'over';
+ if(usedState==='held'||usedState==='over')open.clear();
  let pts=[],kind='unresolved',gridBox=null,geoShell=null,geoRound=false,famFlip=false;
  if(v?.positions?.length){
   // Positions are relative to insert outline centre, in PDF display coordinates (Y down).
@@ -473,7 +478,7 @@ function faceData(c,requested,fam){
  const unknownPositions=placed?pts.filter(p=>p.id&&!labels.has(p.id)).map(p=>p.id):[];
  const unlabelledPositions=placed?pts.filter(p=>!p.id).length:0;
  const repeatedPositions=placed?pts.map(p=>p.id).filter((id,i,a)=>id&&a.indexOf(id)!==i):[];
- return {m,v,actual,mirrored:mirrored||famFlip,kind,pts,gridBox,geoShell,geoRound,open,occupied,explicit,explicitSrc,conflicts,all,missingPositions,unknownPositions,unlabelledPositions,repeatedPositions};
+ return {m,v,actual,mirrored:mirrored||famFlip,kind,pts,gridBox,geoShell,geoRound,open,occupied,explicit,explicitSrc,manual,usedStated,usedSource,usedState,wiredCount:wiredSet.size,conflicts,all,missingPositions,unknownPositions,unlabelledPositions,repeatedPositions};
 }
 function faceStatus(d,id,net){
  if(!id)return 'unresolved';
@@ -483,7 +488,7 @@ function faceStatus(d,id,net){
  if(d.open.has(id))return 'open';
  return 'unresolved';
 }
-const FACE_ACTION={wired:'Crimp contact, insert wire',unused:'NOT USED on this connector (drawing says unused): fit a sealing plug, no wire',open:'Open (no wire found): sealing plug, no wire; confirm it is unused',conflict:'Resolve conflict first',unresolved:'Unresolved: confirm wired or unused'};
+const FACE_ACTION={wired:'Crimp contact, insert wire',unused:'NOT USED on this connector (marked unused by the drawing or by you): fit a sealing plug, no wire',open:'Open (no wire found): sealing plug, no wire; confirm it is unused',conflict:'Resolve conflict first',unresolved:'Unresolved: confirm wired or unused'};
 const FACE_FILTERS={all:null,wired:['wired'],notused:['unused','open'],problem:['conflict','unresolved']};
 const FACE_FILTER_LABEL={all:'All',wired:'Wired',notused:'Not used',problem:'Needs attention'};
 const FACE_MODE_LABEL={both:'Front and rear',front:'Front only',rear:'Rear only'};
@@ -623,13 +628,33 @@ function expectedHtml(fam,inv,capacity,wired){
  const verdict=problems.length?'<span class="tag bad">MISMATCH</span>':checked.length?'<span class="tag good">COUNT AGREES</span> <span class="small muted">with the '+checked.join(' and ')+'</span>':'<span class="tag warn">NOT COMPARED</span> <span class="small muted">no cavity inventory or capacity entered</span>';
  return `<p class="small"><b>Catalog arrangement ${safe(e.id)}:</b> ${safe(n)} contacts (${safe(expectedSizes(e.contactSize)||'size not stated')})${e.serviceRating?', service rating '+safe(e.serviceRating):''} · ${safe(e.source)}, page ${safe(e.sourcePage)} · ${safe(e.status)} ${verdict}</p>${problems.map(p=>'<p class="callout bad">'+safe(p)+' Resolve this before relying on the cavity list.</p>').join('')}`;
 }
+function usedCountHtml(c,i,d){
+ const field=`<label class="small" for="used-${i}">Contacts used (stated count)</label> <input id="used-${i}" type="number" min="0" style="width:90px" value="${safe(c.usedCount||'')}" onchange="setUsedCount(${i},this.value)"> <span class="small muted">Enter the number of contacts the drawing says are used.</span>`;
+ let verdict='<span class="small muted">No used-contact count is stated. Without one, cavities with no wire are only "open", not confirmed unused.</span>';
+ if(d.usedStated){
+  const k=d.usedStated,w=d.wiredCount,src=safe(d.usedSource);
+  if(d.usedState==='agree')verdict=`<span class="tag good">COUNT MATCHES WIRING</span> <span class="small">The drawing (${src}) states ${k} contacts used and ${w} wired cavities were found, so the other cavities are not used.</span>`;
+  else if(d.usedState==='held')verdict=`<span class="tag bad">HELD</span> <span class="small">${src} states ${k} contacts used but only ${w} wired cavities were found: ${k-w} used cavit${k-w===1?'y has':'ies have'} no recognized wire, so which cavities are unused cannot be decided. Fix the wiring or the count.</span>`;
+  else verdict=`<span class="tag bad">CONFLICT</span> <span class="small">${src} states ${k} contacts used but ${w} cavities carry wires.</span>`;
+ }
+ const marked=[...d.manual];
+ return `<div class="row small" style="align-items:center;gap:8px">${field}</div><p class="small">${verdict}</p>${marked.length?`<p class="small"><b>Marked not used by you (${marked.length}):</b> ${safe(marked.join(', '))}</p>`:''}`;
+}
+function setUsedCount(i,v){const c=st.connectors[i];if(!c)return;const n=Math.max(0,Math.round(Number(v)||0));c.usedCount=n||'';faceRefresh(i)}
+function faceToggleUnused(i,id){
+ const c=st.connectors[i];if(!c||!id)return;
+ const d=faceData(c,'front',connFamily(c.part,c.arrangement)),net=faceNetRows(c.tag),list=new Set((c.manualUnused||[]).map(String));
+ if(list.has(id))list.delete(id);
+ else{if(d.occupied.has(id)||net.has(id))return alert('Cavity '+id+' carries a wire, so it cannot be marked not used.');list.add(id)}
+ c.manualUnused=[...list];faceRefresh(i);
+}
 function renderFaceView(c,i){
  const fam=connFamily(c.part,c.arrangement),d=faceData(c,'front',fam),net=faceNetRows(c.tag),ui=faceUiOf(c);
  if(!d.pts.length)return '<div class="facebox"><b>Connector face view</b>'+famPicker(c,i)+'<p class="help">No drawn face view or documented cavity labels. Physical positions unresolved; no geometry has been invented.</p></div>';
  const complete=!!d.m?.allVerified && d.all.length>0 && !d.missingPositions.length && !d.unknownPositions.length && !d.unlabelledPositions && !d.repeatedPositions.length;
  const ids=[...new Set([...d.pts.map(p=>p.id).filter(Boolean),...d.all])],cnt={wired:0,unused:0,open:0,conflict:0,unresolved:0};
  ids.forEach(id=>{cnt[faceStatus(d,id,net)]++});
- const why=(id,s)=>s==='unused'?'Drawing: '+(d.explicitSrc.get(id)||'marked unused'):s==='open'?'Derived: no wire found against the verified inventory':s==='wired'?'Wire or occupied entry found':s==='conflict'?'Sources disagree':'Not established';
+ const why=(id,s)=>s==='unused'?(d.explicitSrc.get(id)==='marked by you'?'Marked by you':'Drawing: '+(d.explicitSrc.get(id)||'marked unused')):s==='open'?(d.usedState==='agree'?'Derived: stated count of '+d.usedStated+' used contacts matches the wired cavities':'Derived: no wire found against the verified inventory'):s==='wired'?'Wire or occupied entry found':s==='conflict'?'Sources disagree':'Not established';
  const arg=id=>JSON.stringify(id).replace(/"/g,'&quot;');
  const rows=ids.map(id=>{const r=(net.get(id)||[])[0]||{},s=faceStatus(d,id,net);return `<tr class="${ui.sel===id?'sel':''}" onclick="faceSelect(${i},${arg(id)})"><td>${safe(id)}</td><td>${safe(c.profile?.contactCandidates?.[0]?.contactSize||'?')}</td><td>${safe(r.wire||'—')}</td><td>${safe(r.awg||'—')}</td><td>${safe(r.color||'—')}</td><td>${safe(s)}</td><td>${safe(FACE_ACTION[s])}</td><td>${safe(why(id,s))}</td></tr>`}).join('');
  const incomplete=d.kind==='drawing'&&(d.missingPositions.length||d.unknownPositions.length||d.unlabelledPositions||d.repeatedPositions.length);
@@ -639,8 +664,8 @@ function renderFaceView(c,i){
  const sides=(ui.mode==='both'?['front','rear']:[ui.mode]).map(s=>faceSvg(c,i,s,net,fam,ui)).join('');
  const sel=ui.sel&&ids.includes(ui.sel)?faceDetail(c,ui.sel,d,net):'Click a cavity (or a table row) to pin its details and mark it on both views; hover for a quick look.';
  const unusedIds=ids.filter(id=>['unused','open'].includes(faceStatus(d,id,net)));
- const notUsed=unusedIds.length?`<div class="face-notused"><b>NOT USED on this connector (${unusedIds.length}):</b> ${safe(unusedIds.join(', '))}<br><span class="small">${cnt.unused} marked unused by the drawing, ${cnt.open} with no wire found (derived). None of these get a wire. Each needs a sealing plug; a filler contact is added only if the fill policy is contact+plug.</span></div>`:'';
- return `<div class="facebox"><div class="row" style="justify-content:space-between"><b>Connector front and rear views · DRAFT</b><span class="tag ${complete?'warn':'bad'}">${d.m?.allVerified&&d.all.length?`Wired ${cnt.wired} · not used ${cnt.unused+cnt.open} of ${d.all.length}${complete?'':' · view incomplete'}`:'Cavity inventory NOT VERIFIED'}</span></div>${famLine(fam,c)}${expectedHtml(fam,d.all.length,c.capacity,cnt.wired)}${famPicker(c,i)}<div class="face-ctl" role="group" aria-label="View"><span class="small">View</span>${['both','front','rear'].map(modeBtn).join('')}<span class="small" style="margin-left:10px">Show</span>${Object.keys(FACE_FILTERS).map(filterBtn).join('')}</div><div class="row" style="align-items:flex-start;gap:12px">${sides}</div><div class="face-detail small" id="face-info-${i}" aria-live="polite">${safe(sel)}</div>${notUsed}<p class="small"><b>${cnt.wired}</b> get a contact and a wire · <b>${cnt.unused}</b> marked unused by the drawing · <b>${cnt.open}</b> open, no wire found · <b>${cnt.conflict}</b> conflicts · <b>${cnt.unresolved}</b> unresolved. A cavity is shown as not used only when the cavity inventory is verified and every wire at this connector is recognized (or the drawing says so); otherwise it stays unresolved, never assumed unused.</p>${incomplete?`<p class="callout bad">Face-view geometry INCOMPLETE: ${safe([d.missingPositions.length+' inventory cavities lack drawn positions',d.unknownPositions.length+' labels not in inventory',d.unlabelledPositions+' unlabeled positions',d.repeatedPositions.length+' duplicated position labels'].join(' · '))}. Do not use visual positions for production.</p>`:''}${d.m?.allVerified?`<p class="small"><b>Cavity inventory:</b> ${safe(d.m.allSource)}<br><b>Unused candidates:</b> ${safe(String(d.m.unusedStatus||'').startsWith('HELD')?d.m.unusedStatus:((d.m.unused||[]).join(', ')||'None'))}<br>Inventory minus unique wired positions at this connector. Confirm complete wiring-sheet coverage before preparation.</p>`:''}<div class="face-legend"><span style="color:#168873">Wired: contact + wire</span><span style="color:#8a5a12">✕ Not used (drawing says so)</span><span style="color:#b27d29">✕ Open (no wire found)</span><span style="color:#c94b4b">Conflict</span><span style="color:#8ca2b6">Unresolved</span></div><details open><summary>Cavity action table</summary><div class="face-table tablebox"><table><thead><tr><th>Cavity</th><th>Size</th><th>Wire</th><th>AWG</th><th>Color</th><th>Status</th><th>Action</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table></div></details>${d.m?.conflicts?.length?`<p class="callout bad">${safe(d.m.conflicts.join(' · '))}</p>`:''}</div>`;
+ const notUsed=unusedIds.length?`<div class="face-notused"><b>NOT USED on this connector (${unusedIds.length}):</b> ${safe(unusedIds.join(', '))}<br><span class="small">${cnt.unused} marked unused (by the drawing or by you), ${cnt.open} with no wire found (derived). None of these get a wire. Each needs a sealing plug; a filler contact is added only if the fill policy is contact+plug.</span></div>`:'';
+ return `<div class="facebox"><div class="row" style="justify-content:space-between"><b>Connector front and rear views · DRAFT</b><span class="tag ${complete?'warn':'bad'}">${d.m?.allVerified&&d.all.length?`Wired ${cnt.wired} · not used ${cnt.unused+cnt.open} of ${d.all.length}${complete?'':' · view incomplete'}`:'Cavity inventory NOT VERIFIED'}</span></div>${famLine(fam,c)}${expectedHtml(fam,d.all.length,c.capacity,cnt.wired)}${usedCountHtml(c,i,d)}${famPicker(c,i)}<div class="face-ctl" role="group" aria-label="View"><span class="small">View</span>${['both','front','rear'].map(modeBtn).join('')}<span class="small" style="margin-left:10px">Show</span>${Object.keys(FACE_FILTERS).map(filterBtn).join('')}</div><div class="row" style="align-items:flex-start;gap:12px">${sides}</div><div class="face-detail small" id="face-info-${i}" aria-live="polite">${safe(sel)}</div>${ui.sel&&ids.includes(ui.sel)?`<div class="face-ctl"><button type="button" onclick="faceToggleUnused(${i},${arg(ui.sel)})">${d.manual.has(ui.sel)?'Clear my "not used" mark on ':'Mark as not used: '}${safe(ui.sel)}</button></div>`:''}${notUsed}<p class="small"><b>${cnt.wired}</b> get a contact and a wire · <b>${cnt.unused}</b> marked unused (drawing or you) · <b>${cnt.open}</b> open, no wire found · <b>${cnt.conflict}</b> conflicts · <b>${cnt.unresolved}</b> unresolved. A cavity is shown as not used only when the cavity inventory is verified and every wire at this connector is recognized (or the drawing says so); otherwise it stays unresolved, never assumed unused.</p>${incomplete?`<p class="callout bad">Face-view geometry INCOMPLETE: ${safe([d.missingPositions.length+' inventory cavities lack drawn positions',d.unknownPositions.length+' labels not in inventory',d.unlabelledPositions+' unlabeled positions',d.repeatedPositions.length+' duplicated position labels'].join(' · '))}. Do not use visual positions for production.</p>`:''}${d.m?.allVerified?`<p class="small"><b>Cavity inventory:</b> ${safe(d.m.allSource)}<br><b>Unused candidates:</b> ${safe(String(d.m.unusedStatus||'').startsWith('HELD')?d.m.unusedStatus:((d.m.unused||[]).join(', ')||'None'))}<br>Inventory minus unique wired positions at this connector. Confirm complete wiring-sheet coverage before preparation.</p>`:''}<div class="face-legend"><span style="color:#168873">Wired: contact + wire</span><span style="color:#8a5a12">✕ Not used (drawing or you marked it)</span><span style="color:#b27d29">✕ Open (no wire found)</span><span style="color:#c94b4b">Conflict</span><span style="color:#8ca2b6">Unresolved</span></div><details open><summary>Cavity action table</summary><div class="face-table tablebox"><table><thead><tr><th>Cavity</th><th>Size</th><th>Wire</th><th>AWG</th><th>Color</th><th>Status</th><th>Action</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table></div></details>${d.m?.conflicts?.length?`<p class="callout bad">${safe(d.m.conflicts.join(' · '))}</p>`:''}</div>`;
 }
 
 async function refDocCheck(){

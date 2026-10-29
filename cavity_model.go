@@ -44,14 +44,79 @@ type CavityModel struct {
 	Views          []FaceView     `json:"views"`
 	MirrorCheck    string         `json:"mirrorCheck"`
 	Conflicts      []string       `json:"conflicts"`
+	UsedStated     int            `json:"usedStated"` // contacts the drawing states are used at this connector; 0 when not stated
+	UsedSource     string         `json:"usedSource"`
+}
+
+// StatedUsed is a count of contacts a drawing says are used at one connector. The drawing may give only this
+// count and never name the unused cavities, so the count is compared with the wired cavities rather than
+// treated as a list.
+type StatedUsed struct {
+	Connector string `json:"connector"`
+	Count     int    `json:"count"`
+	Page      int    `json:"page"`
+	Source    string `json:"source"`
+	Conflict  bool   `json:"conflict"` // two different counts were stated for the connector
 }
 
 var (
+	reUsedTag   = regexp.MustCompile(`(?i)\b((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)\b`)
+	reUsedCount = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\b(\d{1,3})\s*(?:CONTACTS?|CAVIT(?:Y|IES)|POSITIONS?|PINS?|SOCKETS?)\s+(?:ARE\s+)?(?:USED|POPULATED|WIRED|REQUIRED)\b`),
+		regexp.MustCompile(`(?i)\b(?:CONTACTS?|CAVIT(?:Y|IES)|POSITIONS?|PINS?)\s+(?:USED|POPULATED|WIRED)\s*[:=-]?\s*\(?(\d{1,3})\)?\b`),
+		regexp.MustCompile(`(?i)\b(?:QTY|QUANTITY|NO\.?|NUMBER)\s+(?:OF\s+)?(?:CONTACTS?|PINS?|CAVIT(?:Y|IES)|POSITIONS?)\s+USED\s*[:=-]?\s*(\d{1,3})\b`),
+		regexp.MustCompile(`(?i)\b(?:USED|POPULATED|WIRED)\s+(?:CONTACTS?|CAVIT(?:Y|IES)|POSITIONS?|PINS?)\s*[:=-]?\s*\(?(\d{1,3})\)?\b`),
+	}
 	reUnusedNote  = regexp.MustCompile(`(?i)\b(?:UNUSED|SPARE|NOT\s+USED|UNPOPULATED|EMPTY)\s+(?:CAVITIES|CAVITY|CONTACTS|CONTACT|POSITIONS|PINS|SOCKETS)\b(?:\s+(?:OF|ON|IN|FOR))?\s*((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)?\s*[:=-]?\s*([A-Za-z0-9 ,;&/-]+?)(?:\.|$)`)
 	reTagFirst    = regexp.MustCompile(`(?i)\b((?:J|P|X|TB|CN|CON|PL|SK)[-_]?[0-9]{1,4}[A-Z]?)\s*[:,-]?\s+(?:UNUSED|SPARE|NOT\s+USED|UNPOPULATED)\b`)
 	reRange       = regexp.MustCompile(`^([0-9]{1,4})\s*(?:-|THRU|THROUGH|TO)\s*([0-9]{1,4})$`)
 	reSpareSignal = regexp.MustCompile(`(?i)^(?:SPARE|N/?C|NOT USED|UNUSED|NO CONNECT(?:ION)?)$`)
 )
+
+// statedUsedCounts reads statements such as "P1: 24 CONTACTS USED" where a connector designator and the count
+// are on the same line. A line with no designator, or a count that is not a plain number, is ignored. Two
+// different counts for one connector are reported as a conflict and not used.
+func statedUsedCounts(d PDFData) []StatedUsed {
+	type key struct{ tag string }
+	found := map[string]StatedUsed{}
+	order := []string{}
+	for _, p := range d.Pages {
+		for _, l := range pageLines(p) {
+			text := l.Text
+			tags := reUsedTag.FindAllStringSubmatch(text, -1)
+			if len(tags) != 1 { // two designators on one line (a wire row) do not say which connector the count belongs to
+				continue
+			}
+			tag := strings.ReplaceAll(strings.ReplaceAll(normalizedTag(tags[0][1]), "-", ""), "_", "")
+			for _, re := range reUsedCount {
+				m := re.FindStringSubmatch(text)
+				if m == nil {
+					continue
+				}
+				n, err := strconv.Atoi(m[1])
+				if err != nil || n < 1 || n > 500 {
+					break
+				}
+				src := "statement on sheet " + strconv.Itoa(p.Number)
+				if prev, ok := found[tag]; ok {
+					if prev.Count != n {
+						prev.Conflict = true
+						found[tag] = prev
+					}
+				} else {
+					found[tag] = StatedUsed{Connector: tag, Count: n, Page: p.Number, Source: src}
+					order = append(order, tag)
+				}
+				break
+			}
+		}
+	}
+	out := []StatedUsed{}
+	for _, tag := range order {
+		out = append(out, found[tag])
+	}
+	return out
+}
 
 // parseCavityList turns "4, 7-9 & 12" into [4 7 8 9 12]; letters kept as-is.
 // Reading stops at the first word that is not part of the list, so trailing
@@ -368,6 +433,32 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 				m.Conflicts = append(m.Conflicts, m.MirrorCheck)
 			}
 		}
+		// A stated count of used contacts is compared with the wired cavities. It never names which cavities are
+		// unused, so it can corroborate or contradict the wiring but cannot add cavities to the unused list.
+		var stated *StatedUsed
+		for i := range a.UsedCounts {
+			if a.UsedCounts[i].Connector == strings.ReplaceAll(strings.ReplaceAll(tag, "-", ""), "_", "") {
+				stated = &a.UsedCounts[i]
+			}
+		}
+		countHeld, countOK := "", ""
+		if stated != nil {
+			if stated.Conflict {
+				m.Conflicts = append(m.Conflicts, fmt.Sprintf("The drawing states different counts of used contacts for %s.", tag))
+			} else {
+				m.UsedStated, m.UsedSource = stated.Count, stated.Source
+				switch {
+				case m.AllVerified && len(m.All) > 0 && stated.Count > len(m.All):
+					m.Conflicts = append(m.Conflicts, fmt.Sprintf("The drawing states %d contacts used but the cavity inventory has only %d cavities.", stated.Count, len(m.All)))
+				case len(m.Wired) > stated.Count:
+					m.Conflicts = append(m.Conflicts, fmt.Sprintf("The drawing states %d contacts used but %d wired cavities were found (%s).", stated.Count, len(m.Wired), stated.Source))
+				case len(m.Wired) < stated.Count:
+					countHeld = fmt.Sprintf("HELD — the drawing states %d contacts used but only %d wired cavities were found, so which cavities are unused cannot be decided", stated.Count, len(m.Wired))
+				default:
+					countOK = fmt.Sprintf("CORROBORATED — the stated count of %d used contacts matches the %d wired cavities found", stated.Count, len(m.Wired))
+				}
+			}
+		}
 		m.UnusedStatus = "CANDIDATE — confirm every wiring sheet"
 		switch {
 		case len(m.Conflicts) > 0:
@@ -376,8 +467,13 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 		case len(m.Wired) == 0:
 			m.Unused = []string{}
 			m.UnusedStatus = "HELD — no wire paths recognized at this connector"
+		case countHeld != "":
+			m.Unused = []string{}
+			m.UnusedStatus = countHeld
 		case !m.AllVerified:
 			m.UnusedStatus = "UNVERIFIED — exact inventory not established"
+		case countOK != "":
+			m.UnusedStatus = countOK
 		}
 		out = append(out, m)
 	}
