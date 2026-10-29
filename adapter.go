@@ -101,6 +101,7 @@ type ViewAnalysis struct {
 	} `json:"pageSummary"`
 	PdfText          string   `json:"pdfText"`
 	AssemblyFeatures []string `json:"assemblyFeatures"`
+	HarnessLengths   []HarnessLength `json:"harnessLengths"`
 }
 
 func viewAnalysis(b []byte) (ViewAnalysis, error) {
@@ -267,6 +268,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 		}
 	}
 	v.PdfText = strings.Join(uniqueStrings(ids), " ")
+	v.HarnessLengths = harnessLengths(d.Pages)
 	// Whitelisted, local-only process categories; do not return source drawing text.
 	terms := map[string]bool{}
 	for _, p := range d.Pages {

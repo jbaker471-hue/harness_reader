@@ -333,3 +333,29 @@ const shieldBlock=cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:2})
 if(!shieldBlock.blockers.some(b=>/2 shielded cable\(s\) have no shield termination/.test(b)))throw Error('open shield terminations must block the quote');
 if(cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:0})).blockers.some(b=>/shield/.test(b)))throw Error('no shield blocker expected when all are recorded');
 console.log('PASS: cable construction display, shield termination tracking and quote blocker');
+
+// Overall harness length from the drawing: used only for conductors with no length of their own.
+const hNets=[{id:'A',endpoints:'P1:1, J1:1',wire:'W1',awg:'22',color:'RED'},{id:'B',endpoints:'P1:2, J1:2',wire:'W2',awg:'22',color:'BLK',length:'30 IN'},{id:'C',endpoints:'P1:3, J1:3',wire:'W3',awg:'22',color:'WHT',length:'bad'}];
+const hl=cutCtx.buildCutList(hNets,{allowance:2,harness:{inches:48,assumed:false,text:'48 IN'}});
+const hw=Object.fromEntries(hl.rows.map(r=>[r.wire,r]));
+equal([hw.W1.status,hw.W1.cut],['HARNESS LENGTH',50]);
+equal([hw.W2.status,hw.W2.cut],['OK',32]);                                   // its own length always wins
+equal(hw.W3.status,'INVALID LENGTH');                                         // an unreadable length is never replaced silently
+if(!hw.W1.notes.some(n=>/overall harness length/.test(n)))throw Error('harness-derived cut must say so');
+equal([hl.counts.harness,hl.counts.ok,hl.counts.invalid,hl.counts.missing],[1,2,1,0]);
+const noH=cutCtx.buildCutList(hNets,{allowance:2});
+equal(noH.rows.find(r=>r.wire==='W1').status,'NO LENGTH');                    // no harness length: nothing invented
+const unitless=cutCtx.buildCutList([hNets[0]],{allowance:0,harness:{inches:48,assumed:true,text:'48'}}).rows[0];
+equal(unitless.status,'UNIT ASSUMED');                                          // an unstated unit is still flagged
+const hCable=cutCtx.buildCutList([{id:'A',endpoints:'P1:1, J1:1',awg:'24',color:'WHT'},{id:'B',endpoints:'P1:2, J1:2',awg:'24',color:'BLU'}],{allowance:2,cables:{'24':2},harness:{inches:48,assumed:false,text:'48 IN'}});
+equal([hCable.rows.length,hCable.rows[0].status,hCable.rows[0].cut,hCable.groups[0].inches],[1,'HARNESS LENGTH',50,50]);   // one cable, one 50 in cut
+// candidate selection and stale state
+cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'OVERALL LENGTH',text:'48 IN'}]},harnessLength:null,harnessLengthOff:false,quote:{wireCost:{a:1},bomCost:{b:2}},shieldTerm:{x:1},cableSpec:{'24':'2'}};
+cutCtx.autoHarness();equal(cutCtx.st.harnessLength.text,'48 IN');             // one distinct value on two sheets: pre-selected for confirmation
+cutCtx.st.harnessLength=null;cutCtx.st.raw.harnessLengths.push({page:2,label:'CABLE LENGTH',text:'60 IN'});
+cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);                        // two different values: the user must choose
+cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);   // a cleared choice is not re-applied
+cutCtx.st.harnessLength={text:'48 IN'};cutCtx.resetCutListState();
+equal([cutCtx.st.harnessLength,cutCtx.st.shieldTerm,cutCtx.st.cableSpec,cutCtx.st.quote.wireCost,cutCtx.st.quote.bomCost],[null,{},{},{},{}]);
+if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="2"'))throw Error('default excess missing');
+console.log('PASS: harness length applies only to conductors without their own length, is flagged, and never carries across drawings');
