@@ -609,3 +609,46 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(/<img[^>]+(?:src|href)=["']https?:/i.test(html))throw Error('the page must not load an external image');
  console.log('PASS: logo mark and tab icon are inline, labeled, and load nothing external');
 }
+
+// Each connector states plainly which pins are used and which are not, with the reason, and says so when it cannot tell.
+{
+ const ctx={st:{raw:{},nets:[{wire:'W1',endpoints:'P1:1,J2:A',awg:'22',color:'WHT',signal:'PWR'}]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const eq=(a,b,m)=>{if(a!==b)throw Error(m+': '+JSON.stringify(a)+' != '+JSON.stringify(b))};
+ eq(ctx.compressRanges(['1','2','3','5','7','8','9','10','A','b']),'1–3, 5, 7–10, A, b','range compression');
+ eq(ctx.compressRanges(['4','3']),'3, 4','two neighbours stay listed');
+ eq(ctx.compressRanges([]),'','empty');
+ const lab=n=>Array.from({length:n},(_,i)=>String(i+1));
+ // wired 1,2 typed plus 1 from the net; inventory of 6
+ let c={id:'a',tag:'P1',part:'X',occupied:'1, 2',labels:lab(6),capacity:6};
+ let h=ctx.pinUsageHtml(c,0);
+ if(!h.includes('USED 2')||!h.includes('NOT USED 4')||!h.includes('Used (2):</b> 1, 2')||!h.includes('Not used (4):</b> 3–6'))throw Error('summary wrong: '+h.slice(0,400));
+ if(!h.includes('W1')||!h.includes('PWR')||!h.includes('J2:A'))throw Error('the used pin must say what it goes to');
+ if(!h.includes('4 with no wire found'))throw Error('reason for not used missing');
+ // nothing wired at all
+ c={id:'b',tag:'P9',part:'X',occupied:'',labels:lab(6),capacity:6};
+ h=ctx.pinUsageHtml(c,0);
+ if(!h.includes('No used pins identified')||!h.includes('USED 0'))throw Error('must say plainly that nothing was identified');
+ // no inventory: cannot list unused
+ c={id:'c',tag:'P1',part:'',occupied:'1, 2',labels:[],capacity:0};
+ h=ctx.pinUsageHtml(c,0);
+ if(!h.includes('NOT USED unknown')||!h.includes('cannot be listed'))throw Error('unknown inventory must not read as zero unused');
+ // marked by the user
+ c={id:'d',tag:'P1',part:'X',occupied:'1',labels:lab(6),capacity:6,manualUnused:['6']};
+ h=ctx.pinUsageHtml(c,0);
+ if(!h.includes('marked not used (by you)'))throw Error('manual mark reason missing');
+ // conflict
+ c={id:'e',tag:'P1',part:'X',occupied:'1',labels:lab(6),capacity:6,manualUnused:['1']};
+ h=ctx.pinUsageHtml(c,0);
+ if(!h.includes('Conflict (1)')||!h.includes('both wired and marked not used'))throw Error('conflict missing');
+ if(!html.includes('id="pin-usage-${i}"'))throw Error('usage block not placed on the card');
+ console.log('PASS: pin usage summary names used pins with their wires, not-used pins with the reason, and says when it cannot tell');
+}
+
+// A connector that only appears as the far end of wires still gets a card, so its used pins are shown.
+{
+ if(!src.includes('appears only as a wire endpoint')||!src.includes("for(const m of d.cavityModels||[])"))throw Error('endpoint-only connectors must get a card');
+ if(!src.includes("!(m.wired||[]).length)continue"))throw Error('a connector with no wired cavity must not get a card');
+ console.log('PASS: endpoint-only connectors get a card when they have wired pins');
+}

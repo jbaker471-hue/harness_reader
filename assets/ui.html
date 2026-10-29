@@ -14,7 +14,7 @@
 .region-box{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0;background:#fbfdfe}.chip{display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;border-radius:14px;background:#e9f0f5;border:1px solid #c8d6e2;font-size:12px;cursor:pointer}.grid-table td,.grid-table th{padding:4px 6px;font-size:11px}.grid-table select{font-size:11px;padding:2px}.grid-table tr.hdr td{background:#eef3f8;font-weight:700}.cat{font-size:10px;letter-spacing:.4px}
 .embedded-picture .raw{margin-top:6px;border-top:1px dashed #ccd8e2;padding-top:6px}.embedded-picture .raw img{height:90px}
 
-.facebox{border:1px solid var(--line);border-radius:10px;padding:12px;margin:14px 0;background:#fbfdff}.facebox svg{display:block;max-width:460px;width:100%;margin:auto}.face-cavity{cursor:help;outline:none}.face-cavity:focus circle,.face-cavity:hover circle{stroke:#10253d;stroke-width:3}.face-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:8px 0}.face-legend span:before{content:'●';margin-right:5px}.face-detail{background:#eaf2f8;padding:8px;border-radius:6px;min-height:32px}.face-table{max-height:260px;overflow:auto}.face-table table{font-size:12px}.face-table tr:focus-within{background:#eaf2f8}.face-table tr.sel{background:#dcebf7;font-weight:600}.face-table tbody tr{cursor:pointer}.face-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.face-ctl button[aria-pressed=true]{background:#10253d;color:#fff}.face-cavity{cursor:pointer}.faceside{flex:1 1 280px;min-width:240px}.faceside.flipin{animation:faceflip .35s ease-out}@keyframes faceflip{from{transform:perspective(700px) rotateY(90deg);opacity:.15}to{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){.faceside.flipin{animation:none}}.face-notused{background:#fdf3dc;border:1px solid #d6a052;border-radius:6px;padding:8px;margin:8px 0}
+.facebox{border:1px solid var(--line);border-radius:10px;padding:12px;margin:14px 0;background:#fbfdff}.facebox svg{display:block;max-width:460px;width:100%;margin:auto}.face-cavity{cursor:help;outline:none}.face-cavity:focus circle,.face-cavity:hover circle{stroke:#10253d;stroke-width:3}.face-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:8px 0}.face-legend span:before{content:'●';margin-right:5px}.face-detail{background:#eaf2f8;padding:8px;border-radius:6px;min-height:32px}.face-table{max-height:260px;overflow:auto}.face-table table{font-size:12px}.face-table tr:focus-within{background:#eaf2f8}.face-table tr.sel{background:#dcebf7;font-weight:600}.face-table tbody tr{cursor:pointer}.pinusage{border:1px solid var(--line);border-left:4px solid #129e9b;border-radius:8px;padding:10px 12px;margin:10px 0;background:#f7fbfb}.pinusage p{margin:6px 0}.face-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.face-ctl button[aria-pressed=true]{background:#10253d;color:#fff}.face-cavity{cursor:pointer}.faceside{flex:1 1 280px;min-width:240px}.faceside.flipin{animation:faceflip .35s ease-out}@keyframes faceflip{from{transform:perspective(700px) rotateY(90deg);opacity:.15}to{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){.faceside.flipin{animation:none}}.face-notused{background:#fdf3dc;border:1px solid #d6a052;border-radius:6px;padding:8px;margin:8px 0}
 .side{overflow-y:auto}.nav{padding:9px 12px}.version{position:static;margin:18px 4px 0}
 .navgroup{margin:16px 0 4px;padding:0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8fa9c2;font-weight:700}
 .jobstatus{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:10px 0}.jobstatus .step{border:1px solid var(--line);border-radius:9px;padding:12px;background:#fbfdff}.jobstatus .step b{display:block}.jobstatus .step.ok{border-left:4px solid #169c73}.jobstatus .step.warn{border-left:4px solid #d6a052}.jobstatus .step.bad{border-left:4px solid #c94b4b}.jobstatus .step button{margin-top:8px;padding:5px 10px;font-size:12px}
@@ -393,6 +393,16 @@ async function scan(reuse){
     profile:{part:c.Part,positionCount:c.Cavities,status:c.Status,source:c.Source,warning:c.Warning,family:c.Family,arrangement:c.Arrangement,
      contactCandidates:c.ContactCandidates||[],contactMappingStatus:c.ContactMappingStatus||'unresolved',contactMappingWarning:c.ContactMappingWarning||''},evidence:'sheet(s) '+(c.Pages||[c.Page]).join(', ')});
   }
+  // A connector that appears only as the far end of wires has no BOM row or part number, but its wired pins are still facts
+  // the drawing states. It gets a card so those pins can be seen as used; its unused pins stay unknown until a part is set.
+  const known=new Set(st.connectors.map(c=>String(c.tag).toUpperCase()));
+  for(const m of d.cavityModels||[]){
+   const tag=String(m.tag||'');
+   if(!tag||known.has(tag.toUpperCase())||!(m.wired||[]).length)continue;
+   known.add(tag.toUpperCase());
+   st.connectors.push({id:ID(),tag,part:'',contactType:'',capacity:0,labels:[],occupied:extractedOccupied(d,tag).join(', '),verified:false,
+    profile:{part:'',positionCount:0,status:'unresolved',source:'',warning:'',family:'',arrangement:'',contactCandidates:[],contactMappingStatus:'unresolved',contactMappingWarning:''},evidence:'appears only as a wire endpoint: no BOM row or part number was found for it'});
+  }
   // Cable and branch endpoint labels are evidence, not connector records.
   // Keep them separate so they remain available for net review and labor
   // features without inflating connector counts or requiring connector tooling.
@@ -495,7 +505,7 @@ const FACE_MODE_LABEL={both:'Front and rear',front:'Front only',rear:'Rear only'
 function faceFilterMatch(filter,status){const f=FACE_FILTERS[filter];return !f||f.includes(status)}
 const faceUi={};
 function faceUiOf(c){return faceUi[c.id]||(faceUi[c.id]={mode:'both',filter:'all',sel:'',flip:false})}
-function faceRefresh(i){const c=st.connectors[i],e=$('face-view-'+i);if(c&&e)e.innerHTML=renderFaceView(c,i)}
+function faceRefresh(i){const c=st.connectors[i],e=$('face-view-'+i);if(c&&e)e.innerHTML=renderFaceView(c,i);const u=$('pin-usage-'+i);if(c&&u)u.innerHTML=pinUsageHtml(c,i)}
 function faceSetMode(i,m){const c=st.connectors[i];if(!c||!FACE_MODE_LABEL[m])return;const u=faceUiOf(c);u.mode=m;u.flip=true;faceRefresh(i);u.flip=false}
 function faceSetFilter(i,f){const c=st.connectors[i];if(!c||!(f in FACE_FILTERS))return;faceUiOf(c).filter=f;faceRefresh(i)}
 function faceSelect(i,id){const c=st.connectors[i];if(!c)return;const u=faceUiOf(c);u.sel=u.sel===id?'':id;faceRefresh(i)}
@@ -648,6 +658,42 @@ function faceToggleUnused(i,id){
  else{if(d.occupied.has(id)||net.has(id))return alert('Cavity '+id+' carries a wire, so it cannot be marked not used.');list.add(id)}
  c.manualUnused=[...list];faceRefresh(i);
 }
+function compressRanges(ids){
+ const nums=[],words=[];
+ for(const id of ids){/^\d+$/.test(id)?nums.push(Number(id)):words.push(id)}
+ nums.sort((a,b)=>a-b);
+ const out=[];
+ for(let i=0;i<nums.length;){let j=i;while(j+1<nums.length&&nums[j+1]===nums[j]+1)j++;out.push(j>i+1?nums[i]+'–'+nums[j]:nums.slice(i,j+1).join(', '));i=j+1}
+ return [...out,...words.sort()].join(', ');
+}
+// One plain statement of which pins are used and which are not, from the wiring and the drawing, with the reason for every group.
+function pinUsageHtml(c,i){
+ const fam=connFamily(c.part,c.arrangement),d=faceData(c,'front',fam),net=faceNetRows(c.tag);
+ const ids=[...new Set([...d.all,...d.pts.map(p=>p.id).filter(Boolean),...d.occupied,...net.keys()])];
+ const g={wired:[],unused:[],open:[],conflict:[],unresolved:[]};
+ ids.forEach(id=>g[faceStatus(d,id,net)].push(id));
+ const notUsed=[...g.unused,...g.open],hasInventory=d.all.length>0;
+ const tag=(cls,label,n)=>`<span class="tag ${cls}">${label} ${n}</span>`;
+ const head=`<div class="row" style="gap:8px;align-items:center"><b>Pin usage · ${safe(c.tag||'connector')}</b>${tag('good','USED',g.wired.length)}${hasInventory?tag(notUsed.length?'warn':'good','NOT USED',notUsed.length):'<span class="tag bad">NOT USED unknown</span>'}${g.conflict.length+g.unresolved.length?tag('bad','UNDETERMINED',g.conflict.length+g.unresolved.length):''}<span class="small muted">of ${hasInventory?d.all.length:'an unknown number of'} cavities</span></div>`;
+ const parts=[];
+ if(!g.wired.length)parts.push('<p class="callout bad"><b>No used pins identified.</b> No wire row on any sheet names a cavity of '+safe(c.tag||'this connector')+', and none were typed in. Check Page review, add the rows there, or type the occupied cavities on the right. Until then nothing can be called used or unused.</p>');
+ else{
+  const rows=g.wired.slice().sort(sortCav).map(id=>{const r=(net.get(id)||[])[0]||{};return `<tr><td>${safe(id)}</td><td>${safe(r.wire||'—')}</td><td>${safe(r.signal||'—')}</td><td>${safe(r.awg||'—')}</td><td>${safe(r.color||'—')}</td><td>${safe(r.far||(d.occupied.has(id)?'entered by you':'—'))}</td></tr>`}).join('');
+  parts.push(`<p class="small"><b>Used (${g.wired.length}):</b> ${safe(compressRanges(g.wired))}</p><div class="face-table tablebox"><table><thead><tr><th>Pin</th><th>Wire</th><th>Signal</th><th>AWG</th><th>Color</th><th>Goes to</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+ }
+ if(!hasInventory)parts.push('<p class="callout">The cavity inventory for this part is not known, so the pins that are NOT used cannot be listed. Resolve the part number or enter the insert capacity.</p>');
+ else if(notUsed.length){
+  const why=[];
+  if(g.unused.length)why.push(g.unused.length+' marked not used ('+[...new Set(g.unused.map(id=>d.explicitSrc.get(id)==='marked by you'?'by you':'by the drawing'))].join(' and ')+')');
+  if(g.open.length)why.push(g.open.length+' with no wire found'+(d.usedState==='agree'?', matching the stated count of '+d.usedStated+' used contacts':''));
+  parts.push(`<p class="small"><b>Not used (${notUsed.length}):</b> ${safe(compressRanges(notUsed))}<br><span class="muted">${safe(why.join(' · '))}. Each gets a sealing plug, no wire.</span></p>`);
+ }else if(hasInventory)parts.push('<p class="small"><b>Not used:</b> none; every cavity carries a wire.</p>');
+ const held=String(d.m?.unusedStatus||'').startsWith('HELD')?d.m.unusedStatus:'';
+ if(held)parts.push('<p class="callout bad">Which pins are NOT used is held back: '+safe(held)+'.</p>');
+ if(g.conflict.length)parts.push('<p class="callout bad"><b>Conflict (${g.conflict.length}):</b> '.replace('${g.conflict.length}',g.conflict.length)+safe(compressRanges(g.conflict))+' are both wired and marked not used.</p>');
+ if(g.unresolved.length&&hasInventory)parts.push('<p class="small"><b>Undetermined (${n}):</b> '.replace('${n}',g.unresolved.length)+safe(compressRanges(g.unresolved))+'. Used or not used cannot be decided yet.</p>');
+ return `<div class="pinusage">${head}${parts.join('')}</div>`;
+}
 function renderFaceView(c,i){
  const fam=connFamily(c.part,c.arrangement),d=faceData(c,'front',fam),net=faceNetRows(c.tag),ui=faceUiOf(c);
  if(!d.pts.length)return '<div class="facebox"><b>Connector face view</b>'+famPicker(c,i)+'<p class="help">No drawn face view or documented cavity labels. Physical positions unresolved; no geometry has been invented.</p></div>';
@@ -682,7 +728,7 @@ function refDocHtml(c,name){
  const cls=c.ok?'good':c.status==='MANUAL_DOWNLOAD_REQUIRED'?'warn':'bad';
  return `<p><span class="tag ${cls}">${safe(String(c.status||'').replace(/_/g,' '))}</span> <b>${safe(name)}</b></p><p>${safe(c.reason||'')}</p>${c.ok?`<p class="muted">${safe(c.pages)} pages · ${safe(c.bytes)} bytes · SHA-256 ${safe(c.sha256)}</p>`:''}`;
 }
-function renderConnectors(){setTimeout(renderLayoutLibrary,0);const cnt=st.connectors;$('connectorCards').innerHTML=cnt.length?cnt.map((c,i)=>{const a=audit(c),ok=!a.issues.length;return `<div class="panel" style="border-left:4px solid ${c.verified&&ok?'#169c73':'#d6a052'}"><div class="row" style="justify-content:space-between"><h3>${safe(c.tag||'New connector')} <span class="tag">${safe(c.contactType||'Contact type unresolved')}</span></h3><button class="danger" onclick="removeConn(${i})">Remove</button></div><div class="split"><div><div class="field"><label>Connector designator</label><input value="${safe(c.tag)}" onchange="changeConn(${i},'tag',this.value.trim().toUpperCase())"></div><div class="field"><label>Connector part number</label><input value="${safe(c.part)}" onchange="changeConn(${i},'part',this.value.trim().toUpperCase())"></div><button onclick="resolveConn(${i})">Resolve manufacturer part</button><div class="field"><label>Documented insert capacity</label><input type="number" min="1" value="${c.capacity||''}" onchange="changeConn(${i},'capacity',this.value)"></div><p class="small muted">${safe(c.evidence)} · ${safe(c.profile?.status||'UNRESOLVED')} · ${safe(c.profile?.source||'No manufacturer citation')}</p>${cavityTable(c)}<div id="face-view-${i}">${renderFaceView(c,i)}</div></div><div><div class="field"><label>Occupied cavity IDs (individual entries, not ranges)</label><textarea spellcheck="false" onchange="changeConn(${i},'occupied',this.value)">${safe(c.occupied)}</textarea></div><div class="row"><button onclick="takeCandidate(${i})">Use draft PDF candidates</button><span class="tag ${ok?'good':'bad'}">${ok?`${a.entered.length} populated / ${a.missing.length} unused`:'NOT READY'}</span></div>${ok?`<p class="mono"><b>Unused:</b> ${safe(a.missing.join(', ')||'None')}</p>`:`<p class="callout bad">${safe(a.issues.join(' · '))}</p>`}<label class="check"><input type="checkbox" ${c.verified?'checked':''} ${ok?'':'disabled'} onchange="st.connectors[${i}].verified=this.checked;showReport()"> Source pin list and insert layout independently checked</label></div></div></div>`}).join(''):'<div class="callout">No connectors. Scan source PDF or add a connector manually.</div>';
+function renderConnectors(){setTimeout(renderLayoutLibrary,0);const cnt=st.connectors;$('connectorCards').innerHTML=cnt.length?cnt.map((c,i)=>{const a=audit(c),ok=!a.issues.length;return `<div class="panel" style="border-left:4px solid ${c.verified&&ok?'#169c73':'#d6a052'}"><div class="row" style="justify-content:space-between"><h3>${safe(c.tag||'New connector')} <span class="tag">${safe(c.contactType||'Contact type unresolved')}</span></h3><button class="danger" onclick="removeConn(${i})">Remove</button></div><div id="pin-usage-${i}">${pinUsageHtml(c,i)}</div><div class="split"><div><div class="field"><label>Connector designator</label><input value="${safe(c.tag)}" onchange="changeConn(${i},'tag',this.value.trim().toUpperCase())"></div><div class="field"><label>Connector part number</label><input value="${safe(c.part)}" onchange="changeConn(${i},'part',this.value.trim().toUpperCase())"></div><button onclick="resolveConn(${i})">Resolve manufacturer part</button><div class="field"><label>Documented insert capacity</label><input type="number" min="1" value="${c.capacity||''}" onchange="changeConn(${i},'capacity',this.value)"></div><p class="small muted">${safe(c.evidence)} · ${safe(c.profile?.status||'UNRESOLVED')} · ${safe(c.profile?.source||'No manufacturer citation')}</p>${cavityTable(c)}<div id="face-view-${i}">${renderFaceView(c,i)}</div></div><div><div class="field"><label>Occupied cavity IDs (individual entries, not ranges)</label><textarea spellcheck="false" onchange="changeConn(${i},'occupied',this.value)">${safe(c.occupied)}</textarea></div><div class="row"><button onclick="takeCandidate(${i})">Use draft PDF candidates</button><span class="tag ${ok?'good':'bad'}">${ok?`${a.entered.length} populated / ${a.missing.length} unused`:'NOT READY'}</span></div>${ok?`<p class="mono"><b>Unused:</b> ${safe(a.missing.join(', ')||'None')}</p>`:`<p class="callout bad">${safe(a.issues.join(' · '))}</p>`}<label class="check"><input type="checkbox" ${c.verified?'checked':''} ${ok?'':'disabled'} onchange="st.connectors[${i}].verified=this.checked;showReport()"> Source pin list and insert layout independently checked</label></div></div></div>`}).join(''):'<div class="callout">No connectors. Scan source PDF or add a connector manually.</div>';
 $('candidateRows').innerHTML=(st.raw?.candidates||[]).map(x=>`<tr><td>${safe(x.Connector)}</td><td>${safe(x.Number)}</td><td>${safe(x.Color)}</td><td>${x.Page}</td><td>Draft, verify</td></tr>`).join('')||'<tr><td colspan="5">No evidence</td></tr>'}
 function parseEndpoint(s){s=s.trim();if(!s)return null;if(s.startsWith('@')&&/^@[A-Z0-9_-]+$/.test(s))return {kind:'node',node:s.slice(1)};const k=s.lastIndexOf(':');if(k<1||k===s.length-1)return {error:'Malformed endpoint '+s};return {kind:'cavity',tag:s.slice(0,k).toUpperCase(),cavity:s.slice(k+1)}}
 function validateNets(){
