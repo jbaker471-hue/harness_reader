@@ -696,7 +696,41 @@ func run() error {
 			http.Error(w, "Part number too long", http.StatusBadRequest)
 			return
 		}
-		jsonAnswer(w, DecodeConnectorFamily(part))
+		arr := r.URL.Query().Get("arrangement")
+		if len(arr) > 20 {
+			http.Error(w, "Arrangement too long", http.StatusBadRequest)
+			return
+		}
+		jsonAnswer(w, DecodeConnectorFamilyWith(part, arr))
+	})
+	// Every insert arrangement the application knows, loaded or not, independent of any connector.
+	mux.HandleFunc("/api/insert-layouts", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := listInsertLayouts()
+		if e != nil {
+			http.Error(w, "Insert layout library unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/insert-layout", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		id := r.URL.Query().Get("id")
+		if len(id) > 20 {
+			http.Error(w, "Arrangement too long", http.StatusBadRequest)
+			return
+		}
+		g, problems := insertGeometryFor("MIL-STD-1560", id)
+		if g == nil {
+			http.Error(w, "No stored layout for that arrangement", http.StatusNotFound)
+			_ = problems
+			return
+		}
+		jsonAnswer(w, g)
 	})
 	mux.HandleFunc("/api/tool-equivalence-library", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {

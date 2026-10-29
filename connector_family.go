@@ -48,13 +48,14 @@ type ConnectorFamilyInfo struct {
 const familyStatus = "FAMILY FROM PART-NUMBER PATTERN — UNVERIFIED"
 
 var (
-	reDSubPart  = regexp.MustCompile(`^(?:D([EABCD])-?(\d{1,2})([PS])?|DSUB-?(\d{1,2})([PS])?)(?:[-/].*)?$`)
-	reM24308    = regexp.MustCompile(`^M24308/`)
-	reMicroD    = regexp.MustCompile(`^M83513/`)
-	reDeutschDT = regexp.MustCompile(`^DT[MP]?\d{2}-\d{1,2}[PS]`)
-	reMS3xxx    = regexp.MustCompile(`^MS3(?:10[0-8]|11\d|12\d|4\d\d)`)
-	reM83723    = regexp.MustCompile(`^M83723/`)
-	re38999     = regexp.MustCompile(`^(?:D|M)38999/`)
+	reDSubPart     = regexp.MustCompile(`^(?:D([EABCD])-?(\d{1,2})([PS])?|DSUB-?(\d{1,2})([PS])?)(?:[-/].*)?$`)
+	reM24308       = regexp.MustCompile(`^M24308/`)
+	reMicroD       = regexp.MustCompile(`^M83513/`)
+	reDeutschDT    = regexp.MustCompile(`^DT[MP]?\d{2}-\d{1,2}[PS]`)
+	reMS3xxx       = regexp.MustCompile(`^MS3(?:10[0-8]|11\d|12\d|4\d\d)`)
+	reM83723       = regexp.MustCompile(`^M83723/`)
+	reSeriesIIIAny = regexp.MustCompile(`^D38999/2[0-6]([A-Z])([A-HJ])(\d{1,2})([PSHJAB])`)
+	re38999        = regexp.MustCompile(`^(?:D|M)38999/`)
 )
 
 var shellSeriesIII = map[string]string{"A": "9", "B": "11", "C": "13", "D": "15", "E": "17", "F": "19", "G": "21", "H": "23", "J": "25"}
@@ -90,13 +91,23 @@ func dsubGeometry(n int) *FaceGeometry {
 	return g
 }
 
+// DecodeConnectorFamily reads the family and layout from the part number alone.
 func DecodeConnectorFamily(part string) ConnectorFamilyInfo {
+	return DecodeConnectorFamilyWith(part, "")
+}
+
+// DecodeConnectorFamilyWith lets the user pick a stored insert arrangement by id (for example "15-35")
+// when the part number does not identify one. A chosen arrangement is only used if it is stored.
+func DecodeConnectorFamilyWith(part, arrangement string) ConnectorFamilyInfo {
 	p := strings.ToUpper(strings.TrimSpace(part))
 	out := ConnectorFamilyInfo{Part: p, Shape: "unknown", Notes: []string{}, Specs: []ConnectorDocRef{}, Layouts: []ConnectorDocRef{}, Status: "UNRESOLVED"}
 	if p == "" {
 		out.Notes = append(out.Notes, "No part number: the connector family cannot be determined.")
-		return out
+		if arrangement == "" {
+			return out
+		}
 	}
+	fromPart := ""
 	set := func(family, shape, specCode string) {
 		out.Recognized, out.Family, out.Shape, out.Status = true, family, shape, familyStatus
 		if d := lookupConnectorDoc("family-spec", specCode); d != nil {
@@ -112,21 +123,14 @@ func DecodeConnectorFamily(part string) ConnectorFamilyInfo {
 	case re38999.MatchString(p):
 		set("MIL-DTL-38999 circular", "circular", "MIL-DTL-38999")
 		out.Notes = append(out.Notes, "Keyway positions and alternate rotations are not drawn; a stored layout is shown for normal rotation only.")
-		if m := seriesIII35.FindStringSubmatch(p); m != nil {
-			out.ShellSize = shellSeriesIII[m[3]]
-			if rc := ResolveConnectorContacts(p); rc.PositionCount > 0 {
-				out.Positions, out.Sex = rc.PositionCount, rc.ContactSex
-				g, problems := insertGeometryFor("MIL-STD-1560", rc.Arrangement)
-				out.Notes = append(out.Notes, problems...)
-				switch {
-				case g != nil && len(g.Positions) != rc.PositionCount:
-					out.Notes = append(out.Notes, fmt.Sprintf("CONFLICT: the stored insert layout %s has %d cavities but the part number resolves to %d; no positions are drawn.", rc.Arrangement, len(g.Positions), rc.PositionCount))
-				case g != nil:
-					out.Geometry = g
-				default:
-					out.Notes = append(out.Notes, "No reviewed insert layout for arrangement "+rc.Arrangement+" is stored yet, so cavity positions are not drawn.")
-				}
-			}
+		if m := reSeriesIIIAny.FindStringSubmatch(p); m != nil {
+			out.ShellSize = shellSeriesIII[m[2]]
+			n, _ := strconv.Atoi(m[3])
+			fromPart = out.ShellSize + "-" + strconv.Itoa(n)
+			out.Sex = map[string]string{"P": "PIN", "H": "PIN", "A": "PIN", "S": "SOCKET", "J": "SOCKET", "B": "SOCKET"}[m[4]]
+		}
+		if rc := ResolveConnectorContacts(p); rc.PositionCount > 0 { // known contact count for the X35 arrangements
+			out.Positions = rc.PositionCount
 		}
 	case reMS3xxx.MatchString(p):
 		set("MIL-spec circular (MS3xxx; confirm the governing specification)", "circular", "MIL-DTL-5015 / SAE-AS50151")
@@ -164,6 +168,29 @@ func DecodeConnectorFamily(part string) ConnectorFamilyInfo {
 				out.Geometry = dsubGeometry(out.Positions)
 			} else if out.Positions > 0 {
 				out.Notes = append(out.Notes, "Pin or socket is not stated in the part number, so the face cannot be oriented; positions are not drawn.")
+			}
+		}
+	}
+	// A stored insert layout is picked from the arrangement in the part number, or one the user chose.
+	arr := fromPart
+	if arrangement != "" {
+		if fromPart != "" && fromPart != arrangement {
+			out.Notes = append(out.Notes, "CONFLICT: the part number says insert arrangement "+fromPart+" but "+arrangement+" was chosen; the chosen one is shown.")
+		}
+		arr = arrangement
+	}
+	if arr != "" && out.Geometry == nil && out.Shape != "d-sub" {
+		g, problems := insertGeometryFor("MIL-STD-1560", arr)
+		out.Notes = append(out.Notes, problems...)
+		switch {
+		case g == nil:
+			out.Notes = append(out.Notes, "No stored insert layout for arrangement "+arr+"; cavity positions are not drawn.")
+		case out.Positions > 0 && len(g.Positions) != out.Positions:
+			out.Notes = append(out.Notes, fmt.Sprintf("CONFLICT: the stored insert layout %s has %d cavities but the part number resolves to %d; no positions are drawn.", arr, len(g.Positions), out.Positions))
+		default:
+			out.Geometry = g
+			if out.Positions == 0 {
+				out.Positions = len(g.Positions)
 			}
 		}
 	}

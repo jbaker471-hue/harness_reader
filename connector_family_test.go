@@ -226,3 +226,52 @@ func TestAmphenolTablesLoadedCorrectly(t *testing.T) {
 		}
 	}
 }
+
+func TestInsertLayoutLibraryIsIndependentOfPartNumbers(t *testing.T) {
+	all, err := listInsertLayouts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, missing := 0, 0
+	for _, l := range all {
+		if l.Loaded {
+			loaded++
+			if l.View != "pin-front" || l.Contacts == 0 || !strings.Contains(l.Status, "UNREVIEWED") {
+				t.Fatalf("loaded layout lacks view, count or honest status: %+v", l)
+			}
+		} else {
+			missing++
+			if l.Reason == "" || l.Status != "NOT LOADED" {
+				t.Fatalf("an arrangement that was not loaded must say why: %+v", l)
+			}
+		}
+	}
+	if loaded != 8 || missing != 16 || len(all) != 24 {
+		t.Fatalf("catalog coverage changed: %d loaded, %d not loaded, %d total", loaded, missing, len(all))
+	}
+}
+
+func TestArrangementFromAnyPartNumberOrChoice(t *testing.T) {
+	// the arrangement is read from the part number whatever it is, not from a fixed list of parts
+	if d := DecodeConnectorFamily("D38999/24WJ61SN"); d.ShellSize != "25" || d.Geometry == nil || len(d.Geometry.Positions) != 61 || d.Sex != "SOCKET" {
+		t.Fatalf("25-61 from its part number: %+v", d)
+	}
+	if d := DecodeConnectorFamily("D38999/26WB35SA"); d.ShellSize != "11" || d.Geometry != nil || !strings.Contains(strings.Join(d.Notes, " "), "No stored insert layout for arrangement 11-35") {
+		t.Fatalf("an arrangement with no stored layout must say so: %+v", d)
+	}
+	// a layout can be chosen when the part number says nothing, and a clash with the part number is reported
+	d := DecodeConnectorFamilyWith("D38999/26FD35PN", "17-26")
+	if d.Geometry != nil || strings.Count(strings.Join(d.Notes, " "), "CONFLICT") != 2 {
+		t.Fatalf("%+v", d)
+	}
+	if d := DecodeConnectorFamilyWith("D38999/26FD35PN", "15-35"); d.Geometry == nil || len(d.Geometry.Positions) != 37 {
+		t.Fatalf("matching choice should draw: %+v", d)
+	}
+	d = DecodeConnectorFamilyWith("", "25-35")
+	if d.Geometry == nil || len(d.Geometry.Positions) != 128 || d.Recognized {
+		t.Fatalf("a chosen layout works without a part number and does not invent a family: %+v", d)
+	}
+	if d := DecodeConnectorFamilyWith("D38999/26FD35PN", "99-99"); d.Geometry != nil {
+		t.Fatalf("unknown arrangement must not draw: %+v", d)
+	}
+}

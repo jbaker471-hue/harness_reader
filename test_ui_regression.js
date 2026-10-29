@@ -463,3 +463,19 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes("fetch('/api/reference-validate'"))throw Error('importer must use the validator endpoint');
  console.log('PASS: reference document importer shows blocked, rejected and accepted files and escapes names');
 }
+
+// The insert layout library is independent of connectors: every arrangement is listed, those without stored coordinates are
+// disabled with a reason, and a connector can choose a stored layout when its part number does not name one.
+{
+ const ctx={safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),st:{connectors:[]},TOKEN:'t',$:()=>null,renderFaceView:()=>'',renderLayoutLibrary:()=>{}};
+ vm.createContext(ctx);
+ vm.runInContext(block('let insertLayouts=null;','function renderLayoutLibrary(').replace('let insertLayouts=null;','var insertLayouts=null;').replace('const libGeo=new Map();let libSel=\'\',libSex=\'PIN\';','var libGeo=new Map();var libSel=\'\',libSex=\'PIN\';'),ctx);
+ ctx.insertLayouts=[{id:'25-35',contacts:128,loaded:true},{id:'11-35',contacts:13,loaded:false,reason:'no table'},{id:'<b>',contacts:1,loaded:true}];
+ const h=ctx.famPicker({arrangement:'25-35'},0);
+ if(!h.includes('value="25-35"  selected')&&!/value="25-35"\s+selected/.test(h))throw Error('chosen layout not selected');
+ if(!/value="11-35" disabled/.test(h)||!h.includes('(no coordinates stored)'))throw Error('unstored arrangement must be disabled');
+ if(h.includes('<b>')||!h.includes('&lt;b&gt;'))throw Error('arrangement ids must be escaped');
+ if(!h.includes('From the part number'))throw Error('part number default missing');
+ if(!src.includes("fetch('/api/insert-layouts'")||!html.includes('id="layoutLibrary"'))throw Error('library panel not wired');
+ console.log('PASS: insert layout library lists every arrangement, disables unstored ones, escapes ids, and lets a connector choose a layout');
+}

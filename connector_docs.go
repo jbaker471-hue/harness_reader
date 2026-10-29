@@ -134,3 +134,54 @@ func insertGeometryFor(standard, arrangement string) (*FaceGeometry, []string) {
 	}
 	return buildInsertGeometry(rows[1:], standard, arrangement)
 }
+
+// InsertLayoutInfo describes one insert arrangement the application knows about, whether or not its
+// coordinates are stored. It is independent of any connector part number.
+type InsertLayoutInfo struct {
+	ID          string `json:"id"`
+	Standard    string `json:"standard"`
+	ShellSize   string `json:"shellSize,omitempty"`
+	Contacts    int    `json:"contacts"`
+	ContactSize string `json:"contactSize,omitempty"`
+	View        string `json:"view,omitempty"`
+	Source      string `json:"source"`
+	SourcePage  string `json:"sourcePage,omitempty"`
+	Status      string `json:"status"`
+	Loaded      bool   `json:"loaded"`
+	Reason      string `json:"reason,omitempty"`
+}
+
+// listInsertLayouts merges the stored geometry with the coverage list written by the extractor, so an
+// arrangement that was seen in a source but could not be loaded is listed with the reason.
+func listInsertLayouts() ([]InsertLayoutInfo, error) {
+	geo, err := readLibrary("CONNECTOR_INSERT_GEOMETRY.csv")
+	if err != nil {
+		return nil, err
+	}
+	cov, err := readLibrary("CONNECTOR_INSERT_COVERAGE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []InsertLayoutInfo{}
+	idx := map[string]int{}
+	for _, r := range geo[1:] {
+		k := r[1] + "|" + r[0]
+		i, ok := idx[k]
+		if !ok {
+			out = append(out, InsertLayoutInfo{ID: r[0], Standard: r[1], ShellSize: r[2], ContactSize: r[6], View: r[7], Source: r[9], SourcePage: r[10], Status: r[12], Loaded: true})
+			i = len(out) - 1
+			idx[k] = i
+		}
+		out[i].Contacts++
+	}
+	for _, r := range cov[1:] {
+		k := r[1] + "|" + r[0]
+		if _, ok := idx[k]; ok {
+			continue
+		}
+		n, _ := strconv.Atoi(r[4])
+		out = append(out, InsertLayoutInfo{ID: r[0], Standard: r[1], Contacts: n, ContactSize: r[5], Source: r[2], SourcePage: r[3], Status: "NOT LOADED", Reason: r[7]})
+		idx[k] = len(out) - 1
+	}
+	return out, nil
+}

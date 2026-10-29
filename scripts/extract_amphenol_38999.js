@@ -34,7 +34,7 @@ for (const line of fs.readFileSync(path.join(__dirname, '..', 'assets', 'CONNECT
 function parse(mode) {
   const out = new Map();
   text(mode).split('\f').forEach((page, pi) => {
-    if (!/Contact Hole Locations/i.test(page)) return;
+    if (!reHead.test(page)) return;
     const lines = page.split('\n'), heads = [];
     lines.forEach((l, i) => { const m = l.match(reHead); if (m) heads.push({ i, m }); });
     heads.forEach((h, k) => {
@@ -44,7 +44,8 @@ function parse(mode) {
       const n = spec ? +spec[1] : 0;
       if (!spec) problems.push('contact count / size line not found');
       if (dup.length) problems.push('repeated contact numbers ' + [...new Set(dup)].join(','));
-      if (n && pts.size !== n) problems.push('found ' + pts.size + ' coordinate rows, expected ' + n);
+      if (pts.size === 0 || (n && pts.size < n * 0.3)) problems.push('no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)');
+      else if (n && pts.size !== n) problems.push('found ' + pts.size + ' coordinate rows, expected ' + n);
       // Numbered contacts must run 1..N; lettered insert patterns (A, B, a, b ...) are checked for count and uniqueness only.
       const lettered = [...pts.keys()].some(k => /[A-Za-z]/.test(k));
       if (!lettered) for (let i = 1; n && i <= n; i++) if (!pts.has(String(i))) { problems.push('missing contact ' + i); break; }
@@ -63,7 +64,7 @@ function parse(mode) {
 
 // Both text modes must read the same table. A mode that fails validation is ignored; if two modes both
 // validate they must agree on every coordinate, otherwise the arrangement is skipped.
-const modes = [parse('-table'), parse('-layout')], report = [], rows = [];
+const modes = [parse('-table'), parse('-layout')], report = [], rows = [], coverage = [];
 const ids = new Set(modes.flatMap(m => [...m.keys()]));
 for (const id of ids) {
   const ok = modes.map(m => m.get(id)).filter(r => r && !r.problems.length);
@@ -75,6 +76,8 @@ for (const id of ids) {
   }
   const tag = 'PDF page ' + any.page;
   report.push(id.padEnd(6) + ' ' + tag.padEnd(12) + ' contacts=' + any.n + ' ' + (why ? 'SKIPPED: ' + why : 'ok (' + ok.length + ' reading' + (ok.length > 1 ? 's agree' : '') + (inv[any.key] ? '; matches reviewed inventory ' + any.key : '; no reviewed inventory to compare') + ')'));
+  const spec0 = modes.map(m => m.get(id)).filter(Boolean).map(r => r.spec).find(Boolean);
+  coverage.push([id, 'MIL-STD-1560', 'Amphenol Aerospace MIL-DTL-38999 catalog PDF', String(any.page), spec0 ? spec0[1] : '', spec0 ? spec0[2] : '', why ? 'NOT LOADED' : 'LOADED', why || 'Numeric table read and validated']);
   if (why) continue;
   const r = ok[0], size = r.spec[2], rating = r.spec[3];
   for (const label of r.lettered ? [...r.pts.keys()] : Array.from({ length: r.n }, (_, i) => String(i + 1))) {
@@ -92,4 +95,9 @@ if (write) {
   const head = 'arrangement_id,standard,shell_size,cavity,x_mm,y_mm,contact_size,view,keying,source,source_page,source_figure,status';
   fs.writeFileSync(f, head + '\r\n' + rows.map(r => r.map(q).join(',')).join('\r\n') + '\r\n');
   console.log(`wrote ${rows.length} rows to ${f}`);
+  // Every arrangement the catalog lists, loaded or not, so a missing layout is visible rather than silent.
+  const cf = path.join(__dirname, '..', 'assets', 'CONNECTOR_INSERT_COVERAGE.csv');
+  coverage.sort((a, b) => a[3] - b[3] || a[0].localeCompare(b[0], undefined, { numeric: true }));
+  fs.writeFileSync(cf, ['arrangement_id,standard,source,source_page,contacts,contact_size,status,reason'].concat(coverage.map(r => r.map(q).join(','))).join('\r\n') + '\r\n');
+  console.log(`wrote ${coverage.length} coverage rows to ${cf}`);
 } else console.log(`${rows.length} rows ready (use --write)`);
