@@ -397,7 +397,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  const nm=ctx.faceData({tag:'Q1',part:'Y',occupied:'',labels:['1','2']},'front');
  equal(ctx.faceStatus(nm,'2',new Map()),'unresolved');
  const html=ctx.renderFaceView?'':'';
- if(!src.includes("faceSvg(c,i,'front',net,fam)")||!src.includes("faceSvg(c,i,'rear',net,fam)"))throw Error('front and rear views must both be rendered');
+ if(!src.includes("(ui.mode==='both'?['front','rear']:[ui.mode]).map(s=>faceSvg(c,i,s,net,fam,ui))"))throw Error('front and rear views must both be rendered');
  if(!src.includes('sealing plug')||!src.includes('Crimp contact, insert wire'))throw Error('open vs wired action text missing');
  console.log('PASS: front and rear views, wired vs open (plug) status, held inventory never reports open');
 }
@@ -491,4 +491,51 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(/>COMPLETE</.test(h))throw Error('a family must never read complete');
  if(ctx.familyCoverageHtml([])!=='')throw Error('empty list should render nothing');
  console.log('PASS: family coverage audit shown with status and counts, escaped, never complete');
+}
+
+// Cavities the drawing says are unused are shown as NOT USED, separately from cavities that merely have no wire;
+// the view can be filtered, a cavity can be pinned, and both views stay available.
+{
+ const els={};const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5'],allVerified:true,unused:['3','5'],unusedStatus:'',explicitUnused:[{cavity:'4',source:'note on sheet 2'}],conflicts:[]}]},nets:[{wire:'W1',endpoints:'P1:1,J1:1',awg:'22',color:'WHT'}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),$:id=>els[id]||null,renderFaceView:()=>'<x>'};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const c={id:'c1',tag:'P1',part:'X',occupied:'1, 2',labels:['1','2','3','4','5']};
+ ctx.st.connectors=[c];
+ const net=ctx.faceNetRows('P1'),d=ctx.faceData(c,'front');
+ const S=id=>ctx.faceStatus(d,id,net);
+ if(S('1')!=='wired'||S('4')!=='unused'||S('3')!=='open'||S('5')!=='open')throw Error('unused vs open vs wired wrong: '+['1','3','4','5'].map(S));
+ if(d.explicitSrc.get('4')!=='note on sheet 2')throw Error('source of the unused marking lost');
+ const FA=vm.runInContext('FACE_ACTION',ctx);if(!/NOT USED/.test(FA.unused)||/NOT USED/.test(FA.open))throw Error('only drawing-marked cavities may be called NOT USED outright');
+ // an unused cavity that also carries a wire is a conflict, never silently unused
+ const dc=ctx.faceData({...c,occupied:'1, 4'},'front');if(ctx.faceStatus(dc,'4',net)!=='conflict')throw Error('unused cavity with a wire must conflict');
+ // filters
+ if(!ctx.faceFilterMatch('all','wired')||!ctx.faceFilterMatch('notused','unused')||!ctx.faceFilterMatch('notused','open')||ctx.faceFilterMatch('notused','wired')||!ctx.faceFilterMatch('problem','unresolved'))throw Error('filters wrong');
+ // state: mode, filter, pin / unpin
+ ctx.faceSetMode(0,'rear');if(ctx.faceUiOf(c).mode!=='rear')throw Error('mode not set');
+ ctx.faceSetMode(0,'bogus');if(ctx.faceUiOf(c).mode!=='rear')throw Error('invalid mode accepted');
+ ctx.faceSetFilter(0,'notused');if(ctx.faceUiOf(c).filter!=='notused')throw Error('filter not set');
+ ctx.faceSelect(0,'3');if(ctx.faceUiOf(c).sel!=='3')throw Error('cavity not pinned');
+ ctx.faceSelect(0,'3');if(ctx.faceUiOf(c).sel!=='')throw Error('second click should unpin');
+ // the svg dims non-matching cavities and rings the pinned one
+ const fam={recognized:true,shape:'circular',sex:'PIN',geometry:{shape:'circular',view:'pin-front',status:'R',positions:[1,2,3,4,5].map((n,k)=>({label:String(n),x:k*3-6,y:0,r:0}))}};
+ const svg=ctx.faceSvg(c,0,'front',net,fam,{mode:'both',filter:'notused',sel:'3',flip:false});
+ if(!/opacity:0\.2/.test(svg)||!svg.includes('stroke="#0b5cad"'))throw Error('dimming or selection ring missing');
+ if(!svg.includes('onclick="faceSelect(0,'))throw Error('cavities must be clickable');
+ console.log('PASS: not-used vs open vs wired cavities, filters, view modes and pinning');
+}
+
+// The arrangement register shows counts only where they were read, lists unread arrangements without values, filters by family and escapes text.
+{
+ const ctx={safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('function arrangementRegisterHtml(','function renderLayoutLibrary('),ctx);
+ const rows=[{family:'F1',id:'12-5',contacts:3,contactSize:'16',serviceRating:'A',sourcePage:'5',status:'EXTRACTED FROM CATALOG TEXT — UNREVIEWED'},{family:'F1',id:'<b>',contacts:0,sourcePage:'6',status:'SEEN — CELLS NOT READ',note:'no clean count'},{family:'F2',id:'8-2',contacts:0,sourcePage:'1',status:'ID ONLY — UNREVIEWED'}];
+ const all=ctx.arrangementRegisterHtml(rows,'');
+ if(!all.includes('3 arrangements named')||!all.includes('1 with a contact count')||!all.includes('no coordinates'))throw Error('register summary wrong');
+ if(all.includes('<b>')||!all.includes('&lt;b&gt;'))throw Error('register ids must be escaped');
+ if(!/<td>—<\/td><td>—<\/td><td>—<\/td>/.test(all))throw Error('unread arrangements must show no values');
+ const f2=ctx.arrangementRegisterHtml(rows,'F2');if(f2.includes('12-5')||!f2.includes('8-2'))throw Error('family filter wrong');
+ if(ctx.arrangementRegisterHtml([],'')!=='')throw Error('empty register should render nothing');
+ if(!src.includes("fetch('/api/arrangement-register'"))throw Error('register not loaded from the endpoint');
+ console.log('PASS: arrangement register shows only read values, lists unread arrangements bare, filters by family, escapes');
 }

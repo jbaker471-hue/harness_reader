@@ -315,3 +315,71 @@ func TestFamilyCoverageAuditNeverClaimsCompleteAndAgreesWithStoredLayouts(t *tes
 		t.Fatalf("38999 coverage row %+v disagrees with the library (%d stored of %d)", row, stored, known)
 	}
 }
+
+func TestArrangementRegisterIsHonestAndAgreesWithTheCoordinateCatalog(t *testing.T) {
+	reg, err := arrangementRegister()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reg) < 250 {
+		t.Fatalf("register has only %d rows", len(reg))
+	}
+	allowed := map[string]bool{"EXTRACTED FROM CATALOG TEXT — UNREVIEWED": true, "ID ONLY — UNREVIEWED": true, "SEEN — CELLS NOT READ": true}
+	seen := map[string]bool{}
+	read, unread := 0, 0
+	for _, r := range reg {
+		if !allowed[r.Status] {
+			t.Fatalf("%s %s: status %q; a register row is never verified", r.Family, r.ID, r.Status)
+		}
+		k := r.Family + "|" + r.ID
+		if seen[k] {
+			t.Fatalf("duplicate register row %s", k)
+		}
+		seen[k] = true
+		if r.Source == "" || r.SourcePage == "" {
+			t.Fatalf("%s %s: no source page", r.Family, r.ID)
+		}
+		switch r.Status {
+		case "EXTRACTED FROM CATALOG TEXT — UNREVIEWED":
+			read++
+			if r.Contacts < 1 || r.Contacts > 200 {
+				t.Fatalf("%s %s: implausible contact count %d", r.Family, r.ID, r.Contacts)
+			}
+		case "SEEN — CELLS NOT READ":
+			unread++
+			if r.Contacts != 0 || r.ContactSize != "" || r.Note == "" {
+				t.Fatalf("%s %s: an unread arrangement must carry no invented values and must say why", r.Family, r.ID)
+			}
+		case "ID ONLY — UNREVIEWED":
+			if r.Contacts != 0 {
+				t.Fatalf("%s %s: id-only row has a count", r.Family, r.ID)
+			}
+		}
+	}
+	if read < 100 || unread < 50 {
+		t.Fatalf("register mix changed: %d read, %d unread", read, unread)
+	}
+	// Independent check: fiber-optic CF38999 inserts reuse the 38999 patterns, so wherever the Amphenol 38999 catalog also lists
+	// the arrangement its contact count and size must agree with what was read from the fiber catalog.
+	cov, _ := listInsertLayouts()
+	byID := map[string]InsertLayoutInfo{}
+	for _, l := range cov {
+		byID[l.ID] = l
+	}
+	matched := 0
+	for _, r := range reg {
+		if !strings.HasPrefix(r.Family, "CF38999") || r.Status != "EXTRACTED FROM CATALOG TEXT — UNREVIEWED" {
+			continue
+		}
+		id := strings.TrimLeft(r.ID, "0")
+		if l, ok := byID[id]; ok {
+			matched++
+			if l.Contacts != r.Contacts || l.ContactSize != r.ContactSize {
+				t.Fatalf("fiber %s reads %d x %s but the 38999 catalog lists %d x %s", r.ID, r.Contacts, r.ContactSize, l.Contacts, l.ContactSize)
+			}
+		}
+	}
+	if matched < 8 {
+		t.Fatalf("only %d fiber arrangements could be cross-checked", matched)
+	}
+}

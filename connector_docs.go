@@ -210,3 +210,31 @@ func familyCoverage() ([]FamilyCoverage, error) {
 	}
 	return out, nil
 }
+
+// ArrangementRecord is one row of the arrangement register: what a catalog states about an insert
+// arrangement in text (id, service rating, contact count and size). It holds no cavity positions.
+type ArrangementRecord struct {
+	Family      string `json:"family"`
+	ID          string `json:"id"`
+	ShellSize   string `json:"shellSize,omitempty"`
+	Contacts    int    `json:"contacts"`
+	ContactSize string `json:"contactSize,omitempty"`
+	Rating      string `json:"serviceRating,omitempty"`
+	Source      string `json:"source"`
+	SourcePage  string `json:"sourcePage"`
+	Status      string `json:"status"`
+	Note        string `json:"note,omitempty"`
+}
+
+func arrangementRegister() ([]ArrangementRecord, error) {
+	rows, err := readLibrary("CONNECTOR_ARRANGEMENT_REGISTER.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []ArrangementRecord{}
+	for _, r := range rows[1:] {
+		n, _ := strconv.Atoi(r[3])
+		out = append(out, ArrangementRecord{Family: r[0], ID: r[1], ShellSize: r[2], Contacts: n, ContactSize: r[4], Rating: r[5], Source: r[6], SourcePage: r[7], Status: r[8], Note: r[9]})
+	}
+	return out, nil
+}

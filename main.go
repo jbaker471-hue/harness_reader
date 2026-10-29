@@ -715,6 +715,17 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	mux.HandleFunc("/api/arrangement-register", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := arrangementRegister()
+		if e != nil {
+			http.Error(w, "Arrangement register unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
 	mux.HandleFunc("/api/family-coverage", func(w http.ResponseWriter, r *http.Request) {
 		if !secure(w, r) {
 			return
