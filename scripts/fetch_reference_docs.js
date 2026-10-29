@@ -27,19 +27,18 @@ const DOCS = [
   { id: 'glenair-26482-tables-alternate', publisher: 'Glenair', title: 'MIL-DTL-26482 contact count and alternate rotation tables', url: 'https://www.glenair.com/mil-dtl-26482-series-ii-type-bayonet-lock-connectors/pdf/mil-std-1669-contact-arrangements-table-and-alternate-positions.pdf' },
   { id: 'glenair-26482-catalog', publisher: 'Glenair', title: 'MIL-DTL-26482 complete catalog', url: 'https://www.glenair.com/catalogs/mil-dtl-26482-series-2-type-bayonet-lock-connectors.pdf' },
   { id: 'glenair-5015-1651', publisher: 'Glenair', title: 'MIL-DTL-5015 insert arrangements per MIL-STD-1651', url: 'https://www.glenair.com/hermetic-connectors/mil-dtl-5015/pdf/insert-arrangements-per-mil-std-1651.pdf' },
-  { id: 'amphenol-5015-matrix-catalog', publisher: 'Amphenol Aerospace', title: 'MIL-DTL-5015 Matrix catalog', url: 'https://www.amphenol-aerospace.com/resources/literature/download/mil-dtl-5015-matrix-catalog' },
-  { id: 'amphenol-high-power', publisher: 'Amphenol Aerospace', title: 'High-power 5015 arrangements', url: 'https://www.amphenol-aerospace.com/Resources/Literature/Download/High-Power-Connectors' },
   { id: 'glenair-83723-1554', publisher: 'Glenair', title: 'MIL-DTL-83723 Series III contact face layouts (MIL-STD-1554)', url: 'https://www.glenair.com/hermetic-connectors/mil-dtl-83723/pdf/insert-arrangements-per-mil-std-1554.pdf' },
   { id: 'glenair-83723-keyway', publisher: 'Glenair', title: 'MIL-DTL-83723 keying and contact populations', url: 'https://www.glenair.com/hermetic-connectors/mil-dtl-83723/pdf/insert-arrangements-and-keyway-positions.pdf' },
   { id: 'glenair-28840-arrangements', publisher: 'Glenair', title: 'MIL-DTL-28840 standard insert arrangements', url: 'https://www.glenair.com/navy-approved-connectors-and-accessories/mil-dtl-28840-shipboard-electrical-connectors/pdf/standard-insert-arrangements.pdf' },
   { id: 'glenair-micro-d-arrangements', publisher: 'Glenair', title: 'MIL-DTL-83513 micro-D contact arrangements', url: 'https://cdn.glenair.com/micro-d/pdf/a/micro-d-contact-arrangements.pdf' },
   { id: 'glenair-hermetic-micro-d', publisher: 'Glenair', title: 'Hermetic micro-D design notes and contact arrangements', url: 'https://www.glenair.com/hermetic-connectors/mil-dtl-83513/pdf/design-notes-and-contact-arrangements.pdf' },
   { id: 'glenair-arinc-600', publisher: 'Glenair', title: 'ARINC 600 filter connector insert arrangements', url: 'https://www.glenair.com/capability/rectangular-connectors/pdf/arinc-600-filter-connectors.pdf' },
-  { id: 'amphenol-class-l', publisher: 'Amphenol Aerospace', title: 'MIL-DTL-22992 Class L insert arrangements', url: 'https://www.amphenol-aerospace.com/resources/literature/download/class-l-insert-arrangements' },
-  { id: 'amphenol-class-l-catalog-section', publisher: 'Amphenol Aerospace', title: 'MIL-DTL-22992 Class L catalog section', url: 'https://www.amphenol-aerospace.com/resources/literature/download/class-l-catalog-section' },
+  { id: 'digikey-amphenol-5015-matrix', publisher: 'Amphenol Aerospace (via DigiKey)', title: 'MIL-DTL-5015 Matrix catalog', url: 'https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/1154/MIL-DTL-5015.pdf' },
+  { id: 'mouser-amphenol-high-power-5015', publisher: 'Amphenol Aerospace (via Mouser)', title: 'High-power 5015 catalog', url: 'https://www.mouser.com/pdfDocs/amphenol-high-power-5015-data.pdf' },
+  { id: 'heilind-amphenol-class-l', publisher: 'Amphenol Aerospace (via Heilind)', title: 'MIL-DTL-22992 Class L catalog', url: 'https://development.heilind.com/cms/wp-content/uploads/sites/3/2022/06/amphenol-aerospace-22992-class-l-catalog.pdf' },
+  { id: 'mouser-amphenol-fiber-optic', publisher: 'Amphenol Aerospace (via Mouser)', title: 'Fiber-optic catalog', url: 'https://www.mouser.com/datasheet/2/18/1/fiber_catalog-1128958.pdf' },
   { id: 'glenair-high-speed-rf-hybrid', publisher: 'Glenair', title: '38999 high-speed / RF hybrid insert arrangements', url: 'https://www.glenair.com/space-mechanisms/blind-mate/pdf/data-rf/high-speed-data-and-rf-insert-arrangements.pdf' },
   { id: 'glenair-series-iv-hybrid', publisher: 'Glenair', title: '38999 Series IV hybrid arrangements', url: 'https://www.glenair.com/supernine-series-iv/pdf/234-217.pdf' },
-  { id: 'amphenol-fiber-optic', publisher: 'Amphenol Aerospace', title: 'Fiber-optic insert availability', url: 'https://www.amphenol-aerospace.com/resources/literature/download/fiber-optic-catalog-section' },
   { id: 'dla-mil-std-1669-record', publisher: 'DLA ASSIST', title: 'MIL-STD-1669 (MIL-DTL-26482) document record', url: 'https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37064', manualOnly: true },
   { id: 'dla-mil-std-1651-record', publisher: 'DLA ASSIST', title: 'MIL-STD-1651 (5015, 22992, 83723 Series II) document record', url: 'https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37045', manualOnly: true },
   { id: 'dla-mil-std-1554-record', publisher: 'DLA ASSIST', title: 'MIL-STD-1554 (83723 Series III, 26500) document record', url: 'https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36974', manualOnly: true },
@@ -79,7 +78,7 @@ async function validateWithApp(buf) {
     const rec = { id: d.id, publisher: d.publisher, title: d.title, url: d.url, retrieved: new Date().toISOString().slice(0, 10), status: '', detail: '' };
     if (d.manualOnly) { rec.status = 'MANUAL_DOWNLOAD_REQUIRED'; rec.detail = 'Official record page; retrieve it in a browser.'; manifest.push(rec); continue; }
     try {
-      const r = await fetch(d.url, { redirect: 'follow', headers: { 'User-Agent': 'TrivexReferenceFetch/1.0' }, signal: AbortSignal.timeout(180000) });
+      const r = await fetch(d.url, { redirect: 'follow', headers: { 'User-Agent': 'TrivexReferenceFetch/1.0' }, signal: AbortSignal.timeout(60000) });
       const buf = Buffer.from(await r.arrayBuffer());
       const head = buf.subarray(0, 1024).toString('latin1');
       rec.http = r.status; rec.contentType = r.headers.get('content-type') || ''; rec.bytes = buf.length;
