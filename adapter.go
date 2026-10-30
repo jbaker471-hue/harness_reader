@@ -103,6 +103,7 @@ type ViewAnalysis struct {
 	AssemblyFeatures []string        `json:"assemblyFeatures"`
 	HarnessLengths   []HarnessLength `json:"harnessLengths"`
 	DrawingUnit      *DrawingUnit    `json:"drawingUnit"`
+	DrawingNotes     []DrawingNote   `json:"drawingNotes"`
 	CaptureChecks    []CaptureCheck  `json:"captureChecks"`
 }
 
@@ -274,6 +275,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	v.PdfText = strings.Join(uniqueStrings(ids), " ")
 	v.HarnessLengths = harnessLengths(d.Pages)
 	v.DrawingUnit = drawingUnitStatement(d.Pages)
+	v.DrawingNotes = drawingNotes(d.Pages)
 	v.HarnessLengths = applyDrawingUnit(v.HarnessLengths, v.DrawingUnit)
 	v.CaptureChecks = captureChecks(&a, v.Callouts, v.HarnessLengths)
 	if v.DrawingUnit == nil {

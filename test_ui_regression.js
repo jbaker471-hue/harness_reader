@@ -896,3 +896,16 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(u.unitNoteHtml()!=='')throw Error('no drawing, no note');
  console.log('PASS: the drawing unit note points back to its sheet, escapes text, and sets the cut list unit once');
 }
+
+// Numbered notes read from the drawing are added as soon as it is read, once, and stay candidates.
+{
+ const n={st:{raw:{drawingNotes:[{id:'1',text:'INTERPRET DRAWING IAW EXAMPLE-STD-1.',page:1},{id:'10',text:'ALL UNUSED CONTACT OPENINGS SHALL BE POPULATED.',page:1}]},notes:[]}};
+ vm.createContext(n);vm.runInContext(block('function importTextNotes(','function importDetectedNotes('),n);
+ if(n.importTextNotes()!==2||n.st.notes.length!==2)throw Error('both notes are added');
+ if(n.importTextNotes()!==0||n.st.notes.length!==2)throw Error('importing twice must not duplicate');
+ const x=n.st.notes[1];
+ if(x.id!=='10'||x.status!=='DETECTED — REVIEW REQUIRED'||x.reviewed!==false||!/NOTES block/.test(x.method)||x.page!==1)throw Error('a read note is a candidate until reviewed: '+JSON.stringify(x));
+ n.st.raw={};if(n.importTextNotes()!==0)throw Error('no notes, nothing added');
+ if(!/importTextNotes\(\);\s*\$\('bomVerified'\)/.test(src))throw Error('notes must be imported as part of reading the drawing');
+ console.log('PASS: numbered notes are added when a drawing is read, once, as review candidates');
+}

@@ -415,6 +415,7 @@ async function scan(reuse){
   // v2.6 read PascalCase keys from camelCase JSON, so every detected conductor became "undefined:undefined". wv() accepts both.
   st.nets=(d.wires||[]).map((x,i)=>wireToNet(x,i,'WIRE-'));
   resetCutListState();
+  importTextNotes();
   $('bomVerified').checked=false;$('toolVerified').checked=false;
   $('scanStatus').textContent='Analyzed '+d.pages+' sheets — all assignments DRAFT';
   st.pageView=null;st.region=null;st.highlight=null;
@@ -1645,6 +1646,16 @@ function captureNoteFromRegion(){
  const R=st.region;if(!R)return alert('In Page review, select and read the exact note region first.');
  const text=(R.res.lines||[]).join(' ').replace(/\s+/g,' ').trim();if(!text)return alert('No machine-readable note text was found in that region. Type the exact wording after checking the rendered sheet.');
  $('noteText').value=text;$('noteId').value=(R.res.tags||[])[0]||$('noteId').value;addDrawingNote({page:R.req.page,box:R.req.box,method:'PDFium region text · human-selected'});
+}
+// Numbered notes read from the NOTES block, added as soon as a drawing is read. Each stays a candidate until reviewed.
+function importTextNotes(){
+ let added=0;
+ for(const x of st.raw?.drawingNotes||[]){
+  const key='TEXT|'+x.id+'|'+String(x.text).toUpperCase();
+  if(st.notes.some(n=>n.detectedKey===key))continue;
+  st.notes.push({id:String(x.id),text:String(x.text),scope:'Unresolved',appliesTo:'',page:x.page,box:null,references:[],method:'Numbered note text · NOTES block',status:'DETECTED — REVIEW REQUIRED',reviewed:false,detectedKey:key});added++;
+ }
+ return added;
 }
 function importDetectedNotes(){
  const callouts=st.raw?.graphicalCallouts||[];let added=0;
