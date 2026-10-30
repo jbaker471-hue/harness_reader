@@ -792,3 +792,23 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!html.includes('#bomRows td:nth-child(3) input{min-width:220px}'))throw Error('BOM description field must stay readable');
  console.log('PASS: alert tags, quote totals and BOM/net fields fixed from the page review');
 }
+
+// Capture checks: every status is shown with its readings, disagreement opens the list, and everything is escaped.
+{
+ const list=[
+  {id:'CONDUCTOR_COUNT',title:'Number of conductors',status:'DISAGREE',message:'The readings of the conductor count disagree.',methods:[{name:'Wire rows read',value:'95'},{name:'Cable callouts × conductors',value:'96',detail:'48 cables called out'}]},
+  {id:'UNUSED_CAVITIES',title:'Empty cavities',connector:'<b>X</b>',status:'AGREE',message:'2 independent readings agree.',methods:[{name:'Insert − wired',value:'32'}]},
+  {id:'A',title:'One source',status:'SINGLE SOURCE',message:'m',methods:[]},
+ ];
+ const esc={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+ const chkCtx={safe:s=>String(s??'').replace(/[&<>"']/g,c=>esc[c])};
+ vm.createContext(chkCtx);vm.runInContext(block('function captureChecksHtml(','function renderConnectors('),chkCtx);
+ const h=chkCtx.captureChecksHtml(list);
+ if(!h.includes('<details class="capture-checks" open>'))throw Error('a disagreement must open the capture checks');
+ if(!h.includes('1 agree · 1 disagree · 1 single source'))throw Error('counts');
+ if(!h.includes('48 cables called out')||!h.includes('<b>95</b> Wire rows read'))throw Error('every reading is listed with its value');
+ if(h.includes('<b>X</b>')||!h.includes('&lt;b&gt;X&lt;/b&gt;'))throw Error('connector text must be escaped');
+ if(chkCtx.captureChecksHtml([])!==''||chkCtx.captureChecksHtml(undefined)!=='')throw Error('nothing to show, nothing drawn');
+ if(chkCtx.captureChecksHtml([{...list[1]}]).includes(' open>'))throw Error('agreeing checks stay collapsed');
+ console.log('PASS: capture checks list every reading, open on disagreement, stay collapsed when everything agrees, and escape text');
+}

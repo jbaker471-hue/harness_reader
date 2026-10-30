@@ -102,6 +102,7 @@ type ViewAnalysis struct {
 	PdfText          string          `json:"pdfText"`
 	AssemblyFeatures []string        `json:"assemblyFeatures"`
 	HarnessLengths   []HarnessLength `json:"harnessLengths"`
+	CaptureChecks    []CaptureCheck  `json:"captureChecks"`
 }
 
 func viewAnalysis(b []byte) (ViewAnalysis, error) {
@@ -271,6 +272,12 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	v.PdfText = strings.Join(uniqueStrings(ids), " ")
 	v.HarnessLengths = harnessLengths(d.Pages)
+	v.CaptureChecks = captureChecks(&a, v.Callouts, v.HarnessLengths)
+	for _, c := range v.CaptureChecks {
+		if c.Status == CheckDisagree {
+			v.Issues = append(v.Issues, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "CAPTURE_READINGS_DISAGREE", Message: c.Title + ": " + c.Message, Connector: c.Connector, Pages: []int{}, Cavities: []string{}, Action: "Compare the readings listed under Capture checks with the sheet."})
+		}
+	}
 	// Whitelisted, local-only process categories; do not return source drawing text.
 	terms := map[string]bool{}
 	for _, p := range d.Pages {
