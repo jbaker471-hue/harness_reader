@@ -418,6 +418,15 @@ func validRow(kind string, c map[string]string) bool {
 	return false
 }
 
+// joinCellLines joins two wrapped lines of one cell in reading order. A line that ends in a hyphen is a
+// word broken at the hyphen (a reference designator such as GSE-/P3), so the next line continues it with no space.
+func joinCellLines(first, second string) string {
+	if strings.HasSuffix(first, "-") {
+		return first + second
+	}
+	return first + " " + second
+}
+
 func mergeTableCells(dst, src map[string]string, prepend bool) {
 	for role, value := range src {
 		value = strings.TrimSpace(value)
@@ -427,9 +436,9 @@ func mergeTableCells(dst, src map[string]string, prepend bool) {
 		if dst[role] == "" {
 			dst[role] = value
 		} else if prepend {
-			dst[role] = value + " " + dst[role]
+			dst[role] = joinCellLines(value, dst[role])
 		} else {
-			dst[role] += " " + value
+			dst[role] = joinCellLines(dst[role], value)
 		}
 	}
 }
@@ -442,6 +451,14 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 	pitch := 0.0
 	pending := map[string]string{}
 	pendingLines := 0
+	// A bottom-up parts list whose cells are vertically centred on the item line wraps above and below it.
+	// frags remembers every unmatched baseline so it joins the nearest item line, not the next one up.
+	type fragLine struct {
+		y float64
+		c map[string]string
+	}
+	var frags []fragLine
+	centered := false
 	maxMisses := 2
 	if kind == "bom" && step < 0 {
 		maxMisses = 8
@@ -485,6 +502,7 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 				continue
 			}
 			mergeTableCells(pending, c, true)
+			frags = append(frags, fragLine{l.Y, c})
 			pendingLines++
 			if validRow(kind, pending) {
 				c = pending
@@ -496,8 +514,30 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 				continue
 			}
 		} else if len(pending) > 0 {
-			mergeTableCells(pending, c, step < 0)
-			c = pending
+			if kind == "bom" && step < 0 && len(rows) == 0 {
+				centered = true
+			}
+			if kind == "bom" && step < 0 && centered && len(rows) > 0 {
+				var toPrev, toThis []fragLine
+				for _, f := range frags {
+					if math.Abs(f.y-lastRowY) < math.Abs(f.y-l.Y) {
+						toPrev = append(toPrev, f)
+					} else {
+						toThis = append(toThis, f)
+					}
+				}
+				sort.SliceStable(toPrev, func(a, b int) bool { return toPrev[a].y < toPrev[b].y })
+				for _, f := range toPrev {
+					mergeTableCells(rows[len(rows)-1], f.c, true)
+				}
+				sort.SliceStable(toThis, func(a, b int) bool { return toThis[a].y > toThis[b].y })
+				for _, f := range toThis {
+					mergeTableCells(c, f.c, false)
+				}
+			} else {
+				mergeTableCells(pending, c, step < 0)
+				c = pending
+			}
 		}
 		if !validRow(kind, c) {
 			misses++
@@ -509,6 +549,7 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 		misses = 0
 		pending = map[string]string{}
 		pendingLines = 0
+		frags = nil
 		rowGap := math.Abs(lastRowY - l.Y)
 		if pitch == 0 {
 			pitch = rowGap
@@ -517,6 +558,14 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 		}
 		lastRowY = l.Y
 		rows = append(rows, c)
+	}
+	if centered && len(rows) > 0 && pitch > 0 {
+		sort.SliceStable(frags, func(a, b int) bool { return frags[a].y < frags[b].y })
+		for _, f := range frags {
+			if math.Abs(f.y-lastRowY) <= pitch*0.6 {
+				mergeTableCells(rows[len(rows)-1], f.c, true)
+			}
+		}
 	}
 	return rows
 }

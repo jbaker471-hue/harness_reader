@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -163,11 +164,19 @@ func findConnectorWords(p Page) []struct{ Tag, Part string } {
 			tag := ""
 			best := 1e12
 			for _, v := range p.Words {
-				if reTag.MatchString(strings.TrimSpace(v.Text)) && abs(v.Y-w.Y) < 11 {
+				text := strings.TrimSpace(v.Text)
+				// A designator wrapped at its hyphen (GSE-, then P3 on the next baseline) is one tag.
+				for _, u := range p.Words {
+					if strings.HasSuffix(strings.TrimSpace(u.Text), "-") && abs(u.X-v.X) < 3*math.Max(v.Size, 1) && u.Y > v.Y && u.Y-v.Y <= 2.2*math.Max(v.Size, 1) {
+						text = strings.TrimSpace(u.Text) + text
+						break
+					}
+				}
+				if reTag.MatchString(text) && abs(v.Y-w.Y) < 11 {
 					dist := abs(v.X - w.X)
 					if dist < best {
 						best = dist
-						tag = reTag.FindString(v.Text)
+						tag = reTag.FindString(text)
 					}
 				}
 			}
