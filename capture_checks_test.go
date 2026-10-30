@@ -255,6 +255,10 @@ func TestLengthIsConfirmedOnlyWhenBOMQuantityAndCalloutsAgree(t *testing.T) {
 }
 
 func TestUpperLengthIsNominalPlusThePlusTolerance(t *testing.T) {
+	// a tolerance beside a labelled length in feet has no known unit, so nothing is added
+	if u := withUpperLengths([]HarnessLength{{Label: "CUT", Text: "5.0 FT", Tolerance: "±2"}})[0].Upper; u != "" {
+		t.Fatalf("labelled CUT length got %q", u)
+	}
 	for _, c := range []struct{ text, tol, want string }{
 		{"216", "-0.0/+1.0", "217 IN"},
 		{"216 IN", "-0.0/+1.0", "217 IN"},
@@ -262,7 +266,7 @@ func TestUpperLengthIsNominalPlusThePlusTolerance(t *testing.T) {
 		{"216", "-0.5/+2.5", "218.5 IN"},
 		{"48", "±0.5", "48.5 IN"},
 		{"48", "+/-2", "50 IN"},
-		{"5.0 FT", "±2", ""}, // another unit: the tolerance's unit is not known, so nothing is added
+		{"5.0 FT", "±2", "7 FT"}, // a printed dimension: its tolerance is in its own unit
 		{"216", "", ""},
 		{"216", "garbled", ""},
 	} {

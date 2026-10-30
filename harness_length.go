@@ -21,6 +21,8 @@ type HarnessLength struct {
 	Basis        string `json:"basis,omitempty"`
 	// Upper is the length to cut when the drawing prints a tolerance: the nominal plus the plus side.
 	Upper string `json:"upper,omitempty"`
+	// UnitNote says where a unit that was not printed beside the number came from.
+	UnitNote string `json:"unitNote,omitempty"`
 }
 
 const maxHarnessLengthPage = 3

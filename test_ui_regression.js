@@ -212,7 +212,7 @@ if(!eq||eq.specification!=='AS22520/2')throw Error('AFM8 documented powered-fram
 console.log('PASS: wire construction requirements and documented crimp-frame alternatives');
 
 // Workflow navigation and job-status summary.
-for(const g of ['1 · Inspect the drawing','2 · Quote','3 · Build'])if(!html.includes('<div class="navgroup">'+g+'</div>'))throw Error('missing nav group '+g);
+for(const g of ['1 · Check','2 · Price','3 · Build'])if(!html.includes('<div class="navgroup">'+g+'</div>'))throw Error('missing nav group '+g);
 const navIds=[...html.matchAll(/class="nav[^"]*" data-id="(\w+)"/g)].map(m=>m[1]);
 for(const t of [...html.matchAll(/<section class="tab[^"]*" id="tab-(\w+)"/g)].map(m=>m[1]))if(!navIds.includes(t))throw Error('tab without navigation: '+t);
 const jobCtx={$:id=>jobCtx.els[id]||(jobCtx.els[id]={}),els:{},safe:s=>String(s),tab(){},gates:()=>[['a',true,''],['b',false,'']],
@@ -861,4 +861,38 @@ console.log('PASS: harness length applies only to conductors without their own l
  cutCtx.autoHarness();
  if(cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('a tolerance in an unknown unit is not added');
  console.log('PASS: the cut list uses the high side of a printed tolerance (216 -0.0/+1.0 cuts at 217), and only when the unit is clear');
+}
+
+// Sidebar: the build steps up front, the checking and reference pages in one collapsed group that opens on its own.
+{
+ const side=html.slice(html.indexOf('<aside class="side">'),html.indexOf('</aside>'));
+ const more=side.slice(side.indexOf('<details class="navmore">'),side.indexOf('</details>'));
+ const top=side.replace(more,'');
+ const ids=s=>[...s.matchAll(/data-id="(\w+)"/g)].map(m=>m[1]);
+ if(ids(top).length>9)throw Error('the main sidebar must stay short: '+ids(top).length);
+ for(const id of ['intake','connectors','alerts','cutlist','quote','buildplan','tooling','kit'])if(!ids(top).includes(id))throw Error(id+' belongs in the main sidebar');
+ for(const id of ['evidence','nets','bom','notes','labor','cots','reports','security'])if(!ids(more).includes(id))throw Error(id+' belongs under More');
+ if(/<details class="navmore" open/.test(side))throw Error('More starts collapsed');
+ if(!src.includes("closest('details.navmore')"))throw Error('opening a page under More must open the group');
+ if(ids(side).length!==16)throw Error('no page may be lost from the sidebar');
+ console.log('PASS: the sidebar leads with the build steps and keeps the other eight pages under one collapsed More that opens itself');
+}
+
+// The drawing's own unit statement is shown, points back to its sheet, and sets the cut list's starting unit once.
+{
+ const els={cutUnit:{value:'IN',options:[{value:'IN'},{value:'FT'},{value:'MM'}]}};
+ const esc={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+ const u={st:{raw:{drawingUnit:{unit:'MM',text:'DIMENSIONS ARE IN <MM>',page:3}}},$:id=>els[id]||null,safe:s=>String(s??'').replace(/[&<>"']/g,c=>esc[c])};
+ vm.createContext(u);vm.runInContext(block('const UNIT_NAME=','function renderCutList('),u);
+ const h=u.unitNoteHtml();
+ if(!h.includes('millimetres')||!h.includes('sheet 3')||!h.includes('viewEvidence(3)')||!h.includes('&lt;MM&gt;')||h.includes('<MM>'))throw Error('the unit note names the unit, the sheet, and escapes the drawing text: '+h);
+ u.applyDrawingUnitToUI();
+ if(els.cutUnit.value!=='MM')throw Error('the cut list starts in the drawing unit');
+ els.cutUnit.value='FT';u.applyDrawingUnitToUI();
+ if(els.cutUnit.value!=='FT')throw Error('a later choice of the user stands');
+ u.st={raw:{drawingUnit:null}};
+ if(!/states no measurement unit/.test(u.unitNoteHtml()))throw Error('no statement says so');
+ u.st={raw:null};
+ if(u.unitNoteHtml()!=='')throw Error('no drawing, no note');
+ console.log('PASS: the drawing unit note points back to its sheet, escapes text, and sets the cut list unit once');
 }

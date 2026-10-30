@@ -352,6 +352,12 @@ func lengthCandidatesInches(ls []HarnessLength) []float64 {
 		switch unit {
 		case "FT", "FEET", "'":
 			v *= 12
+		case "MM":
+			v /= 25.4
+		case "CM":
+			v /= 2.54
+		case "M":
+			v *= 100 / 2.54
 		case "", "IN", "INCH", "INCHES", `"`:
 		default:
 			continue
@@ -422,7 +428,7 @@ func corroborateLengths(a *Analysis, callouts []GraphicCallout, lengths []Harnes
 	out := make([]HarnessLength, len(lengths))
 	copy(out, lengths)
 	for i, h := range out {
-		if h.Label != "DIMENSION" || strings.Contains(strings.ToUpper(h.Text), "IN") {
+		if h.Label != "DIMENSION" || h.Corroborated {
 			continue
 		}
 		cand := lengthCandidatesInches([]HarnessLength{h})
@@ -449,7 +455,9 @@ func corroborateLengths(a *Analysis, callouts []GraphicCallout, lengths []Harnes
 			basis = append(basis, fmt.Sprintf("item %s: %s FT ÷ %s FT = %s cables, the same as the cable callouts", strings.TrimSpace(items[k].Item), fmtNum(q), fmtNum(L/12), fmtNum(called[k])))
 		}
 		if ok {
-			out[i].Text = fmtNum(L) + " IN"
+			if len(strings.Fields(h.Text)) == 1 {
+				out[i].Text = fmtNum(L) + " IN" // printed with no unit and no unit note: read as inches
+			}
 			out[i].Corroborated = true
 			out[i].Basis = strings.Join(basis, "; ")
 		}
@@ -475,7 +483,14 @@ func withUpperLengths(ls []HarnessLength) []HarnessLength {
 			continue
 		}
 		fields := strings.Fields(h.Text)
-		if len(fields) == 0 || (len(fields) > 1 && !strings.EqualFold(fields[1], "IN")) {
+		unit := "IN"
+		if len(fields) > 1 {
+			unit = strings.ToUpper(fields[1])
+		}
+		// A tolerance printed on a dimension is in the dimension's own unit. A tolerance beside a labelled length
+		// (CUT 5.0 FT ±2) is only added when that length is in inches.
+		unitsOK := unit == "IN" || (h.Label == "DIMENSION" && (unit == "MM" || unit == "CM" || unit == "M" || unit == "FT"))
+		if len(fields) == 0 || !unitsOK {
 			continue
 		}
 		nominal, err := strconv.ParseFloat(fields[0], 64)
@@ -492,7 +507,7 @@ func withUpperLengths(ls []HarnessLength) []HarnessLength {
 		if plus == "" || err != nil {
 			continue
 		}
-		out[i].Upper = fmtNum(nominal+p) + " IN"
+		out[i].Upper = fmtNum(nominal+p) + " " + unit
 	}
 	return out
 }

@@ -102,6 +102,7 @@ type ViewAnalysis struct {
 	PdfText          string          `json:"pdfText"`
 	AssemblyFeatures []string        `json:"assemblyFeatures"`
 	HarnessLengths   []HarnessLength `json:"harnessLengths"`
+	DrawingUnit      *DrawingUnit    `json:"drawingUnit"`
 	CaptureChecks    []CaptureCheck  `json:"captureChecks"`
 }
 
@@ -272,7 +273,17 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	v.PdfText = strings.Join(uniqueStrings(ids), " ")
 	v.HarnessLengths = harnessLengths(d.Pages)
+	v.DrawingUnit = drawingUnitStatement(d.Pages)
+	v.HarnessLengths = applyDrawingUnit(v.HarnessLengths, v.DrawingUnit)
 	v.CaptureChecks = captureChecks(&a, v.Callouts, v.HarnessLengths)
+	if v.DrawingUnit == nil {
+		for _, h := range v.HarnessLengths {
+			if h.Label == "DIMENSION" && len(strings.Fields(h.Text)) == 1 {
+				v.Issues = append(v.Issues, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "LENGTH_UNIT_NOT_STATED", Message: "A dimension (" + h.Text + ") is printed with no unit and the drawing states no measurement unit in a note or the title block. It is read as inches only when the parts list confirms it.", Pages: []int{h.Page}, Cavities: []string{}, Action: "Confirm the unit on the sheet before using this length."})
+				break
+			}
+		}
+	}
 	v.HarnessLengths = corroborateLengths(&a, v.Callouts, v.HarnessLengths)
 	v.HarnessLengths = withUpperLengths(v.HarnessLengths)
 	for _, c := range v.CaptureChecks {
