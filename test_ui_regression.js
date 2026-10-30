@@ -739,3 +739,23 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(cutCtx.st.harnessLength)throw Error('two different labelled lengths must still be left for the user');
  console.log('PASS: unlabelled dimensions are candidates only; a single labelled length is still auto-selected');
 }
+
+// Density: checking tools are collapsed so the main work stays visible; nothing that guards against guessing is dropped.
+{
+ const intake=html.slice(html.indexOf('<section class="tab on" id="tab-intake">'),html.indexOf('<section class="tab" id="tab-evidence">'));
+ const d=intake.indexOf('<details class="techdetails">');
+ if(d<0||/<details class="techdetails" open/.test(intake))throw Error('the intake technical checks must be one collapsed section');
+ for(const h of ['Interpretation status','Source issues','Per-sheet extraction coverage','Recognition evidence'])if(!(intake.indexOf(h)>d))throw Error(h+' must sit inside the collapsed technical checks');
+ if(!(intake.indexOf('Where this job stands')>=0&&intake.indexOf('Where this job stands')<d))throw Error('the job status stays visible above the technical checks');
+ const ev=html.slice(html.indexOf('id="tab-evidence"'),html.indexOf('id="tab-notes"'));
+ const e=ev.indexOf('<details class="techdetails">');
+ if(e<0||!(ev.indexOf('Page review: rendered sheet')<e)||!(ev.indexOf('Embedded PDF pictures')>e))throw Error('page review stays visible; the secondary evidence tools are collapsed');
+ // a connector card: the layout and used/unused pins stay visible; entry fields collapse once the part is known and the card is ready
+ const card=src.slice(src.indexOf('function renderConnectors('));
+ if(!card.includes("<details class=\"conn-edit\" ${c.part&&ok?'':'open'}>"))throw Error('entry fields collapse only when the part number is known and the card is ready');
+ const view=src.slice(src.indexOf('function renderFaceView('),src.indexOf('function renderConnectors('));
+ if(/<details open><summary><b>Connector identification/.test(view))throw Error('identification details should start collapsed');
+ if(!view.includes('never assumed unused'))throw Error('the never-assume-unused statement must remain');
+ if(!view.includes('${usedCountHtml(c,i,d)}')||view.indexOf('${usedCountHtml(c,i,d)}')>view.indexOf('Connector identification'))throw Error('the stated used-contact count stays visible, outside the collapsed checks');
+ console.log('PASS: checking tools are collapsed; layout, pin usage and the used-contact count stay visible');
+}
