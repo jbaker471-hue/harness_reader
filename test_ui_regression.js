@@ -845,3 +845,20 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(view.includes('Click a cavity (or a table row)'))throw Error('one short hint');
  console.log('PASS: tooling puts the export first and the lookup behind a line, accessories list problems first; connector filters appear only when useful');
 }
+
+// The cut list always goes to the high side of a printed tolerance: 216 -0.0/+1.0 is cut at 217.
+{
+ cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216 IN',tolerance:'-0.0/+1.0',upper:'217 IN',corroborated:true,basis:'item 4: 666 FT ÷ 18 FT = 37 cables, the same as the cable callouts'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ const h=cutCtx.st.harnessLength;
+ if(!h||h.text!=='217 IN'||h.nominal!=='216 IN'||h.tolerance!=='-0.0/+1.0'||h.source!=='confirmed')throw Error('a confirmed length with a tolerance is used at its high side');
+ const L=cutCtx.parseLength(h.text,'IN');
+ if(Math.round(L.inches)!==217)throw Error('the cut list must read 217 inches');
+ cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216',tolerance:'-0.0/+1.0',upper:'217 IN'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(cutCtx.st.harnessLength)throw Error('an unconfirmed dimension is still never selected on its own');
+ cutCtx.st={raw:{harnessLengths:[{page:3,label:'CUT',text:'5.0 FT',tolerance:'±2'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('a tolerance in an unknown unit is not added');
+ console.log('PASS: the cut list uses the high side of a printed tolerance (216 -0.0/+1.0 cuts at 217), and only when the unit is clear');
+}

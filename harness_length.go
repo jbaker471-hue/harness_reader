@@ -19,6 +19,8 @@ type HarnessLength struct {
 	// Corroborated is set when the cable quantity in the parts list and the cable callouts both support this length.
 	Corroborated bool   `json:"corroborated,omitempty"`
 	Basis        string `json:"basis,omitempty"`
+	// Upper is the length to cut when the drawing prints a tolerance: the nominal plus the plus side.
+	Upper string `json:"upper,omitempty"`
 }
 
 const maxHarnessLengthPage = 3

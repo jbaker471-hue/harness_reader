@@ -456,3 +456,43 @@ func corroborateLengths(a *Analysis, callouts []GraphicCallout, lengths []Harnes
 	}
 	return out
 }
+
+var (
+	reTolSym  = regexp.MustCompile(`^[±]\s*(\d+(?:\.\d+)?)$|^\+/-\s*(\d+(?:\.\d+)?)$|^\+-\s*(\d+(?:\.\d+)?)$`)
+	reTolPair = regexp.MustCompile(`^(?:[-−]\s*\d+(?:\.\d+)?\s*/\s*\+\s*(\d+(?:\.\d+)?)|\+\s*(\d+(?:\.\d+)?)\s*/\s*[-−]\s*\d+(?:\.\d+)?)$`)
+)
+
+// withUpperLengths adds the length to cut when the drawing prints a tolerance: the nominal plus the plus side
+// ("216 -0.0/+1.0" is cut at 217). It only applies when the length is in inches or has no unit, because the
+// tolerance on a dimension is in the dimension's own unit; a tolerance printed beside a length in another unit
+// is left alone.
+func withUpperLengths(ls []HarnessLength) []HarnessLength {
+	out := make([]HarnessLength, len(ls))
+	copy(out, ls)
+	for i, h := range out {
+		tol := strings.TrimSpace(h.Tolerance)
+		if tol == "" {
+			continue
+		}
+		fields := strings.Fields(h.Text)
+		if len(fields) == 0 || (len(fields) > 1 && !strings.EqualFold(fields[1], "IN")) {
+			continue
+		}
+		nominal, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil || nominal <= 0 {
+			continue
+		}
+		plus := ""
+		if m := reTolSym.FindStringSubmatch(tol); m != nil {
+			plus = m[1] + m[2] + m[3]
+		} else if m := reTolPair.FindStringSubmatch(tol); m != nil {
+			plus = m[1] + m[2]
+		}
+		p, err := strconv.ParseFloat(plus, 64)
+		if plus == "" || err != nil {
+			continue
+		}
+		out[i].Upper = fmtNum(nominal+p) + " IN"
+	}
+	return out
+}

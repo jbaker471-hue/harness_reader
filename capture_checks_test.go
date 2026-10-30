@@ -253,3 +253,22 @@ func TestLengthIsConfirmedOnlyWhenBOMQuantityAndCalloutsAgree(t *testing.T) {
 		t.Fatalf("labelled length changed: %+v", g)
 	}
 }
+
+func TestUpperLengthIsNominalPlusThePlusTolerance(t *testing.T) {
+	for _, c := range []struct{ text, tol, want string }{
+		{"216", "-0.0/+1.0", "217 IN"},
+		{"216 IN", "-0.0/+1.0", "217 IN"},
+		{"216", "+1.0/-0.0", "217 IN"},
+		{"216", "-0.5/+2.5", "218.5 IN"},
+		{"48", "±0.5", "48.5 IN"},
+		{"48", "+/-2", "50 IN"},
+		{"5.0 FT", "±2", ""}, // another unit: the tolerance's unit is not known, so nothing is added
+		{"216", "", ""},
+		{"216", "garbled", ""},
+	} {
+		got := withUpperLengths([]HarnessLength{{Label: "DIMENSION", Text: c.text, Tolerance: c.tol}})[0].Upper
+		if got != c.want {
+			t.Fatalf("%q %q: upper %q, want %q", c.text, c.tol, got, c.want)
+		}
+	}
+}
