@@ -598,7 +598,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  ctx.st.raw={};c=mk({usedCount:5});d=ctx.faceData(c,'front');
  let h=ctx.usedCountHtml(c,0,d);if(!h.includes('HELD')||!h.includes('2 used cavities have no recognized wire'))throw Error('held text missing');
  c=mk({usedCount:3});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('COUNT MATCHES WIRING'))throw Error('match text missing');
- c=mk({});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('No used-contact count is stated'))throw Error('not-stated text missing');
+ c=mk({});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('None stated'))throw Error('not-stated text missing');
  console.log('PASS: stated used-contact count agrees, holds or conflicts with the wiring; manual not-used marks conflict with wires');
 }
 
@@ -752,7 +752,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(e<0||!(ev.indexOf('Page review: rendered sheet')<e)||!(ev.indexOf('Embedded PDF pictures')>e))throw Error('page review stays visible; the secondary evidence tools are collapsed');
  // a connector card: the layout and used/unused pins stay visible; entry fields collapse once the part is known and the card is ready
  const card=src.slice(src.indexOf('function renderConnectors('));
- if(!card.includes("<details class=\"conn-edit\" ${c.part&&ok?'':'open'}>"))throw Error('entry fields collapse only when the part number is known and the card is ready');
+ if(!card.includes('<details class="conn-edit">')||card.includes("'':'open'"))throw Error('manual entry is always one collapsed line; its summary says whether the card is ready');
  const view=src.slice(src.indexOf('function renderFaceView('),src.indexOf('function renderConnectors('));
  if(/<details open><summary><b>Connector identification/.test(view))throw Error('identification details should start collapsed');
  if(!view.includes('never assumed unused'))throw Error('the never-assume-unused statement must remain');
@@ -781,7 +781,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!q.includes('id="quoteQty"')||!q.includes('id="quoteWireRows"')||!q.includes('id="quoteBomRows"')||!q.includes('id="quoteTooling"'))throw Error('quote: inputs and rows must remain');
  const n=html.slice(html.indexOf('id="tab-nets"'),html.indexOf('</section>',html.indexOf('id="tab-nets"')));
  if(!/<details class="techdetails"><summary><b>Logical reconstruction/.test(n)||n.indexOf('id="netRows"')>n.indexOf('Logical reconstruction'))throw Error('nets: the table first, the diagram collapsed after it');
- if(!src.includes('<details class=\\"tool-src\\"><summary>Source</summary>')&&!src.includes('<details class="tool-src"><summary>Source</summary>'))throw Error('tooling: the source stays, behind a Source line');
+ if(!src.includes('tool-src')||!src.includes('Alternate route and source')||!src.includes("/^DOCUMENTED ALTERNATIVE/i"))throw Error('tooling: one tool per line; alternates and the source stay, behind one line');
  console.log('PASS: quote price inputs are one card, net diagram collapses, tooling cards fold their source');
 }
 
@@ -830,4 +830,18 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!/<details class="techdetails"><summary><b>Cable details and shield notes/.test(tab)||tab.indexOf('id="cutStatus"')<tab.indexOf('Cable details and shield notes'))throw Error('cable reference material collapses; the status and rows stay visible');
  if(!/<th>Wire \/ cable<\/th><th>AWG · colour<\/th><th>From → To<\/th><th>Length \(editable\)<\/th><th>Cut \(in\)<\/th><th>Status<\/th>/.test(tab))throw Error('cut list columns');
  console.log('PASS: a confirmed cable length is used with its basis, unconfirmed ones never are, cut list rows are compact');
+}
+
+// Connectors and Tooling trimmed for someone building: what to do first, the reference behind a line.
+{
+ const tool=html.slice(html.indexOf('id="tab-tooling"'),html.indexOf('</section>',html.indexOf('id="tab-tooling"')));
+ if(!/<details class="techdetails"><summary><b>Look up a contact part number/.test(tool)||tool.indexOf('exportRequirements()')>tool.indexOf('Look up a contact part number'))throw Error('the checklist export stays up top; the optional lookup is behind a line');
+ if(!tool.includes('id="quickToolPart"')||!tool.includes('id="quickToolMessage"'))throw Error('lookup elements must remain');
+ const acc=tool.slice(tool.indexOf('id="accessoryPanel"'));
+ if(!(acc.indexOf('id="accessoryProblems"')>0&&acc.indexOf('id="accessoryProblems"')<acc.indexOf('Every accessory check')&&acc.indexOf('Every accessory check')<acc.indexOf('id="accessoryRows"')))throw Error('accessories: problems first, every check behind one line');
+ if(!src.includes("c.status!=='OK'&&c.status!=='INFO'"))throw Error('only checks that are not OK are listed first');
+ const view=src.slice(src.indexOf('function renderFaceView('),src.indexOf('function renderConnectors('));
+ if(!view.includes("fcount(f)>0||ui.filter===f"))throw Error('the Needs attention filter appears only when there is something to attend to');
+ if(view.includes('Click a cavity (or a table row)'))throw Error('one short hint');
+ console.log('PASS: tooling puts the export first and the lookup behind a line, accessories list problems first; connector filters appear only when useful');
 }
