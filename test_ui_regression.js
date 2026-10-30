@@ -772,3 +772,15 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!/<details class="techdetails"><summary><b>Cavity import and candidate evidence/.test(con)||con.indexOf('id="connectorCards"')>con.indexOf('Cavity import and candidate evidence'))throw Error('connectors: cards first, imports collapsed after');
  console.log('PASS: shared cleanup folds introductions, hides repeated titles and collapses secondary tools without removing them');
 }
+
+// Second pass: the quote's price inputs are one card, the net diagram collapses, tooling cards keep the source but fold it.
+{
+ const q=html.slice(html.indexOf('id="tab-quote"'),html.indexOf('</section>',html.indexOf('id="tab-quote"')));
+ if((q.match(/<div class="panel">/g)||[]).length!==2)throw Error('quote: the totals card and one price-inputs card');
+ for(const h of ['Rates','Wire from the cut list','Parts from the BOM','Tooling'])if(!q.includes('>'+h+'</h4>'))throw Error('quote: missing price section '+h);
+ if(!q.includes('id="quoteQty"')||!q.includes('id="quoteWireRows"')||!q.includes('id="quoteBomRows"')||!q.includes('id="quoteTooling"'))throw Error('quote: inputs and rows must remain');
+ const n=html.slice(html.indexOf('id="tab-nets"'),html.indexOf('</section>',html.indexOf('id="tab-nets"')));
+ if(!/<details class="techdetails"><summary><b>Logical reconstruction/.test(n)||n.indexOf('id="netRows"')>n.indexOf('Logical reconstruction'))throw Error('nets: the table first, the diagram collapsed after it');
+ if(!src.includes('<details class=\\"tool-src\\"><summary>Source</summary>')&&!src.includes('<details class="tool-src"><summary>Source</summary>'))throw Error('tooling: the source stays, behind a Source line');
+ console.log('PASS: quote price inputs are one card, net diagram collapses, tooling cards fold their source');
+}
