@@ -784,3 +784,11 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!src.includes('<details class=\\"tool-src\\"><summary>Source</summary>')&&!src.includes('<details class="tool-src"><summary>Source</summary>'))throw Error('tooling: the source stays, behind a Source line');
  console.log('PASS: quote price inputs are one card, net diagram collapses, tooling cards fold their source');
 }
+
+// Review fixes: no duplicate severity tag, a two-column quote total never scrolls sideways, BOM and net ids stay readable.
+{
+ if(!html.includes("String(i.Severity||'').toUpperCase()===String(CAT_LABEL[c]||'').toUpperCase()"))throw Error('alert cards must not repeat the same word as category and severity');
+ if(!html.includes('#quoteTotals table{min-width:0}'))throw Error('the quote totals table must fit its card');
+ if(!html.includes('#bomRows td:nth-child(3) input{min-width:220px}'))throw Error('BOM description field must stay readable');
+ console.log('PASS: alert tags, quote totals and BOM/net fields fixed from the page review');
+}
