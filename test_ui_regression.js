@@ -759,3 +759,16 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!view.includes('${usedCountHtml(c,i,d)}')||view.indexOf('${usedCountHtml(c,i,d)}')>view.indexOf('Connector identification'))throw Error('the stated used-contact count stays visible, outside the collapsed checks');
  console.log('PASS: checking tools are collapsed; layout, pin usage and the used-contact count stay visible');
 }
+
+// Shared cleanup: long introductions fold, duplicate panel titles are hidden, secondary tools collapse, nothing is dropped from the markup.
+{
+ if(!/p\.textContent\.length<150/.test(html)||!html.includes("d.className='why'"))throw Error('long introductions must fold into an About this section line');
+ if(!html.includes('#tab-cutlist>.panel:first-child>h2:first-child'))throw Error('panel titles that repeat the page title are hidden');
+ const lab=html.slice(html.indexOf('id="tab-labor"'),html.indexOf('</section>',html.indexOf('id="tab-labor"')));
+ if(!/<details class="techdetails"><summary><b>Estimate from drawing features/.test(lab)||lab.indexOf('Start with a total-hours guess')>lab.indexOf('Estimate from drawing features'))throw Error('labor: the quick guess stays open; feature estimating collapses');
+ const sec=html.slice(html.indexOf('id="tab-security"'),html.indexOf('</section>',html.indexOf('id="tab-security"')));
+ if(!/<details class="techdetails"><summary><b>Lookup release queue and evidence ledger/.test(sec)||sec.indexOf('Data handling boundary')>sec.indexOf('Lookup release queue'))throw Error('security: the handling boundary stays visible; queue and ledger collapse');
+ const con=html.slice(html.indexOf('id="tab-connectors"'),html.indexOf('id="tab-nets"'));
+ if(!/<details class="techdetails"><summary><b>Cavity import and candidate evidence/.test(con)||con.indexOf('id="connectorCards"')>con.indexOf('Cavity import and candidate evidence'))throw Error('connectors: cards first, imports collapsed after');
+ console.log('PASS: shared cleanup folds introductions, hides repeated titles and collapses secondary tools without removing them');
+}
