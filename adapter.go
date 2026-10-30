@@ -99,8 +99,12 @@ type ViewAnalysis struct {
 		BOMRows    int
 		Category   string
 	} `json:"pageSummary"`
-	PdfText          string   `json:"pdfText"`
-	AssemblyFeatures []string `json:"assemblyFeatures"`
+	PdfText          string          `json:"pdfText"`
+	AssemblyFeatures []string        `json:"assemblyFeatures"`
+	HarnessLengths   []HarnessLength `json:"harnessLengths"`
+	DrawingUnit      *DrawingUnit    `json:"drawingUnit"`
+	DrawingNotes     []DrawingNote   `json:"drawingNotes"`
+	CaptureChecks    []CaptureCheck  `json:"captureChecks"`
 }
 
 func viewAnalysis(b []byte) (ViewAnalysis, error) {
@@ -243,6 +247,8 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 		}
 		v.Issues = append(v.Issues, x)
 	}
+	v.Issues = append(v.Issues, offInsertIssues(&a, v.CavityModels)...)
+	v.Issues = append(v.Issues, drawingWeaknessIssues(&a)...)
 	// ALL drawing-derived records are preliminary and must not bypass source verification.
 	v.Warnings = append(v.Warnings, "Engine: "+x.Engine)
 	v.Warnings = append(v.Warnings, "Interpretation: "+v.Interpretation)
@@ -267,6 +273,26 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 		}
 	}
 	v.PdfText = strings.Join(uniqueStrings(ids), " ")
+	v.HarnessLengths = harnessLengths(d.Pages)
+	v.DrawingUnit = drawingUnitStatement(d.Pages)
+	v.DrawingNotes = drawingNotes(d.Pages)
+	v.HarnessLengths = applyDrawingUnit(v.HarnessLengths, v.DrawingUnit)
+	v.CaptureChecks = captureChecks(&a, v.Callouts, v.HarnessLengths)
+	if v.DrawingUnit == nil {
+		for _, h := range v.HarnessLengths {
+			if h.Label == "DIMENSION" && len(strings.Fields(h.Text)) == 1 {
+				v.Issues = append(v.Issues, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "LENGTH_UNIT_NOT_STATED", Message: "A dimension (" + h.Text + ") is printed with no unit and the drawing states no measurement unit in a note or the title block. It is read as inches only when the parts list confirms it.", Pages: []int{h.Page}, Cavities: []string{}, Action: "Confirm the unit on the sheet before using this length."})
+				break
+			}
+		}
+	}
+	v.HarnessLengths = corroborateLengths(&a, v.Callouts, v.HarnessLengths)
+	v.HarnessLengths = withUpperLengths(v.HarnessLengths)
+	for _, c := range v.CaptureChecks {
+		if c.Status == CheckDisagree {
+			v.Issues = append(v.Issues, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "CAPTURE_READINGS_DISAGREE", Message: c.Title + ": " + c.Message, Connector: c.Connector, Pages: []int{}, Cavities: []string{}, Action: "Compare the readings listed under Capture checks with the sheet."})
+		}
+	}
 	// Whitelisted, local-only process categories; do not return source drawing text.
 	terms := map[string]bool{}
 	for _, p := range d.Pages {
@@ -416,5 +442,83 @@ func specialtyReference() (map[string]any, error) {
 		out = append(out, map[string]any{"part": r[1], "aliases": splitAliases(r[2]), "family": r[3], "kind": "Manufacturer contact", "sex": r[4], "wireRange": r[5], "source": r[8], "status": r[7], "manufacturer": r[0], "steps": steps, "cable": "Manufacturer-specific", "notice": r[9], "insertion": "UNRESOLVED", "removal": "UNRESOLVED"})
 	}
 	return map[string]any{"contacts": out, "guidance": []any{}}, nil
+}
+
+func accessoryReference() ([]any, error) {
+	rows, err := libraryCSV("ACCESSORY_REFERENCE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for _, r := range rows[1:] {
+		if len(r) < 6 {
+			continue
+		}
+		out = append(out, map[string]any{
+			"kind":        r[0],
+			"matches":     splitAliases(r[1]),
+			"class":       r[2],
+			"requirement": r[3],
+			"source":      r[4],
+			"status":      r[5],
+			"specification": func() string {
+				if len(r) > 6 {
+					return r[6]
+				}
+				return ""
+			}(),
+			"alternates": func() []string {
+				if len(r) > 7 {
+					return splitAliases(r[7])
+				}
+				return []string{}
+			}(),
+			"alternateSource": func() string {
+				if len(r) > 8 {
+					return r[8]
+				}
+				return ""
+			}(),
+			"alternateStatus": func() string {
+				if len(r) > 9 {
+					return r[9]
+				}
+				return ""
+			}(),
+		})
+	}
+	return out, nil
+}
+
+func wireCableReference() ([]any, error) {
+	rows, err := libraryCSV("WIRE_CABLE_REFERENCE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for _, r := range rows[1:] {
+		out = append(out, map[string]any{
+			"pattern": r[0], "family": r[1], "construction": r[2],
+			"preparation": r[3], "termination": r[4], "test": r[5],
+			"source": r[6], "status": r[7],
+		})
+	}
+	return out, nil
+}
+
+func toolEquivalenceReference() ([]any, error) {
+	rows, err := libraryCSV("TOOL_EQUIVALENCE_REFERENCE.csv")
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for _, r := range rows[1:] {
+		out = append(out, map[string]any{
+			"specification": r[0], "operation": r[1], "primary": r[2],
+			"alternates": splitToolRoutes(r[3]), "conditions": r[4],
+			"sourcePrimary": r[5], "sourceAlternate": r[6], "status": r[7],
+		})
+	}
+	return out, nil
 }
 func noUnknownCitation() io.Reader { return strings.NewReader("") }

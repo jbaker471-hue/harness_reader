@@ -1,0 +1,73 @@
+kind,code,title,covers,source,status,priority,layout_standard,note
+layout-standard,MIL-STD-1560,Insert arrangements for MIL-DTL-38999 and MIL-DTL-27599,"MIL-DTL-38999 Series I-IV and MIL-DTL-27599: insert arrangements, cavity numbering, contact sizes, X/Y locations",https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36980;https://landandmaritimeapps.dla.mil/Downloads/MilSpec/Docs/MIL-STD-1560/std1560.pdf,SUPPLIED REFERENCE — UNVERIFIED,1,,Revision and current status not checked
+layout-standard,MIL-STD-1669,Insert arrangements for MIL-DTL-26482,MIL-DTL-26482 insert arrangements,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37064,SUPPLIED REFERENCE — UNVERIFIED,2,,Revision and current status not checked
+layout-standard,MIL-STD-1651,Insert arrangements for AS50151 / MIL-DTL-5015,"AS50151 / MIL-DTL-5015, selected MIL-DTL-22992 and MIL-DTL-83723 Series II arrangements",https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37045,SUPPLIED REFERENCE — UNVERIFIED,2,,Supplied text says selected arrangements only; confirm which ones are covered
+layout-standard,MIL-STD-1554,Insert arrangements for MIL-DTL-83723 Series III and MIL-DTL-26500,MIL-DTL-83723 Series III and MIL-DTL-26500,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36974,SUPPLIED REFERENCE — UNVERIFIED,2,,Revision and current status not checked
+layout-standard,MIL-STD-1698,Insert arrangements for MIL-DTL-28840,MIL-DTL-28840 high-shock circular connectors,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37104,SUPPLIED REFERENCE — UNVERIFIED,2,,Revision and current status not checked
+layout-standard,MIL-STD-3067,Insert arrangements for MIL-DTL-32689,MIL-DTL-32689 lightweight circular connectors,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=284646,SUPPLIED REFERENCE — UNVERIFIED,2,,Revision and current status not checked
+family-spec,MIL-DTL-38999,High-density circular connectors Series I-IV,Series I-IV,https://weaponssupportapps.dla.mil/programs/milspec/ListDocs.aspx?BasicDoc=MIL-DTL-38999,SUPPLIED REFERENCE — UNVERIFIED,1,MIL-STD-1560,Collect all slash sheets and amendments
+family-spec,MIL-DTL-27599,Circular connectors sharing MIL-STD-1560 insert arrangements,Listed under MIL-STD-1560,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36980,SUPPLIED REFERENCE — UNVERIFIED,1,MIL-STD-1560,Named only as a MIL-STD-1560 scope item in the supplied list
+family-spec,MIL-DTL-26482,Miniature circular bayonet connectors,Circular bayonet,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-1669,No document-specific URL supplied; general DLA search only
+family-spec,MIL-DTL-5015 / SAE-AS50151,5015-style circular connectors,Circular 5015 style,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-1651,No document-specific URL supplied; general DLA search only
+family-spec,MIL-DTL-83723,Circular connectors Series II and III,Series II and III,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-1651;MIL-STD-1554,Series II maps to MIL-STD-1651 and Series III to MIL-STD-1554 in the supplied list; the part number must say which series
+family-spec,MIL-DTL-26500,Environment-resistant circular connectors,Circular environment-resistant,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-1554,No document-specific URL supplied; general DLA search only
+family-spec,MIL-DTL-22992,Heavy-duty power connectors,Heavy-duty power,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=15928,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-1651,Only selected arrangements are listed under MIL-STD-1651
+family-spec,MIL-DTL-28840,High-shock circular connectors,High-shock circular,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-1698,No document-specific URL supplied; general DLA search only
+family-spec,MIL-DTL-32689,Lightweight circular connectors,Lightweight circular,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,2,MIL-STD-3067,No document-specific URL supplied; general DLA search only
+family-spec,MIL-DTL-24308,D-subminiature rectangular connectors,D-sub,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,3,,No layout standard supplied
+family-spec,MIL-DTL-24308/3,D-sub connector detail specification,D-sub detail sheet,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=17164,SUPPLIED REFERENCE — UNVERIFIED,3,,No layout standard supplied
+family-spec,MIL-DTL-83513,Micro-D rectangular connectors,Micro-D,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=33934,SUPPLIED REFERENCE — UNVERIFIED,3,,No layout standard supplied
+family-spec,MIL-DTL-28748,Rectangular rack-and-panel connectors,Rack and panel,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19223,SUPPLIED REFERENCE — UNVERIFIED,3,,No layout standard supplied
+family-spec,MIL-DTL-55302,Printed-circuit and rectangular connectors,Rectangular / printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29440,SUPPLIED REFERENCE — UNVERIFIED,3,,No layout standard supplied
+family-spec,MIL-DTL-83527,Rack-and-panel connectors,Rack and panel,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,3,,No document-specific URL supplied; general DLA search only
+family-spec,SAE-AS81659,Rack-and-panel connector configurations,Rack and panel,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,3,,No document-specific URL supplied; general DLA search only
+family-spec,SAE-AS81703,Circular connector family,Circular,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,3,,No document-specific URL supplied; general DLA search only
+family-spec,ARINC 404,Avionics rack-and-panel connectors,Avionics rack and panel,,NO SOURCE URL SUPPLIED — UNVERIFIED,3,,ARINC specifications are not on the DLA site; no URL was supplied
+family-spec,ARINC 600,Modular avionics rack-and-panel connectors,Modular avionics,,NO SOURCE URL SUPPLIED — UNVERIFIED,3,,ARINC specifications are not on the DLA site; no URL was supplied
+contact-spec,SAE-AS39029,Military electrical connector contacts,All AS39029 slash sheets,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=217909,SUPPLIED REFERENCE — UNVERIFIED,1,,Collect every applicable slash sheet
+contact-spec,SAE-AS39029/57,Socket contact configurations,Socket contacts,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=217958,SUPPLIED REFERENCE — UNVERIFIED,1,,
+contact-spec,SAE-AS39029/58,Pin contact configurations,Pin contacts,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,1,,No document-specific URL supplied; search DLA ASSIST
+contact-spec,SAE-AS39029/107,Pin contacts,Pin contacts,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=218001,SUPPLIED REFERENCE — UNVERIFIED,1,,
+tooling-spec,SAE-AS81969,Contact insertion and removal tooling,Insertion and removal tools,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=282344,SUPPLIED REFERENCE — UNVERIFIED,1,,
+tooling-spec,SAE-AS81969/15,Specific contact removal tools,Removal tools,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=282336,SUPPLIED REFERENCE — UNVERIFIED,1,,
+backshell-spec,SAE-AS85049,Connector backshells and accessories,Backshells and accessories,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=213243,SUPPLIED REFERENCE — UNVERIFIED,1,,
+backshell-spec,SAE-AS85049/115,Shield-termination backshells,Shield termination,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=213776,SUPPLIED REFERENCE — UNVERIFIED,1,,
+fiber-spec,MIL-PRF-28876,Fiber-optic connector assemblies,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19852,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-28876/1,Fiber-optic slash sheet,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19853,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-28876/7,Fiber-optic slash sheet,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19859,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-28876/10,Fiber-optic slash sheet,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19862,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-28876/11,Fiber-optic slash sheet,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19863,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-28876/26,Fiber-optic slash sheet,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=19871,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-28876/30,Fiber-optic slash sheet,Fiber optic,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=216428,SUPPLIED REFERENCE — UNVERIFIED,4,,
+fiber-spec,MIL-PRF-29504,Fiber-optic termini,Fiber-optic termini,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=20289,SUPPLIED REFERENCE — UNVERIFIED,4,,
+coax-spec,MIL-STD-348,RF coaxial connector interfaces,RF coax interfaces,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,4,,No document-specific URL supplied; general DLA search only
+workmanship,IPC/WHMA-A-620,Cable and wire harness assembly workmanship,Manufacturing and inspection,,NO SOURCE URL SUPPLIED — UNVERIFIED,3,,Supports manufacturing and inspection; not connector cavity geometry
+workmanship,NASA-STD-8739.4,Crimping interconnecting cables harnesses and wiring,Manufacturing and inspection,,NO SOURCE URL SUPPLIED — UNVERIFIED,3,,Supports manufacturing and inspection; not connector cavity geometry
+workmanship,SAE-AS50881,Aerospace vehicle wiring requirements,Manufacturing and inspection,https://www.sae.org/standards,SUPPLIED REFERENCE — UNVERIFIED,3,,Supports manufacturing and inspection; not connector cavity geometry
+manufacturer,Amphenol Aerospace,Amphenol Aerospace documentation,Connectors and contacts,https://www.amphenol-aerospace.com/;https://www.amphenol-aerospace.com/resources/literature/view/38999-catalog.pdf;https://www.amphenol-aerospace.com/products/mil-dtl-38999-connectors/d38999-series-iii-pcb;https://www.amphenol-aerospace.com/products/mil-spec-contacts,SUPPLIED REFERENCE — UNVERIFIED,1,,Insert coordinate tables to be collected
+manufacturer,Glenair,Glenair documentation,Connectors backshells micro-D,https://www.glenair.com/;https://www.glenair.com/catalogs/;https://www.glenair.com/catalogs/circular-connector-backshells-and-accessories.pdf;https://www.glenair.com/micro-d/micro-d-connectors-and-hardware/pdf/mil-dtl-83513-information.pdf,SUPPLIED REFERENCE — UNVERIFIED,1,,
+manufacturer,TE Connectivity,TE Connectivity,Connectors,https://www.te.com/,SUPPLIED REFERENCE — UNVERIFIED,4,,
+manufacturer,ITT Cannon,ITT Cannon,Connectors,https://www.ittcannon.com/,SUPPLIED REFERENCE — UNVERIFIED,4,,
+manufacturer,Souriau / Eaton,Souriau / Eaton,Connectors,https://www.souriau.com/,SUPPLIED REFERENCE — UNVERIFIED,4,,
+manufacturer,Air Electro,Air Electro catalogs,Connectors,https://www.airelectro.com/catalogs/,SUPPLIED REFERENCE — UNVERIFIED,3,,
+manufacturer,Molex,Molex,Connectors,https://www.molex.com/,SUPPLIED REFERENCE — UNVERIFIED,4,,
+manufacturer,Samtec,Samtec,Connectors,https://www.samtec.com/,SUPPLIED REFERENCE — UNVERIFIED,4,,
+manufacturer,Hirose,Hirose,Connectors,https://www.hirose.com/,SUPPLIED REFERENCE — UNVERIFIED,4,,
+manufacturer,Daniels Manufacturing Corporation,DMC,Crimp tooling,https://www.dmcusa.com/,SUPPLIED REFERENCE — UNVERIFIED,1,,
+manufacturer,Astro Tool,Astro Tool,Crimp tooling,https://www.astrotool.com/,SUPPLIED REFERENCE — UNVERIFIED,1,,
+search,DLA ASSIST Quick Search,Official specification search,Specifications,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,1,,
+search,DLA MIL-DTL-38999 collection,Document collection,MIL-DTL-38999,https://weaponssupportapps.dla.mil/programs/milspec/ListDocs.aspx?BasicDoc=MIL-DTL-38999,SUPPLIED REFERENCE — UNVERIFIED,1,,
+search,SAE Standards,SAE standards catalog,SAE standards,https://www.sae.org/standards,SUPPLIED REFERENCE — UNVERIFIED,2,,
+layout-standard,MIL-STD-1674,Insert arrangements for MIL-C-85028 rectangular connectors,MIL-C-85028 rectangular,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37068,SUPPLIED REFERENCE — UNVERIFIED,3,,Revision and current status not checked
+reference-handbook,MIL-HDBK-536,38999 contacts and termini,MIL-DTL-38999 contacts and termini,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=284910,SUPPLIED REFERENCE — UNVERIFIED,1,,Not retrieved: DLA record pages need a browser
+family-spec,MIL-DTL-24308 (record 17161),D-sub document record,D-sub,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=17161,SUPPLIED REFERENCE — UNVERIFIED,3,,Second DLA record for the D-sub family; the /3 slash sheet record is listed separately
+family-spec,MIL-DTL-83527 (record 67471),Multiple insert rack-to-panel connectors,Rack and panel,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=67471,SUPPLIED REFERENCE — UNVERIFIED,3,,Document-specific record for the rack-and-panel family
+family-spec,MIL-DTL-55302/59,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29472,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/61,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29474,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/128,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29533,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/157,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29562,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/159,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=115576,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/176,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=29581,SUPPLIED REFERENCE — UNVERIFIED,3,,
+family-spec,MIL-DTL-55302/190,PCB connector slash sheet,Printed circuit,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=67273,SUPPLIED REFERENCE — UNVERIFIED,3,,
+coax-spec,MIL-STD-348 (record 35726),RF connector interfaces document record,RF coax interfaces,https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=35726,SUPPLIED REFERENCE — UNVERIFIED,4,,Document-specific record
+tooling-spec,SAE-AS22520,Crimp tooling,Crimp tools,https://quicksearch.dla.mil/,SUPPLIED REFERENCE — UNVERIFIED,1,,No document-specific URL supplied; general DLA search only

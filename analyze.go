@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -37,6 +38,7 @@ type WireRow struct {
 	Wire          string `json:"wire,omitempty"`
 	Color         string `json:"color,omitempty"`
 	AWG           string `json:"awg,omitempty"`
+	Length        string `json:"length,omitempty"`
 	Method        string `json:"method,omitempty"`
 	Corroboration int    `json:"corroboration,omitempty"`
 }
@@ -76,6 +78,7 @@ type Analysis struct {
 	PageSummary    []PageSummary    `json:"pageSummary"`
 	ToolingMatches []ToolMatch      `json:"toolingMatches"`
 	Unused         []UnusedCavity   `json:"unused"`
+	UsedCounts     []StatedUsed     `json:"usedCounts"`
 }
 type PageSummary struct {
 	Page       int    `json:"page"`
@@ -161,11 +164,19 @@ func findConnectorWords(p Page) []struct{ Tag, Part string } {
 			tag := ""
 			best := 1e12
 			for _, v := range p.Words {
-				if reTag.MatchString(strings.TrimSpace(v.Text)) && abs(v.Y-w.Y) < 11 {
+				text := strings.TrimSpace(v.Text)
+				// A designator wrapped at its hyphen (GSE-, then P3 on the next baseline) is one tag.
+				for _, u := range p.Words {
+					if strings.HasSuffix(strings.TrimSpace(u.Text), "-") && abs(u.X-v.X) < 3*math.Max(v.Size, 1) && u.Y > v.Y && u.Y-v.Y <= 2.2*math.Max(v.Size, 1) {
+						text = strings.TrimSpace(u.Text) + text
+						break
+					}
+				}
+				if reTag.MatchString(text) && abs(v.Y-w.Y) < 11 {
 					dist := abs(v.X - w.X)
 					if dist < best {
 						best = dist
-						tag = reTag.FindString(v.Text)
+						tag = reTag.FindString(text)
 					}
 				}
 			}
@@ -626,6 +637,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		a.Unused = append(a.Unused, t.unusedRows()...)
 	}
 	a.Unused = dedupeUnused(a.Unused)
+	a.UsedCounts = statedUsedCounts(d)
 	a.Wires = mergeWireRows(a.Wires)
 	a.Connectors = connectorFromBOM(a.BOM)
 	if a.Connectors == nil {

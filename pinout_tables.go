@@ -30,6 +30,7 @@ const (
 	roleAWG    pinRole = "awg"
 	roleTo     pinRole = "to"
 	roleToPin  pinRole = "topin"
+	roleLength pinRole = "length"
 )
 
 var pinHeaderWords = []struct {
@@ -43,6 +44,7 @@ var pinHeaderWords = []struct {
 	{[]string{"WIRE NO", "WIRE #", "WIRE ID", "WIRE", "CONDUCTOR", "CKT"}, roleWire},
 	{[]string{"COLOR", "COLOUR", "CLR", "WIRE COLOR", "INSULATION COLOR"}, roleColor},
 	{[]string{"AWG", "GAUGE", "WIRE SIZE", "WIRE GAUGE", "GA", "SIZE"}, roleAWG},
+	{[]string{"LENGTH", "LEN", "WIRE LENGTH", "CUT LENGTH", "LENGTH IN", "LENGTH INCHES", "LENGTH FT", "LENGTH MM", "LENGTH CM"}, roleLength},
 	{[]string{"TO", "DEST", "DESTINATION", "TERMINATION", "CONNECTS TO", "MATES TO", "TO CONN", "TO CONNECTOR"}, roleTo},
 	{[]string{"FROM", "SOURCE", "FROM CONN", "FROM CONNECTOR", "CONN", "CONNECTOR", "REF DES", "REFDES"}, roleFrom},
 }
@@ -320,7 +322,7 @@ func pinoutTableRows(p Page) []WireRow {
 			if conn == "UNASSIGNED" {
 				conf = "UNASSIGNED CONNECTOR — PINOUT TABLE WITHOUT TITLE; CHECK SOURCE"
 			}
-			out = append(out, WireRow{Page: p.Number, Connector: conn, Cavity: pin, Signal: strings.TrimSpace(c[roleSignal]), End: end, EndCavity: endPin, EndSignal: endSignal, Confidence: conf, Y: l.Y, Wire: c[roleWire], Color: c[roleColor], AWG: c[roleAWG], Method: "pinout-table"})
+			out = append(out, WireRow{Page: p.Number, Connector: conn, Cavity: pin, Signal: strings.TrimSpace(c[roleSignal]), End: end, EndCavity: endPin, EndSignal: endSignal, Confidence: conf, Y: l.Y, Wire: c[roleWire], Color: c[roleColor], AWG: c[roleAWG], Length: strings.TrimSpace(c[roleLength]), Method: "pinout-table"})
 		}
 	}
 	return out

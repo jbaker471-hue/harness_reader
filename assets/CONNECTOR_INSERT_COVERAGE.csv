@@ -1,0 +1,25 @@
+arrangement_id,standard,source,source_page,contacts,contact_size,status,reason
+9-3,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,16,3,20,NOT LOADED,"found 1 coordinate rows, expected 3"
+9-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,16,6,22D,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); missing contact 1
+9-98,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,17,3,20,NOT LOADED,"found 2 coordinate rows, expected 3"
+11-5,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,17,5,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)
+11-6,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,18,6,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)
+11-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,18,13,22D,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); missing contact 1
+13-3,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,19,3,16,NOT LOADED,"found 1 coordinate rows, expected 3"
+13-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,19,22,22D,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); missing contact 1; missing contact 2
+15-18,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,20,18,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)
+15-19,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,20,19,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)
+15-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,21,37,22D,LOADED,Numeric table read and validated
+17-26,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,21,26,20,LOADED,Numeric table read and validated
+17-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,22,55,22D,LOADED,Numeric table read and validated
+19-11,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,23,11,16,NOT LOADED,"no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); found 4 coordinate rows, expected 11"
+19-32,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,23,32,20,LOADED,Numeric table read and validated
+19-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,24,66,22D,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); missing contact 1
+21-27,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,24,27,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)
+21-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,25,79,22D,LOADED,Numeric table read and validated
+21-41,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,26,41,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); missing contact 1
+23-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,27,100,22D,LOADED,Numeric table read and validated
+23-55,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,28,55,20,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored)
+25-31,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,28,31,16,NOT LOADED,no numeric coordinate table: the catalog shows a dimensioned drawing only (stray dimension numbers ignored); contact count / size line not found
+25-35,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,29,128,22D,LOADED,Numeric table read and validated
+25-61,MIL-STD-1560,Amphenol Aerospace MIL-DTL-38999 catalog PDF,30,61,20,LOADED,Numeric table read and validated
