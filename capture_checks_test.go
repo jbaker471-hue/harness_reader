@@ -58,7 +58,7 @@ func TestCaptureChecksAgreeWhenEveryReadingMatches(t *testing.T) {
 	}
 	for _, tag := range []string{"TEST-J1", "BENCH-P2"} {
 		u := checkByID(cs, "UNUSED_CAVITIES", tag)
-		if u == nil || u.Status != CheckAgree || len(u.Methods) != 2 || u.Methods[0].Value != "32" {
+		if u == nil || u.Status != CheckAgree || len(u.Methods) != 4 || u.Methods[0].Value != "32" {
 			t.Fatalf("empty cavities of %s: %+v", tag, u)
 		}
 	}
@@ -92,10 +92,10 @@ func TestCaptureChecksFlagADisagreementAndNeverGuess(t *testing.T) {
 	if len(cc.Methods) != 2 {
 		t.Fatalf("an uneven split must not be used: %+v", cc.Methods)
 	}
-	// plugs that do not split evenly between the connectors are not a reading
+	// plugs that do not split evenly between the connectors are not a reading; the other three still agree
 	a, co, ls = inventedPairedAnalysis()
 	a.BOM[4].Qty = "63"
-	if u := checkByID(captureChecks(&a, co, ls), "UNUSED_CAVITIES", "TEST-J1"); len(u.Methods) != 1 || u.Status != CheckSingle {
+	if u := checkByID(captureChecks(&a, co, ls), "UNUSED_CAVITIES", "TEST-J1"); len(u.Methods) != 3 || u.Status != CheckAgree {
 		t.Fatalf("63 plugs for 2 connectors: %+v", u)
 	}
 	// a wrong plug count disagrees with the wiring
@@ -196,5 +196,36 @@ func TestCaptureChecksDoNotCountPinsOffTheInsertOrCableEnds(t *testing.T) {
 	}
 	if n := checkByID(cs, "CONNECTOR_COUNT", ""); n.Status != CheckAgree {
 		t.Fatalf("a cable's own plug counted as a harness connector: %+v", n)
+	}
+}
+
+func TestTwistedPairMathAddsReadingsAndChecksPairing(t *testing.T) {
+	a, co, ls := inventedPairedAnalysis()
+	cs := captureChecks(&a, co, ls)
+	u := checkByID(cs, "UNUSED_CAVITIES", "TEST-J1")
+	if u == nil || u.Status != CheckAgree || len(u.Methods) != 4 {
+		t.Fatalf("empty cavities should have four readings (wiring, callouts, cable quantity, plugs): %+v", u)
+	}
+	for _, m := range u.Methods {
+		if m.Value != "32" {
+			t.Fatalf("reading %q = %s, want 32", m.Name, m.Value)
+		}
+	}
+	if p := checkByID(cs, "PAIR_STRUCTURE", ""); p == nil || p.Status != CheckAgree {
+		t.Fatalf("pairs: %+v", p)
+	}
+	// a lost wire row leaves one sheet with an odd count
+	a, co, ls = inventedPairedAnalysis()
+	a.Wires = a.Wires[:95]
+	if p := checkByID(captureChecks(&a, co, ls), "PAIR_STRUCTURE", ""); p == nil || p.Status != CheckDisagree {
+		t.Fatalf("an odd sheet must be reported: %+v", p)
+	}
+	// three connectors: the conductor total no longer says how many pins one of them uses
+	a, co, ls = inventedPairedAnalysis()
+	a.Connectors = append(a.Connectors, Connector{Tag: "TEST-J9", CavityCount: 128})
+	for _, m := range checkByID(captureChecks(&a, co, ls), "UNUSED_CAVITIES", "TEST-J1").Methods {
+		if m.Name == "Cavities in the insert − conductors from the cable callouts" {
+			t.Fatal("pair math used on a harness that is not point to point")
+		}
 	}
 }

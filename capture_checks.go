@@ -141,6 +141,9 @@ func captureChecks(a *Analysis, callouts []GraphicCallout, lengths []HarnessLeng
 	}
 
 	// 2. How many conductors there are: wire rows against cable callouts and against the cable quantity.
+	// The two cable-based readings are kept (-1 when unavailable) so the cavity check can use the same pair math.
+	calloutConductors, lengthConductors := -1.0, -1.0
+	pairCables := false
 	{
 		c := CaptureCheck{ID: "CONDUCTOR_COUNT", Title: "Number of conductors"}
 		vals := []float64{}
@@ -185,6 +188,7 @@ func captureChecks(a *Analysis, callouts []GraphicCallout, lengths []HarnessLeng
 		if called > 0 && !ambiguousCallout {
 			c.Methods = append(c.Methods, CaptureMethod{"Cable callouts on the wiring sheets × conductors per cable", fmtNum(conductors), fmt.Sprintf("%s cables called out", fmtNum(cables))})
 			vals = append(vals, conductors)
+			calloutConductors = conductors
 		}
 		// cable quantity from the parts list divided by the length of one cable (unit inferred, so it only counts when it divides evenly)
 		if len(cableItems) > 0 {
@@ -207,12 +211,46 @@ func captureChecks(a *Analysis, callouts []GraphicCallout, lengths []HarnessLeng
 				if ok {
 					c.Methods = append(c.Methods, CaptureMethod{"Cable quantity in the parts list ÷ one cable length × conductors per cable", fmtNum(total), fmt.Sprintf("%s cables of %s in (%s ft), quantities read as feet", fmtNum(cablesByLen), fmtNum(L), fmtNum(L/12))})
 					vals = append(vals, total)
+					lengthConductors = total
 					break
 				}
 			}
 		}
 		settle(&c, vals, "the conductor count")
 		out = append(out, c)
+
+		// Twisted pairs: when every cable is a two-conductor cable, the wiring must come in pairs on every sheet.
+		pairCables = len(cableItems) > 0
+		for _, b := range cableItems {
+			if cableConductors(b) != 2 {
+				pairCables = false
+			}
+		}
+		if pairCables && wires > 0 {
+			pc := CaptureCheck{ID: "PAIR_STRUCTURE", Title: "Twisted pairs"}
+			perPage := map[int]int{}
+			for _, w := range a.Wires {
+				perPage[w.Page]++
+			}
+			pages := make([]int, 0, len(perPage))
+			for p := range perPage {
+				pages = append(pages, p)
+			}
+			sort.Ints(pages)
+			odd := []string{}
+			for _, p := range pages {
+				pc.Methods = append(pc.Methods, CaptureMethod{fmt.Sprintf("Wire rows on sheet %d", p), strconv.Itoa(perPage[p]), fmtNum(float64(perPage[p])/2) + " pairs"})
+				if perPage[p]%2 != 0 {
+					odd = append(odd, strconv.Itoa(p))
+				}
+			}
+			if len(odd) == 0 {
+				pc.Status, pc.Message = CheckAgree, "Every cable is a two-conductor twisted pair and every sheet has an even number of wire rows, so the wiring divides into pairs."
+			} else {
+				pc.Status, pc.Message = CheckDisagree, "Every cable is a two-conductor pair but sheet "+strings.Join(odd, ", ")+" has an odd number of wire rows, so a conductor was missed or added."
+			}
+			out = append(out, pc)
+		}
 	}
 
 	// 3. How many cavities of each connector are empty: wiring against the sealing-plug quantity and any stated count.
@@ -268,6 +306,18 @@ func captureChecks(a *Analysis, callouts []GraphicCallout, lengths []HarnessLeng
 			c.Methods = append(c.Methods, CaptureMethod{"Cavities in the insert − used contacts the drawing states", strconv.Itoa(k.CavityCount - s.Count), fmt.Sprintf("%d used, sheet %d", s.Count, s.Page)})
 			vals = append(vals, float64(k.CavityCount-s.Count))
 		}
+		// Pair math: on a point-to-point harness every conductor ends on one pin of each connector, so the
+		// conductors counted from the cable callouts or from the cable quantity are the pins used here too.
+		if pointToPoint(a, sized) {
+			if calloutConductors >= 0 {
+				c.Methods = append(c.Methods, CaptureMethod{"Cavities in the insert − conductors from the cable callouts", fmtNum(float64(k.CavityCount) - calloutConductors), fmt.Sprintf("%d positions, %s conductors", k.CavityCount, fmtNum(calloutConductors))})
+				vals = append(vals, float64(k.CavityCount)-calloutConductors)
+			}
+			if lengthConductors >= 0 {
+				c.Methods = append(c.Methods, CaptureMethod{"Cavities in the insert − conductors from the cable quantity", fmtNum(float64(k.CavityCount) - lengthConductors), fmt.Sprintf("%d positions, %s conductors", k.CavityCount, fmtNum(lengthConductors))})
+				vals = append(vals, float64(k.CavityCount)-lengthConductors)
+			}
+		}
 		// Plugs are shared between the connectors that take them; only an even split is a reading.
 		if plugLines > 0 && len(sized) > 0 {
 			share := plugs / float64(len(sized))
@@ -319,4 +369,19 @@ func offNote(n int) string {
 		return ""
 	}
 	return fmt.Sprintf(", %d wired pin(s) beyond the insert not counted", n)
+}
+
+// pointToPoint is true when every wire runs between the same two connectors, which is the only case where the
+// conductor total can stand in for the pins used on each one.
+func pointToPoint(a *Analysis, sized []Connector) bool {
+	if len(sized) != 2 || len(a.Wires) == 0 {
+		return false
+	}
+	tags := map[string]bool{sized[0].Tag: true, sized[1].Tag: true}
+	for _, w := range a.Wires {
+		if !tags[w.Connector] || !tags[w.End] || w.Connector == w.End {
+			return false
+		}
+	}
+	return true
 }
