@@ -385,3 +385,74 @@ func pointToPoint(a *Analysis, sized []Connector) bool {
 	}
 	return true
 }
+
+// corroborateLengths marks a length candidate as confirmed when the cable quantity in the parts list divides by it
+// into exactly the number of cables the callouts show, for every cable item that has a callout. Nothing is
+// guessed: a candidate that does not agree on every item stays an unconfirmed candidate.
+func corroborateLengths(a *Analysis, callouts []GraphicCallout, lengths []HarnessLength) []HarnessLength {
+	wiringPages := map[int]bool{}
+	for _, w := range a.Wires {
+		wiringPages[w.Page] = true
+	}
+	items := map[string]BOMRow{}
+	for _, b := range a.BOM {
+		if cableConductors(b) > 0 && strings.TrimSpace(b.Item) != "" {
+			items[canonicalFind(b.Item)] = b
+		}
+	}
+	called := map[string]float64{}
+	for _, k := range callouts {
+		key := canonicalFind(k.Reference)
+		if _, ok := items[key]; !ok || !wiringPages[k.Page] {
+			continue
+		}
+		n := 1.0
+		if q := strings.TrimSpace(k.Quantity); q == "AMBIGUOUS" {
+			return lengths
+		} else if q != "" {
+			if v, err := strconv.ParseFloat(strings.TrimRight(strings.ToLower(q), "x×"), 64); err == nil && v > 0 {
+				n = v
+			}
+		}
+		called[key] += n
+	}
+	if len(called) == 0 {
+		return lengths
+	}
+	out := make([]HarnessLength, len(lengths))
+	copy(out, lengths)
+	for i, h := range out {
+		if h.Label != "DIMENSION" || strings.Contains(strings.ToUpper(h.Text), "IN") {
+			continue
+		}
+		cand := lengthCandidatesInches([]HarnessLength{h})
+		if len(cand) != 1 {
+			continue
+		}
+		L, basis, ok := cand[0], []string{}, true
+		keys := make([]string, 0, len(called))
+		for k := range called {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			q, qok := plainQty(items[k].Qty)
+			if !qok || q <= 0 {
+				ok = false
+				break
+			}
+			n := q * 12 / L
+			if math.Abs(n-math.Round(n)) > 0.02 || math.Round(n) != called[k] {
+				ok = false
+				break
+			}
+			basis = append(basis, fmt.Sprintf("item %s: %s FT ÷ %s FT = %s cables, the same as the cable callouts", strings.TrimSpace(items[k].Item), fmtNum(q), fmtNum(L/12), fmtNum(called[k])))
+		}
+		if ok {
+			out[i].Text = fmtNum(L) + " IN"
+			out[i].Corroborated = true
+			out[i].Basis = strings.Join(basis, "; ")
+		}
+	}
+	return out
+}

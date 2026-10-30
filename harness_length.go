@@ -16,6 +16,9 @@ type HarnessLength struct {
 	Label     string `json:"label"`
 	Text      string `json:"text"` // normalized, for example "48 IN"; the unit is empty when the drawing gives none
 	Tolerance string `json:"tolerance,omitempty"`
+	// Corroborated is set when the cable quantity in the parts list and the cable callouts both support this length.
+	Corroborated bool   `json:"corroborated,omitempty"`
+	Basis        string `json:"basis,omitempty"`
 }
 
 const maxHarnessLengthPage = 3

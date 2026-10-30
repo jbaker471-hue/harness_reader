@@ -812,3 +812,22 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(chkCtx.captureChecksHtml([{...list[1]}]).includes(' open>'))throw Error('agreeing checks stay collapsed');
  console.log('PASS: capture checks list every reading, open on disagreement, stay collapsed when everything agrees, and escape text');
 }
+
+// A length confirmed by the parts list and the cable callouts is used and explained; an unconfirmed dimension never is.
+{
+ cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216 IN',tolerance:'-0.0/+1.0',corroborated:true,basis:'item 4: 666 FT ÷ 18 FT = 37 cables, the same as the cable callouts'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ const h=cutCtx.st.harnessLength;
+ if(!h||h.text!=='216 IN'||h.source!=='confirmed'||!/37 cables/.test(h.basis))throw Error('a confirmed length must be used with its basis');
+ cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216',tolerance:'-0.0/+1.0'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(cutCtx.st.harnessLength)throw Error('an unconfirmed dimension must never be selected');
+ cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216 IN',corroborated:true,basis:'a'},{page:2,label:'DIMENSION',text:'108 IN',corroborated:true,basis:'b'}]},nets:[],bom:[]};
+ cutCtx.autoHarness();
+ if(cutCtx.st.harnessLength)throw Error('two confirmed candidates are left for the user');
+ if(cutCtx.endsText('GSE-P3:9, GSE-P3:16')!=='GSE-P3 pins 9, 16'||cutCtx.endsText('CB-P3:15')!=='CB-P3 pin 15'||cutCtx.endsText('A:1, B:2')!=='A pin 1; B pin 2')throw Error('end labels');
+ const tab=html.slice(html.indexOf('id="tab-cutlist"'),html.indexOf('</section>',html.indexOf('id="tab-cutlist"')));
+ if(!/<details class="techdetails"><summary><b>Cable details and shield notes/.test(tab)||tab.indexOf('id="cutStatus"')<tab.indexOf('Cable details and shield notes'))throw Error('cable reference material collapses; the status and rows stay visible');
+ if(!/<th>Wire \/ cable<\/th><th>AWG · colour<\/th><th>From → To<\/th><th>Length \(editable\)<\/th><th>Cut \(in\)<\/th><th>Status<\/th>/.test(tab))throw Error('cut list columns');
+ console.log('PASS: a confirmed cable length is used with its basis, unconfirmed ones never are, cut list rows are compact');
+}

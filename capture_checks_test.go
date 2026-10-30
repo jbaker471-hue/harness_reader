@@ -229,3 +229,27 @@ func TestTwistedPairMathAddsReadingsAndChecksPairing(t *testing.T) {
 		}
 	}
 }
+
+func TestLengthIsConfirmedOnlyWhenBOMQuantityAndCalloutsAgree(t *testing.T) {
+	a, co, ls := inventedPairedAnalysis()
+	got := corroborateLengths(&a, co, ls)
+	if len(got) != 1 || !got[0].Corroborated || got[0].Text != "216 IN" || got[0].Basis == "" {
+		t.Fatalf("216 in should be confirmed by 666/18=37 and 198/18=11: %+v", got)
+	}
+	// 100 does not divide the cable quantity into the called-out number of cables
+	if g := corroborateLengths(&a, co, []HarnessLength{{Label: "DIMENSION", Text: "100"}}); g[0].Corroborated {
+		t.Fatalf("an uneven split was confirmed: %+v", g)
+	}
+	// 108 divides evenly (74 cables) but the callouts say 37, so it is not confirmed
+	if g := corroborateLengths(&a, co, []HarnessLength{{Label: "DIMENSION", Text: "108"}}); g[0].Corroborated {
+		t.Fatalf("a length that disagrees with the callouts was confirmed: %+v", g)
+	}
+	// no callouts, nothing to confirm against
+	if g := corroborateLengths(&a, nil, ls); g[0].Corroborated {
+		t.Fatalf("confirmed with nothing to compare: %+v", g)
+	}
+	// a labelled length is never rewritten
+	if g := corroborateLengths(&a, co, []HarnessLength{{Label: "CUT", Text: "5 FT"}}); g[0].Corroborated || g[0].Text != "5 FT" {
+		t.Fatalf("labelled length changed: %+v", g)
+	}
+}
