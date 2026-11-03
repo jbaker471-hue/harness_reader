@@ -707,13 +707,15 @@ console.log('PASS: harness length applies only to conductors without their own l
 {
  const ctx={st:{raw:{wires:[{page:2,connector:'P1',cavity:'1',end:'J1',endCavity:'A',method:'pinout-table',confidence:'DRAFT — HEADER-GROUNDED'}],cavityModels:[{tag:'P1',part:'X',all:['1','2'],allVerified:true,wired:['1'],unused:['2'],unusedStatus:'CANDIDATE — confirm every wiring sheet',explicitUnused:[],conflicts:[],views:[{page:2,side:'front',r:20,labeled:2,positions:[{label:'1',x:-5,y:0,r:2},{label:'2',x:5,y:0,r:2}]}]}]},nets:[{wire:'W1',endpoints:'P1:1,J1:A',reviewed:false}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,connFamily:()=>null,safe:s=>String(s).replace(/[&<>\"]/g,''),sortCav:isolate.sortCav};
  vm.createContext(ctx);vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
- const c={tag:'P1',part:'X',occupied:'1',labels:['1','2']};let a=ctx.connectorConfidence(c);
+ const c={tag:'P1',part:'X',occupied:'1',labels:['1','2'],verified:false};let a=ctx.connectorConfidence(c);
  if(a.pin.level!=='MEDIUM'||a.unused.level!=='LOW'||a.layout.level!=='MEDIUM')throw Error('initial confidence levels wrong: '+JSON.stringify(a));
  ctx.st.nets[0].reviewed=true;ctx.st.raw.cavityModels[0].unusedStatus='CORROBORATED — stated count agrees';a=ctx.connectorConfidence(c);
+ if(a.pin.level==='HIGH'||a.unused.level==='HIGH')throw Error('reviewed nets alone must not produce high confidence');
+ c.verified=true;a=ctx.connectorConfidence(c);
  if(a.pin.level!=='HIGH'||a.unused.level!=='HIGH')throw Error('review/corroboration did not raise confidence: '+JSON.stringify(a));
  ctx.st.raw.cavityModels[0].conflicts=['Cavity 2 is wired but also declared unused'];a=ctx.connectorConfidence(c);
  if(a.unused.level!=='HELD')throw Error('source conflict must hold unused confidence');
- ctx.st.raw.wires=[];a=ctx.connectorConfidence(c);if(a.pin.level!=='HIGH')throw Error('reviewed manual/corrected rows should remain high confidence');
+ ctx.st.raw.wires=[];a=ctx.connectorConfidence(c);if(a.pin.level!=='MEDIUM')throw Error('manual/corrected rows without source corroboration must be capped at medium');
  ctx.st.nets=[];a=ctx.connectorConfidence(c);if(a.pin.level!=='HELD')throw Error('missing source and manual rows must hold pinout confidence');
  console.log('PASS: independent pinout, unused-pin and physical-layout confidence levels');
 }
