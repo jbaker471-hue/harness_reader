@@ -5,7 +5,7 @@ from reportlab.lib.colors import HexColor
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "output" / "pdf"
+OUT = ROOT / "testdata" / "synthetic_acceptance"
 OUT.mkdir(parents=True, exist_ok=True)
 PAGE = landscape(letter)
 

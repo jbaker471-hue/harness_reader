@@ -1,0 +1,224 @@
+%PDF-1.4
+%“Œ‹ž ReportLab Generated PDF document (opensource)
+1 0 obj
+<<
+/F1 2 0 R /F2 3 0 R
+>>
+endobj
+2 0 obj
+<<
+/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
+>>
+endobj
+3 0 obj
+<<
+/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
+>>
+endobj
+4 0 obj
+<<
+/Contents 9 0 R /MediaBox [ 0 0 792 612 ] /Parent 8 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+5 0 obj
+<<
+/Contents 10 0 R /MediaBox [ 0 0 792 612 ] /Parent 8 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+6 0 obj
+<<
+/PageMode /UseNone /Pages 8 0 R /Type /Catalog
+>>
+endobj
+7 0 obj
+<<
+/Author (anonymous) /CreationDate (D:20261031174957-05'00') /Creator (anonymous) /Keywords () /ModDate (D:20261031174957-05'00') /Producer (ReportLab PDF Library - \(opensource\)) 
+  /Subject (unspecified) /Title (NON-CUI SYNTHETIC CONFLICT AND MISSING DATA) /Trapped /False
+>>
+endobj
+8 0 obj
+<<
+/Count 2 /Kids [ 4 0 R 5 0 R ] /Type /Pages
+>>
+endobj
+9 0 obj
+<<
+/Length 2971
+>>
+stream
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+.090196 .2 .321569 rg
+n 0 575 792 37 re f*
+1 1 1 rg
+BT /F2 12 Tf 14.4 TL ET
+BT 1 0 0 1 28 592 Tm (NON-CUI SYNTHETIC HARNESS - CONFLICT AND MISSING DATA) Tj T* ET
+BT /F1 8 Tf 9.6 TL ET
+BT 1 0 0 1 631.656 592 Tm (SHEET 1 OF 2  |  TEST DATA ONLY) Tj T* ET
+0 0 0 rg
+BT /F2 10 Tf 12 TL ET
+BT 1 0 0 1 30 548 Tm (CONNECTOR TABLE) Tj T* ET
+.909804 .937255 .960784 rg
+n 30 519 475 17 re B*
+0 0 0 rg
+BT /F2 7 Tf 8.4 TL ET
+BT 1 0 0 1 33 524 Tm (REF DES) Tj T* ET
+BT 1 0 0 1 103 524 Tm (PART NUMBER) Tj T* ET
+BT 1 0 0 1 283 524 Tm (DESCRIPTION) Tj T* ET
+BT /F1 7 Tf 8.4 TL ET
+n 30 502 475 17 re S
+BT 1 0 0 1 33 507 Tm (P1) Tj T* ET
+BT 1 0 0 1 103 507 Tm (D38999/26FJ35PA) Tj T* ET
+BT 1 0 0 1 283 507 Tm (CONNECTOR PLUG - PIN CONTACTS) Tj T* ET
+n 30 485 475 17 re S
+BT 1 0 0 1 33 490 Tm (J2) Tj T* ET
+BT 1 0 0 1 103 490 Tm (D38999/26FJ35SA) Tj T* ET
+BT 1 0 0 1 283 490 Tm (CONNECTOR PLUG - SOCKET CONTACTS) Tj T* ET
+n 100 485 m 100 536 l S
+n 280 485 m 280 536 l S
+BT /F2 10 Tf 12 TL ET
+BT 1 0 0 1 30 430 Tm (WIRE LIST) Tj T* ET
+.909804 .937255 .960784 rg
+n 30 401 472 17 re B*
+0 0 0 rg
+BT /F2 7 Tf 8.4 TL ET
+BT 1 0 0 1 33 406 Tm (WIRE NO.) Tj T* ET
+BT 1 0 0 1 85 406 Tm (FROM) Tj T* ET
+BT 1 0 0 1 139 406 Tm (PIN) Tj T* ET
+BT 1 0 0 1 171 406 Tm (TO) Tj T* ET
+BT 1 0 0 1 225 406 Tm (PIN) Tj T* ET
+BT 1 0 0 1 257 406 Tm (SIGNAL NAME) Tj T* ET
+BT 1 0 0 1 349 406 Tm (GAGE) Tj T* ET
+BT 1 0 0 1 387 406 Tm (COLOR) Tj T* ET
+BT 1 0 0 1 445 406 Tm (LENGTH) Tj T* ET
+BT /F1 7 Tf 8.4 TL ET
+n 30 384 472 17 re S
+BT 1 0 0 1 33 389 Tm (C3-1) Tj T* ET
+BT 1 0 0 1 85 389 Tm (P1) Tj T* ET
+BT 1 0 0 1 139 389 Tm (11) Tj T* ET
+BT 1 0 0 1 171 389 Tm (J2) Tj T* ET
+BT 1 0 0 1 225 389 Tm (K) Tj T* ET
+BT 1 0 0 1 257 389 Tm (DATA_P) Tj T* ET
+BT 1 0 0 1 349 389 Tm (24) Tj T* ET
+BT 1 0 0 1 387 389 Tm (WHT) Tj T* ET
+BT 1 0 0 1 445 389 Tm  T* ET
+n 30 367 472 17 re S
+BT 1 0 0 1 33 372 Tm (C3-2) Tj T* ET
+BT 1 0 0 1 85 372 Tm (P1) Tj T* ET
+BT 1 0 0 1 139 372 Tm (12) Tj T* ET
+BT 1 0 0 1 171 372 Tm (J2) Tj T* ET
+BT 1 0 0 1 225 372 Tm (L) Tj T* ET
+BT 1 0 0 1 257 372 Tm (DATA_N) Tj T* ET
+BT 1 0 0 1 349 372 Tm (24) Tj T* ET
+BT 1 0 0 1 387 372 Tm (BLU) Tj T* ET
+BT 1 0 0 1 445 372 Tm  T* ET
+n 82 367 m 82 418 l S
+n 136 367 m 136 418 l S
+n 168 367 m 168 418 l S
+n 222 367 m 222 418 l S
+n 254 367 m 254 418 l S
+n 346 367 m 346 418 l S
+n 384 367 m 384 418 l S
+n 442 367 m 442 418 l S
+BT /F2 9 Tf 10.8 TL ET
+BT 1 0 0 1 575 548 Tm (SCHEMATIC LABELS) Tj T* ET
+BT /F1 8 Tf 9.6 TL ET
+BT 1 0 0 1 575 530 Tm (CONFLICT: P1 SHIELD FLOAT / BACKSHELL) Tj T* ET
+BT 1 0 0 1 575 514 Tm (LENGTH NOT STATED) Tj T* ET
+.160784 .654902 .631373 RG
+2 w
+n 575 470 m 720 470 l S
+n
+579 470 m
+579 472.2091 577.2091 474 575 474 c
+572.7909 474 571 472.2091 571 470 c
+571 467.7909 572.7909 466 575 466 c
+577.2091 466 579 467.7909 579 470 c
+S
+n
+724 470 m
+724 472.2091 722.2091 474 720 474 c
+717.7909 474 716 472.2091 716 470 c
+716 467.7909 717.7909 466 720 466 c
+722.2091 466 724 467.7909 724 470 c
+S
+ 
+endstream
+endobj
+10 0 obj
+<<
+/Length 1292
+>>
+stream
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+.090196 .2 .321569 rg
+n 0 575 792 37 re f*
+1 1 1 rg
+BT /F2 12 Tf 14.4 TL ET
+BT 1 0 0 1 28 592 Tm (NON-CUI SYNTHETIC HARNESS - CONFLICT AND MISSING DATA) Tj T* ET
+BT /F1 8 Tf 9.6 TL ET
+BT 1 0 0 1 631.656 592 Tm (SHEET 2 OF 2  |  TEST DATA ONLY) Tj T* ET
+0 0 0 rg
+BT /F2 10 Tf 12 TL ET
+BT 1 0 0 1 30 548 Tm (BILL OF MATERIALS) Tj T* ET
+.909804 .937255 .960784 rg
+n 30 519 602 17 re B*
+0 0 0 rg
+BT /F2 7 Tf 8.4 TL ET
+BT 1 0 0 1 33 524 Tm (ITEM) Tj T* ET
+BT 1 0 0 1 71 524 Tm (QTY) Tj T* ET
+BT 1 0 0 1 113 524 Tm (PART NUMBER) Tj T* ET
+BT 1 0 0 1 303 524 Tm (DESCRIPTION) Tj T* ET
+BT 1 0 0 1 563 524 Tm (REF DES) Tj T* ET
+BT /F1 7 Tf 8.4 TL ET
+n 68 519 m 68 536 l S
+n 110 519 m 110 536 l S
+n 300 519 m 300 536 l S
+n 560 519 m 560 536 l S
+BT /F2 10 Tf 12 TL ET
+BT 1 0 0 1 30 330 Tm (DRAWING NOTES) Tj T* ET
+BT /F1 8 Tf 9.6 TL ET
+BT 1 0 0 1 38 310 Tm (1. CABLE C3 IS A TWISTED SHIELDED PAIR.) Tj T* ET
+BT 1 0 0 1 38 288 Tm (2. AT P1 FLOAT THE C3 SHIELD.) Tj T* ET
+BT 1 0 0 1 38 266 Tm (3. AT P1 TERMINATE THE C3 SHIELD TO THE BACKSHELL.) Tj T* ET
+BT 1 0 0 1 38 244 Tm (4. C3 LENGTH IS NOT STATED. BOM IS NOT PROVIDED.) Tj T* ET
+BT /F2 8 Tf 9.6 TL ET
+BT 1 0 0 1 30 45 Tm (SYNTHETIC ACCEPTANCE FIXTURE - NOT A PRODUCTION DRAWING - NO CUSTOMER DATA) Tj T* ET
+ 
+endstream
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000061 00000 n 
+0000000102 00000 n 
+0000000209 00000 n 
+0000000321 00000 n 
+0000000514 00000 n 
+0000000708 00000 n 
+0000000776 00000 n 
+0000001072 00000 n 
+0000001137 00000 n 
+0000004159 00000 n 
+trailer
+<<
+/ID 
+[<ae8d673b515780c4641c4b5eba2fa4f6><ae8d673b515780c4641c4b5eba2fa4f6>]
+% ReportLab generated PDF document -- digest (opensource)
+
+/Info 7 0 R
+/Root 6 0 R
+/Size 11
+>>
+startxref
+5503
+%%EOF

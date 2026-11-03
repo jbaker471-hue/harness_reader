@@ -25,7 +25,7 @@ func TestSyntheticAcceptancePack(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {
-			b, err := os.ReadFile(filepath.Join("output", "pdf", tc.file))
+			b, err := os.ReadFile(filepath.Join("testdata", "synthetic_acceptance", tc.file))
 			if err != nil {
 				t.Fatal(err)
 			}
