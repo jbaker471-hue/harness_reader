@@ -14,7 +14,7 @@ import (
 )
 
 // AppVersion is the single version string shown by the backend and the UI.
-const AppVersion = "2.8.0-candidate"
+const AppVersion = "2.8.1-candidate"
 
 // ---------------------------------------------------------------------------
 // Region review: the user boxes an area of a rendered sheet (BOM, pinout,

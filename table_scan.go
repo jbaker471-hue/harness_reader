@@ -155,8 +155,13 @@ func findTextBOMRows(p Page) []BOMRow {
 // number alone is never sufficient to infer a connector or contact tool.
 func connectorsFromDescribedParts(boms []BOMRow, already []Connector) []Connector {
 	used := map[string]bool{}
+	recognizedParts := map[string]bool{}
 	for _, c := range already {
-		used[strings.ToUpper(c.Part)+"|"+strings.ToUpper(c.Tag)] = true
+		part := strings.ToUpper(strings.TrimSpace(c.Part))
+		used[part+"|"+strings.ToUpper(strings.TrimSpace(c.Tag))] = true
+		if part != "" {
+			recognizedParts[part] = true
+		}
 	}
 	out := []Connector{}
 	context := regexp.MustCompile(`(?i)\b(?:CONNECTOR|PLUG|RECEPTACLE|CONTACT HOUSING|D-SUB|D SUB|MATING HOUSING)\b`)
@@ -167,6 +172,13 @@ func connectorsFromDescribedParts(boms []BOMRow, already []Connector) []Connecto
 		}
 		part := strings.ToUpper(strings.TrimSpace(b.Part))
 		if !valid.MatchString(part) || strings.EqualFold(part, "VARIOUS") {
+			continue
+		}
+		// This is a fallback for parts the primary BOM recognizer did not
+		// cover. A reference such as "P3 GSE" is shortened to "P3" below,
+		// so comparing only exact part/tag pairs can manufacture a duplicate
+		// connector from a part that was already recognized.
+		if recognizedParts[part] {
 			continue
 		}
 		refs := reRefDesignator.FindAllString(strings.ToUpper(b.Reference), -1)

@@ -445,6 +445,13 @@ func (d *pdfDoc) extractText(page references.FPDF_PAGE, pl *PageLayout) error {
 			continue
 		}
 		r := rune(u.Unicode)
+		// PDFium reports a hyphen that ends a wrapped line as U+0002. It is a real hyphen on the drawing
+		// (a reference designator broken as GSE-/P3), so keep it as one instead of dropping it.
+		if r == 2 {
+			if hy, herr := inst.FPDFText_IsHyphen(&requests.FPDFText_IsHyphen{TextPage: tp.TextPage, Index: i}); herr == nil && hy.IsHyphen {
+				r = '-'
+			}
+		}
 		if r == '\r' || r == '\n' {
 			continue
 		}

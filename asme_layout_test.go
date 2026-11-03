@@ -135,16 +135,92 @@ func TestContactSexFromKeyedPartNumber(t *testing.T) {
 }
 
 func TestBottomUpManufacturerAndSecondaryPartColumns(t *testing.T) {
- text:=func(x,y int,s string)string{return fmt.Sprintf("BT /F1 7 Tf 1 0 0 1 %d %d Tm (%s) Tj ET\n",x,y,s)}
- c:=text(50,250,"ITEM")+text(100,250,"QTY")+text(170,250,"DESCRIPTION")+text(370,250,"MANUFACTURE P/N")+text(570,250,"EXAMPLECO P/N")
- c+=text(50,270,"1")+text(100,270,"2")+text(170,270,"CONNECTOR")+text(370,270,"EXAMPLE-101")+text(570,270,"LOCAL-501")
- c+=text(50,290,"2")+text(100,290,"4")+text(170,290,"LABEL")+text(370,290,"EXAMPLE-202")+text(570,290,"LOCAL-602")
- a,err:=AnalyzeDocument(onePagePDF(c,"[0 0 800 600]"));if err!=nil {t.Fatal(err)}
- if len(a.BOM)!=2 {t.Fatalf("BOM %+v",a.BOM)}
- found:=map[string]BOMRow{};for _,r:=range a.BOM {found[r.Item]=r}
- if found["1"].Part!="EXAMPLE-101"||found["1"].PartReference!="LOCAL-501"||found["2"].Part!="EXAMPLE-202"||found["2"].PartReference!="LOCAL-602" {t.Fatalf("part columns merged or lost: %+v",a.BOM)}
- v,err:=viewAnalysis(onePagePDF(c,"[0 0 800 600]"));if err!=nil {t.Fatal(err)}
- if len(v.Boms)!=2 {t.Fatalf("API BOM %+v",v.Boms)}
- for _,r:=range v.Boms {if r.PartReference=="" {t.Fatalf("API dropped secondary part: %+v",r)}}
+	text := func(x, y int, s string) string {
+		return fmt.Sprintf("BT /F1 7 Tf 1 0 0 1 %d %d Tm (%s) Tj ET\n", x, y, s)
+	}
+	c := text(50, 250, "ITEM") + text(100, 250, "QTY") + text(170, 250, "DESCRIPTION") + text(370, 250, "MANUFACTURE P/N") + text(570, 250, "EXAMPLECO P/N")
+	c += text(50, 270, "1") + text(100, 270, "2") + text(170, 270, "CONNECTOR") + text(370, 270, "EXAMPLE-101") + text(570, 270, "LOCAL-501")
+	c += text(50, 290, "2") + text(100, 290, "4") + text(170, 290, "LABEL") + text(370, 290, "EXAMPLE-202") + text(570, 290, "LOCAL-602")
+	a, err := AnalyzeDocument(onePagePDF(c, "[0 0 800 600]"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.BOM) != 2 {
+		t.Fatalf("BOM %+v", a.BOM)
+	}
+	found := map[string]BOMRow{}
+	for _, r := range a.BOM {
+		found[r.Item] = r
+	}
+	if found["1"].Part != "EXAMPLE-101" || found["1"].PartReference != "LOCAL-501" || found["2"].Part != "EXAMPLE-202" || found["2"].PartReference != "LOCAL-602" {
+		t.Fatalf("part columns merged or lost: %+v", a.BOM)
+	}
+	v, err := viewAnalysis(onePagePDF(c, "[0 0 800 600]"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Boms) != 2 {
+		t.Fatalf("API BOM %+v", v.Boms)
+	}
+	for _, r := range v.Boms {
+		if r.PartReference == "" {
+			t.Fatalf("API dropped secondary part: %+v", r)
+		}
+	}
 
+}
+
+func TestBottomUpBOMRowsSplitAcrossSeveralBaselines(t *testing.T) {
+	text := func(x, y int, s string) string {
+		return fmt.Sprintf("BT /F1 7 Tf 1 0 0 1 %d %d Tm (%s) Tj ET\n", x, y, s)
+	}
+	c := text(50, 250, "ITEM") + text(100, 250, "QTY") + text(140, 250, "UNIT") +
+		text(210, 250, "DESCRIPTION") + text(390, 250, "REF DES") +
+		text(470, 250, "SPECIFICATION/MANUFACTURE") + text(610, 250, "MANUFACTURE P/N") +
+		text(735, 250, "EXAMPLECO P/N") + text(850, 250, "NOTES OR REMARKS")
+	// Bottom-up parts lists are encountered continuation-first: the recognizer
+	// must retain several partial baselines until item/qty/part make a valid row.
+	c += text(220, 262, "ENVIRONMENTAL") + text(400, 268, "P1") + text(480, 268, "ACME")
+	c += text(50, 280, "1") + text(100, 280, "1") + text(140, 280, "EA") + text(210, 280, "CONNECTOR PLUG") +
+		text(610, 280, "D38999/26FJ35SN") + text(735, 280, "LOCAL-101")
+	c += text(220, 292, "ENVIRONMENTAL") + text(220, 304, "RECEPTACLE") + text(400, 316, "J2") + text(480, 328, "ACME")
+	c += text(50, 340, "2") + text(100, 340, "1") + text(140, 340, "EA") + text(210, 340, "CONNECTOR") +
+		text(610, 340, "D38999/26FA35PN") + text(735, 340, "LOCAL-202")
+
+	a, err := AnalyzeDocument(onePagePDF(c, "[0 0 1000 700]"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.BOM) != 2 {
+		t.Fatalf("BOM rows %d: %+v", len(a.BOM), a.BOM)
+	}
+	byItem := map[string]BOMRow{}
+	for _, row := range a.BOM {
+		byItem[row.Item] = row
+	}
+	if byItem["1"].Part != "D38999/26FJ35SN" || byItem["1"].Reference != "P1" || byItem["1"].PartReference != "LOCAL-101" {
+		t.Fatalf("first split row: %+v", byItem["1"])
+	}
+	if byItem["2"].Part != "D38999/26FA35PN" || byItem["2"].Reference != "J2" || byItem["2"].PartReference != "LOCAL-202" {
+		t.Fatalf("second split row: %+v", byItem["2"])
+	}
+	if len(a.Connectors) != 2 {
+		t.Fatalf("connectors not recovered from split BOM rows: %+v", a.Connectors)
+	}
+}
+
+func TestDescribedPartFallbackDoesNotDuplicateRecognizedPart(t *testing.T) {
+	boms := []BOMRow{{
+		Part:        "D38999/26FJ35SA",
+		Reference:   "P3 GSE",
+		Description: "CONNECTOR PLUG",
+		Page:        1,
+	}}
+	already := connectorFromBOM(boms)
+	if len(already) != 1 {
+		t.Fatalf("primary connector count = %d, want 1", len(already))
+	}
+	if extra := connectorsFromDescribedParts(boms, already); len(extra) != 0 {
+		t.Fatalf("fallback added %d duplicate connector(s): %#v", len(extra), extra)
+	}
 }
