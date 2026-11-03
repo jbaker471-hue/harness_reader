@@ -24,6 +24,7 @@ func TestDrawingUnitIsReadFromTheDrawingsOwnWords(t *testing.T) {
 		{[]string{"NOTE: DIMENSIONS ARE IN FEET"}, "FT"},
 		{[]string{"UNITS: MM"}, "MM"},
 		{[]string{"DIMENSIONS ARE IN CM"}, "CM"},
+		{[]string{"UNLESSOTHERWISE SPECIFIED: DIMENSIONSARE IN INCHES."}, "IN"},
 		{[]string{"NOTE 1", "INTERPRET DRAWING IAW MIL-DTL-31000"}, ""},
 		{[]string{"CUT 5 FT OF CABLE"}, ""},
 	} {

@@ -333,6 +333,27 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	mux.HandleFunc("/api/compare", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		b, ok := readPDF(w, r)
+		if !ok {
+			return
+		}
+		if !isPDF(b) {
+			http.Error(w, "Expected PDF file", 422)
+			return
+		}
+		// Revision comparison is deliberately side-effect free: the comparison PDF is analyzed
+		// locally but never replaces the current drawing used by page review and reanalysis.
+		v, e := viewAnalysis(b)
+		if e != nil {
+			http.Error(w, "PDF comparison analysis failed: "+e.Error(), 422)
+			return
+		}
+		jsonAnswer(w, v)
+	})
 	mux.HandleFunc("/api/clear", func(w http.ResponseWriter, r *http.Request) {
 		if !post(w, r) {
 			return

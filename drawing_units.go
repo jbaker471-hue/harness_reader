@@ -16,6 +16,20 @@ type DrawingUnit struct {
 
 var reUnitStatement = regexp.MustCompile(`(?i)\b(?:DIM(?:ENSION)?S?|UNITS?|MEASUREMENTS?|LENGTHS?)\b[^.;:]{0,40}?\b(?:ARE\s+|ARE\s+GIVEN\s+|GIVEN\s+|SHOWN\s+|STATED\s+|=\s*|:\s*)?\bIN\s+(INCHES|INCH|IN\.|MILLIMETERS|MILLIMETRES|MILLIMETER|MILLIMETRE|MM|CENTIMETERS|CENTIMETRES|CM|METERS|METRES|METER|METRE|FEET|FOOT|FT)\b`)
 var reUnitColon = regexp.MustCompile(`(?i)\bUNITS?\s*[:=]\s*(INCHES|INCH|MILLIMETERS|MILLIMETRES|MM|CENTIMETERS|CENTIMETRES|CM|METERS|METRES|FEET|FT)\b`)
+var reJoinedUnitWords = regexp.MustCompile(`(?i)\b(DIM(?:ENSION)?S?|UNITS?|MEASUREMENTS?|LENGTHS?)(ARE|GIVEN|SHOWN|STATED)\b`)
+
+func normalizeUnitText(s string) string {
+	// Some CAD PDF producers position adjacent words without a text-space. PDFium then correctly
+	// returns one token such as "DIMENSIONSARE". Repair only the narrow grammar used by unit
+	// statements; do not split arbitrary part numbers or drawing text.
+	for {
+		n := reJoinedUnitWords.ReplaceAllString(s, `$1 $2`)
+		if n == s {
+			return strings.Join(strings.Fields(n), " ")
+		}
+		s = n
+	}
+}
 
 func unitCode(word string) string {
 	switch strings.ToUpper(strings.TrimRight(word, ".")) {
@@ -42,7 +56,7 @@ func drawingUnitStatement(pages []Page) *DrawingUnit {
 		sort.SliceStable(lines, func(i, j int) bool { return lines[i].Y > lines[j].Y })
 		texts := []string{}
 		for _, l := range lines {
-			texts = append(texts, strings.ToUpper(strings.Join(strings.Fields(l.Text), " ")))
+			texts = append(texts, normalizeUnitText(strings.ToUpper(l.Text)))
 		}
 		for i, t := range texts {
 			cands := []string{t}

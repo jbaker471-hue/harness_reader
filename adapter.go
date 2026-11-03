@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var rePhysicalLabelRequirement = regexp.MustCompile(`(?i)^(?:LABEL|LABELS|MARKER|MARKERS)$|\b(?:WIRE|CABLE|IDENTIFICATION|HEAT[- ]?SHRINK)\s+(?:LABEL|LABELS|MARKER|MARKERS)\b|\b(?:LABEL|LABELS|MARKER|MARKERS)\s+(?:WIRE|CABLE)\b`)
+
 type ViewConnector struct {
 	ContactCandidates     []ConnectorContact `json:"ContactCandidates"`
 	ContactMappingStatus  string             `json:"ContactMappingStatus"`
@@ -303,7 +305,6 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 				"SOLDERING":          {"SOLDER", "TINNED"},
 				"WIRE_STRIPPING":     {"STRIP", "JACKET"},
 				"HEAT_SHRINK":        {"SHRINK", "SLEEVING", "BOOT"},
-				"LABELING":           {"LABEL", "MARKER"},
 				"TERMINAL_CRIMPING":  {"CRIMP", "RING TONGUE"},
 			} {
 				for _, hint := range hints {
@@ -311,6 +312,9 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 						terms[k] = true
 					}
 				}
+			}
+			if rePhysicalLabelRequirement.MatchString(strings.TrimSpace(s)) {
+				terms["LABELING"] = true
 			}
 		}
 	}

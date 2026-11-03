@@ -599,7 +599,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			kept := w[:0]
 			for _, r := range w {
 				positional := r.Method == "" || r.Method == "legacy-template"
-				if positional && !strings.HasPrefix(r.Confidence, "DRAFT — HEADER-GROUNDED") && (r.Connector == "UNASSIGNED" || grounded[r.Connector+":"+r.Cavity]) {
+				if positional && !strings.HasPrefix(r.Confidence, "DRAFT — HEADER-GROUNDED") && (len(tr) > 0 || r.Connector == "UNASSIGNED" || grounded[r.Connector+":"+r.Cavity]) {
 					continue
 				}
 				kept = append(kept, r)

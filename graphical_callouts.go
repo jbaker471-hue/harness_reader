@@ -11,21 +11,76 @@ import (
 // GraphicCallout is source-grounded evidence, never a manufacturing instruction.
 // Shapes establish a reference candidate, not its applicability or quantity.
 type GraphicCallout struct {
-	LeaderTargets  [][2]float64 `json:"leaderTargets"`
-	LeaderStatus   string       `json:"leaderStatus"`
-	Page           int          `json:"page"`
-	Box            Box          `json:"box"`
-	Shape          string       `json:"shape"`
-	Reference      string       `json:"reference"`
-	Kind           string       `json:"kind"`
-	Status         string       `json:"status"`
-	Matches        []string     `json:"matches"`
-	DefinitionPage int          `json:"definitionPage,omitempty"`
-	DefinitionBox  *Box         `json:"definitionBox,omitempty"`
-	Quantity       string       `json:"quantity,omitempty"`
+	LeaderTargets    [][2]float64             `json:"leaderTargets"`
+	LeaderStatus     string                   `json:"leaderStatus"`
+	TargetCandidates []CalloutTargetCandidate `json:"targetCandidates"`
+	Page             int                      `json:"page"`
+	Box              Box                      `json:"box"`
+	Shape            string                   `json:"shape"`
+	Reference        string                   `json:"reference"`
+	Kind             string                   `json:"kind"`
+	Status           string                   `json:"status"`
+	Matches          []string                 `json:"matches"`
+	DefinitionPage   int                      `json:"definitionPage,omitempty"`
+	DefinitionBox    *Box                     `json:"definitionBox,omitempty"`
+	Quantity         string                   `json:"quantity,omitempty"`
+}
+
+type CalloutTargetCandidate struct {
+	Text     string  `json:"text"`
+	Kind     string  `json:"kind"`
+	Distance float64 `json:"distance"`
+	Box      Box     `json:"box"`
 }
 
 var calloutID = regexp.MustCompile(`^[0-9]{1,4}[A-Z]?$`)
+var connectorTarget = regexp.MustCompile(`(?i)\b(?:J|P|X|TB|CN|CONN)\s*-?\d+[A-Z]?\b`)
+
+func targetKind(text string) string {
+	u := strings.ToUpper(text)
+	switch {
+	case strings.Contains(u, "BACKSHELL") || strings.Contains(u, "STRAIN RELIEF"):
+		return "backshell / strain relief"
+	case strings.Contains(u, "SPLICE") || strings.Contains(u, "SOLDER SLEEVE") || strings.Contains(u, "DRAIN WIRE"):
+		return "splice / shield termination"
+	case connectorTarget.MatchString(u):
+		return "connector / endpoint"
+	case strings.Contains(u, "DETAIL") || strings.Contains(u, "SECTION") || strings.Contains(u, "VIEW"):
+		return "detail / view"
+	case strings.Contains(u, "AWG") || strings.ContainsAny(u, "_+-"):
+		return "wire / signal"
+	default:
+		return "nearby drawing text"
+	}
+}
+
+func calloutTargetCandidates(p PageLayout, targets [][2]float64, own Box) []CalloutTargetCandidate {
+	out := []CalloutTargetCandidate{}
+	seen := map[string]bool{}
+	for _, t := range targets {
+		for _, w := range p.Words {
+			if own.Intersects(w.Box) || strings.TrimSpace(w.Text) == "" {
+				continue
+			}
+			d := math.Hypot(w.Box.CX()-t[0], w.Box.CY()-t[1])
+			if d > 55 {
+				continue
+			}
+			key := strings.ToUpper(strings.Join(strings.Fields(w.Text), " "))
+			if seen[key] || calloutID.MatchString(key) {
+				continue
+			}
+			seen[key] = true
+			out = append(out, CalloutTargetCandidate{Text: strings.Join(strings.Fields(w.Text), " "), Kind: targetKind(w.Text), Distance: math.Round(d*10) / 10, Box: w.Box})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Distance < out[j].Distance })
+	if len(out) > 5 {
+		out = out[:5]
+	}
+	return out
+}
+
 var calloutQuantity = regexp.MustCompile(`(?i)^([1-9][0-9]{0,3})\s*[x×]$`)
 
 func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
@@ -209,6 +264,7 @@ func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 		}
 		page.LeaderSegments = segments
 		out[i].LeaderTargets, out[i].LeaderStatus = calloutLeaders(page, out[i].Box, out[i].Shape)
+		out[i].TargetCandidates = calloutTargetCandidates(page, out[i].LeaderTargets, out[i].Box)
 	}
 	// Adjacent symbols can share a single leader. Preserve this as an explicit
 	// group candidate; never multiply BOM quantities by the number of symbols.
@@ -251,6 +307,8 @@ func graphicalCallouts(x *DocExtraction, bom []BOMRow) []GraphicCallout {
 		if len(group) > 1 && len(targets) > 0 && len(out[i].LeaderTargets) == 0 {
 			out[i].LeaderTargets = targets
 			out[i].LeaderStatus = "Shared-symbol leader candidate; verify group scope"
+			page := x.Layouts[out[i].Page-1]
+			out[i].TargetCandidates = calloutTargetCandidates(page, targets, out[i].Box)
 		}
 	}
 	return out

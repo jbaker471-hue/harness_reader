@@ -229,7 +229,7 @@ func TestOffInsertPinsBecomeADrawingDiscrepancy(t *testing.T) {
 		t.Fatalf("%+v", iss)
 	}
 	x := iss[0]
-	if x.Code != "PIN_NOT_ON_INSERT" || x.Severity != "REVIEW" || x.Connector != "P7" || strings.Join(x.Cavities, ",") != "112,113" || len(x.Pages) != 1 || x.Pages[0] != 8 {
+	if x.Code != "PIN_NOT_ON_INSERT" || x.Severity != "REVIEW" || x.Connector != "P7" || strings.Join(x.Cavities, ",") != "112,113" || x.Observed != "112, 113" || len(x.Pages) != 1 || x.Pages[0] != 8 {
 		t.Fatalf("%+v", x)
 	}
 	// 13 cavities, 5 valid wired: 8 have no wire; 2 wires need a real cavity, so 6 to 8 are unused

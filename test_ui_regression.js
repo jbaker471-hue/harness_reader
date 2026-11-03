@@ -13,6 +13,11 @@ equal(isolate.sourceCavityModel(fixture,'j2').allVerified,true);
 equal(Array.from(isolate.splitCavs('A, a, 1')),['A','a','1']);
 console.log('PASS: UI syntax, far-end occupancy, candidate merging, case-sensitive cavity IDs, verified model lookup');
 
+if(!html.includes('id="laborOperationCoverage"')||!html.includes('id="laborShowAll"')||!src.includes('const laborCoreOps='))throw Error('labor workflow must require sheet review and keep specialized operations optional');
+if(!html.includes('Technician drawing estimate library')||!html.includes('Link current source PDF')||!html.includes('Open linked drawing')||!html.includes('Compare with prior total-hours references')||!html.includes('Estimate this drawing in three steps:'))throw Error('labor workflow guidance, local drawing links or reference grouping missing');
+if(!src.includes("indexedDB.open('trivex-labor-library',1)")||!src.includes("laborLibraryPut('backup',previous)")||!src.includes('initLabor();laborRestore();')||!src.includes('laborList();laborPersist();'))throw Error('automatic labor-reference save, backup, restore or mutation persistence missing');
+console.log('PASS: concise labor workflow, explicit review gate and on-demand specialized operations');
+
 // Face display must distinguish inferred geometry from verified drawing positions.
 const faceContext={st:{raw:{cavityModels:[{tag:'P1',all:['A','a','1'],allVerified:true,views:[{page:1,side:'front',r:100,positions:[{label:'A',x:20,y:0,r:6},{label:'1',x:-20,y:0,r:6},{label:'',x:0,y:30,r:6}]}]}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs};
 vm.createContext(faceContext);
@@ -52,6 +57,19 @@ for(const bad of [{...target,qty:0},{...target,setup:-1},{...target,counts:{...c
 }
 console.log('PASS: labor setup/quantity arithmetic, actual-vs-estimate precedence and invalid-input rejection');
 
+const rangeCounts={crimpClosedHand:10,label:2};
+let ranged=labor.laborRange(rangeCounts,{},2,1,10);
+if(Math.abs(ranged.low-1.33)>1e-8||Math.abs(ranged.hours-1.6966666666666668)>1e-8||Math.abs(ranged.high-2.466666666666667)>1e-8)throw Error('operation range, quantity, setup or allowance arithmetic failed');
+equal(ranged.breakdown.map(x=>x.key),['crimpClosedHand','label']);
+for(const args of [[{}, {},1,0,0],[rangeCounts,{crimpClosedHand:{low:4,base:2,high:6}},1,0,0],[rangeCounts,{},1,0,101],[{label:1.5},{},1,0,0]]){
+ let rejected=false;try{labor.laborRange(...args)}catch{rejected=true}if(!rejected)throw Error('invalid operation range accepted');
+}
+console.log('PASS: operation low/base/high arithmetic, explicit allowance, breakdown and invalid-input rejection');
+const laborOperationKeys=vm.runInContext('laborOps.map(x=>x[0])',labor);
+for(const key of ['jacketPrep','twistedPrep','shieldTrim','drainPrep','shieldFloat','shieldStandalone','shieldPinSolder','shieldPinOther','shieldPinUnknown','shieldBackshell','shieldConnector','shieldGround','shieldSplice'])if(!laborOperationKeys.includes(key))throw Error('missing shielded-cable preparation or disposition operation '+key);
+equal(labor.laborShieldDisposition({c1:{a:'Not terminated (cut back and insulated)',b:'Backshell'},c2:{a:'Standalone shield lead / pigtail',b:'Shield to pin/contact — solder sleeve'},c3:{a:'Shield to pin/contact — other specified method',b:'Shield to pin/contact — method not classified'},c4:{a:'Connector shell',b:'Ground point'},c5:{a:'Splice',b:''}}),{classified:9,floating:1,standalone:1,pinSolder:1,pinOther:1,pinUnknown:1,backshell:1,connector:1,ground:1,splice:1,unresolved:1});
+console.log('PASS: jacket, twisted-conductor, shield-trim, drain-wire and per-end shield-disposition operations remain separate');
+
 const totals={};vm.createContext(totals);
 vm.runInContext(block('const laborFeatures=', 'function laborTotalAdd('),totals);
 const ref={mode:'total',name:'Invented assembly',scope:'Assembly and test',hoursBasis:'unit',qty:1,estimated:7,actual:null};
@@ -67,23 +85,42 @@ for(const [q,confirmed] of [[0,true],[1.5,true],[2,false]]){
 }
 console.log('PASS: total-hours guesses without operation rates, per-unit/batch normalization, actual precedence and comparison confirmation');
 
+const rom=totals.laborROMValue(6,.5,0,'unit',1,25);
+equal(rom,{entered:6.5,unit:6.5,low:4.875,high:8.125,allowance:25,breakdown:{build:6,test:.5,other:0}});
+equal(totals.laborROMValue(12,1,0,'batch',2,20).unit,6.5);
+for(const args of [[0,0,0,'unit',1,25],[6,.5,0,'bad',1,25],[6,.5,0,'batch',0,25],[6,.5,0,'unit',1,101]]){let rejected=false;try{totals.laborROMValue(...args)}catch{rejected=true}if(!rejected)throw Error('Invalid ROM input accepted');}
+console.log('PASS: ROM build/test split, per-harness normalization and explicit planning range');
+
+const drawingHashA='a'.repeat(64),drawingHashB='b'.repeat(64);
+const stats=totals.laborReferenceStats([
+ {...ref,drawingHash:drawingHashA,technician:'Tech A',estimated:8,actual:10},
+ {...ref,drawingHash:drawingHashA,technician:'Tech B',estimated:12,actual:null},
+ {...ref,drawingHash:drawingHashB,technician:'Tech A',estimated:6,actual:5,features:{},featuresReviewed:true}
+]);
+equal(stats,{entries:3,drawings:2,guesses:3,actuals:2,paired:2,meanBias:.5,meanAbsoluteError:1.5,featureEligible:1});
+let badHashRejected=false;try{totals.laborTotalReference({...ref,drawingHash:'not-a-checksum'})}catch{badHashRejected=true}if(!badHashRejected)throw Error('Invalid drawing checksum accepted');
+let badLinkRejected=false;try{totals.laborTotalReference({...ref,drawingHash:drawingHashA,drawingLinkKey:drawingHashB})}catch{badLinkRejected=true}if(!badLinkRejected)throw Error('Mismatched local drawing link key accepted');
+let badProfileRejected=false;try{totals.laborTotalReference({...ref,observedProfile:{pages:1,conductorRecords:-1,connectors:2,branches:1}})}catch{badProfileRejected=true}if(!badProfileRejected)throw Error('Invalid observed drawing profile accepted');
+let badBreakdownRejected=false;try{totals.laborTotalReference({...ref,laborBreakdown:{build:6,test:.5,other:0}})}catch{badBreakdownRejected=true}if(!badBreakdownRejected)throw Error('Labor breakdown inconsistent with total accepted');
+console.log('PASS: drawing-linked technician guesses, unique drawing counts, actual-vs-guess bias and duplicate-drawing statistics');
+
 (async()=>{
  const nodes={};
  function node(){return {value:'',checked:false,textContent:'',children:[],appendChild(x){this.children.push(x)}}}
  const ctx={$:id=>nodes[id]||(nodes[id]=node()),document:{createElement:node}};
  vm.createContext(ctx);vm.runInContext(block('const laborOps=','async function runBuildPlan('),ctx);
- const data={version:2,references:[ref,{name:'Invented operations',counts,rates,qty:2,setup:1,estimated:9,actual:null}]};
+ const data={version:3,references:[{...ref,drawingHash:drawingHashA,drawingName:'Invented drawing.pdf',technician:'Tech A'},{name:'Invented operations',counts,rates,qty:2,setup:1,estimated:9,actual:null}]};
  await ctx.laborImport({size:100,text:async()=>JSON.stringify(data)});
  equal(vm.runInContext('laborRefs.length',ctx),2);
  equal(vm.runInContext('laborTotalReference(laborRefs[0]).unit',ctx),7);
- equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
+ equal(nodes.laborTotalOutput.textContent,'Reference file loaded and queued for automatic local persistence.');
  await ctx.laborImport({size:100,text:async()=>JSON.stringify({version:2,references:[{...ref,estimated:-1}]})});
  equal(vm.runInContext('laborRefs.length',ctx),2);
  if(!nodes.laborTotalOutput.textContent.startsWith('Import failed:'))throw Error('Import failure not visible');
  ctx.laborRemoveReference(0);equal(vm.runInContext('laborRefs.length',ctx),1);
  await ctx.laborImport({size:100,text:async()=>JSON.stringify({version:1,references:[data.references[1]]})});
  equal(vm.runInContext('laborRefs.length',ctx),1);
- equal(nodes.laborTotalOutput.textContent,'Reference file loaded locally.');
+ equal(nodes.laborTotalOutput.textContent,'Reference file loaded and queued for automatic local persistence.');
  console.log('PASS: mixed reference import, legacy compatibility, atomic rejection and removal');
 })().catch(e=>{console.error(e);process.exitCode=1});
 
@@ -126,7 +163,7 @@ console.log('PASS: secondary BOM part references remain separate and visible in 
 const reviewed={};vm.createContext(reviewed);
 vm.runInContext(block('function reviewedDrawingLabor(', 'function laborUseDrawing(')+block('function preparationRows(', 'function laborTotalReference('),reviewed);
 const state={sourceMatched:true,raw:{branches:['CB-P3']},connectors:[{verified:true},{verified:true}],nets:[{reviewed:true,endpoints:'P8:A, J9:a'}]};
-equal(reviewed.reviewedDrawingLabor(state,true),{conductors:1,connectors:2,branches:1});
+equal(reviewed.reviewedDrawingLabor(state,true),{conductors:1,connectors:2,branches:1,terminationEnds:2});
 for(const bad of [{...state,sourceMatched:false},{...state,nets:[{reviewed:false}]},{...state,nets:[...state.nets,...state.nets]},{...state,nets:[{reviewed:true,endpoints:'P8:A, @UNRESOLVED'}]}]){
  let rejected=false;try{reviewed.reviewedDrawingLabor(bad,true)}catch{rejected=true}if(!rejected)throw Error('Unsafe automatic drawing counts');
 }
@@ -142,20 +179,24 @@ const govNodes={};const govAlerts=[];
 const govNode=()=>({value:'',checked:false,disabled:false,textContent:'',innerHTML:'',className:''});
 const governance={
  st:{raw:{graphicalCallouts:[
-  {kind:'note definition candidate',reference:'7',matches:['APPLY SEALANT TO THE IDENTIFIED TERMINATION'],page:2,box:{x0:10,y0:20,x1:30,y1:40}},
-  {kind:'note reference candidate',reference:'7',matches:['APPLY SEALANT TO THE IDENTIFIED TERMINATION'],page:1,box:{x0:50,y0:60,x1:70,y1:80},definitionPage:2,definitionBox:{x0:10,y0:20,x1:200,y1:50}}
- ]},connectors:[],bom:[{item:'4',part:'ACME-101',description:'PURCHASED MODULE',vendor:'ACME',page:3}],notes:[],cots:[],lookupQueue:[],evidenceLedger:[],securityPolicy:{classification:'restricted',egress:'blocked'}},
+  {kind:'note definition candidate',shape:'hexagon',reference:'7',matches:['APPLY SEALANT TO THE IDENTIFIED TERMINATION'],page:2,box:{x0:10,y0:20,x1:30,y1:40}},
+  {kind:'note reference candidate',shape:'hexagon',reference:'7',matches:['APPLY SEALANT TO THE IDENTIFIED TERMINATION'],page:1,box:{x0:50,y0:60,x1:70,y1:80},definitionPage:2,definitionBox:{x0:10,y0:20,x1:200,y1:50}}
+ ],drawingNotes:[{id:'7',text:'APPLY SEALANT TO THE IDENTIFIED TERMINATION',page:2,box:{x0:10,y0:20,x1:200,y1:50},references:[]}]},connectors:[],bom:[{item:'4',part:'ACME-101',description:'PURCHASED MODULE',vendor:'ACME',page:3}],notes:[],cots:[],lookupQueue:[],evidenceLedger:[],securityPolicy:{classification:'restricted',egress:'blocked'}},
  $:id=>govNodes[id]||(govNodes[id]=govNode()),safe:s=>String(s??''),alert:m=>govAlerts.push(m),csv(){},showReport(){},viewEvidence(){}
 };
 vm.createContext(governance);vm.runInContext(block('// Source-grounded note, supplier-item and controlled lookup registries.','// Window lifecycle:'),governance);
-governance.importDetectedNotes();equal(vm.runInContext('st.notes.length',governance),1);equal(vm.runInContext('st.notes[0].references.length',governance),1);
+governance.importTextNotes();governance.importDetectedNotes();equal(vm.runInContext('st.notes.length',governance),1);equal(vm.runInContext('st.notes[0].references.length',governance),1);
+const noteAudit=governance.noteCompletenessData({drawingNotes:[{id:'1',text:'ONE',references:[]},{id:'3',text:'THREE',references:[]}],graphicalCallouts:[{shape:'hexagon',reference:'9',kind:'note reference candidate',matches:[]}]},[{reviewed:false}],{circle:'bom',triangle:'note',hexagon:'note'});
+equal(Array.from(noteAudit.missingSequence),[2]);equal(noteAudit.unresolvedCallouts.length,1);equal(noteAudit.withoutReferences.length,2);
+const noteDiff=governance.compareDrawingNotes([{id:'1',text:'SAME',page:1,box:{x0:1,y0:1,x1:2,y1:2},references:[]},{id:'2',text:'NEW WORDING',page:1,references:[]}],[{id:'1',text:'SAME',page:2,box:{x0:1,y0:1,x1:2,y1:2},references:[]},{id:'2',text:'OLD WORDING',page:1,references:[]},{id:'3',text:'REMOVED',page:1,references:[]}]);
+equal(noteDiff.map(x=>x.status),['relocated','wording changed','only in comparison']);
 governance.seedCOTSFromBOM();equal(vm.runInContext('st.cots[0].itemClass',governance),'Unresolved — review');
 governance.$('lookupPart').value='ACME-101';governance.$('lookupProvider').value='manufacturer';governance.$('releaseAuthority').checked=true;
 governance.queueLookup();equal(vm.runInContext('st.lookupQueue.length',governance),0);
 vm.runInContext("st.securityPolicy={classification:'public',egress:'part-only'}",governance);governance.queueLookup();equal(vm.runInContext('st.lookupQueue.length',governance),1);
 equal(vm.runInContext('st.lookupQueue[0].payload.drawingContextIncluded',governance),false);
 equal(Array.from(vm.runInContext('Object.keys(st.lookupQueue[0].payload)',governance)),['partNumber','provider','requestedFields','drawingContextIncluded']);
-console.log('PASS: notes retain definition/reference locations, COTS is never inferred, and restricted lookup is blocked');
+console.log('PASS: note completeness, revision changes and locations; COTS is never inferred; restricted lookup is blocked');
 
 const bandTooling={
  unique:a=>[...new Set(a)],
@@ -322,17 +363,33 @@ const shielded={shieldPresent:'yes'},unshielded={shieldPresent:'no'};
 equal(cutCtx.shieldTermStatus(cabRow,shielded,{}),{needed:true,a:'',b:'',complete:false});
 equal(cutCtx.shieldTermStatus(cabRow,shielded,{'C:A+B':{a:'Backshell',b:''}}).complete,false);
 equal(cutCtx.shieldTermStatus(cabRow,shielded,{'C:A+B':{a:'Backshell',b:'Ground point'}}).complete,true);
+equal(cutCtx.shieldTermStatus(cabRow,shielded,{'C:A+B':{a:'Shield to pin/contact — method not classified',b:'Backshell'}}).complete,false);
 equal(cutCtx.shieldTermStatus(cabRow,unshielded,{}).needed,false);
 equal(cutCtx.shieldTermStatus(cabRow,{shieldPresent:'unknown'},{}).needed,false);   // unknown shield: nothing is assumed either way
 equal(cutCtx.shieldTermStatus({cable:false,key:'W:1'},shielded,{}).needed,false);   // single wires carry no cable shield
 equal(cutCtx.shieldTermStatus(cabRow,null,{}).needed,false);
+equal(cutCtx.shieldDispositionText('TRIM SHIELD, CUT BACK AND INSULATE; FLOAT AT P1'),'Not terminated (cut back and insulated)');
+equal(cutCtx.shieldDispositionText('SHIELD SHALL BE TIED TO BACKSHELL'),'Backshell');
+equal(cutCtx.shieldDispositionText('CONNECT SHIELD TO CONNECTOR SHELL'),'Connector shell');
+equal(cutCtx.shieldDispositionText('PULL CONDUCTORS THROUGH SHIELD TO FORM STANDALONE SHIELD LEAD'),'Standalone shield lead / pigtail');
+equal(cutCtx.shieldDispositionText('TERMINATE SHIELD TO CONTACT 12 WITH SOLDER SLEEVE'),'Shield to pin/contact — solder sleeve');
+equal(cutCtx.shieldDispositionText('CRIMP SHIELD TO CONTACT 12'),'Shield to pin/contact — other specified method');
+equal(cutCtx.shieldDispositionText('TAKE SHIELD TO PIN 12'),'Shield to pin/contact — method not classified');
+equal(cutCtx.shieldDispositionText('TERMINATE SHIELD AT GROUND POINT'),'Ground point');
+equal(cutCtx.shieldDispositionText('SHIELD SPLICE PER DETAIL'),'Splice');
+equal(cutCtx.shieldDispositionText('BACKSHELL REQUIRED'), '');
+const noteRow={wire:'W1',from:'P1:1',to:'P2:2'};
+const noteSet=[{id:'7',text:'TRIM SHIELD AND FLOAT AT P1 END',scope:'Referenced items only',appliesTo:'W1',page:2,reviewed:true},{id:'8',text:'SHIELD SHALL BE TIED TO BACKSHELL AT P2',scope:'Referenced items only',appliesTo:'W1',page:3,reviewed:true},{id:'9',text:'GROUND SHIELD AT P1',scope:'Referenced items only',appliesTo:'W1',page:4,reviewed:false}];
+equal(cutCtx.shieldNoteCandidate(noteRow,'a',noteSet),{value:'Not terminated (cut back and insulated)',noteId:'7',page:2,conflict:false});
+equal(cutCtx.shieldNoteCandidate(noteRow,'b',noteSet),{value:'Backshell',noteId:'8',page:3,conflict:false});
+if(cutCtx.shieldNoteCandidate(noteRow,'a',[...noteSet,{id:'10',text:'GROUND SHIELD AT P1',scope:'Referenced items only',appliesTo:'W1',page:5,reviewed:true}]).conflict!==true)throw Error('conflicting reviewed shield notes not held');
 const consHtml=cutCtx.constructionHtml({signalConductors:2,twist:{value:'',status:'NOT STATED'},groups:{value:'1 pair',status:'STATED IN BOM TEXT'},shieldPresent:'yes',overallShield:{value:'Single silver-coated copper braid',status:'DECODED FROM PART NUMBER'},individualShields:{value:'',status:'NOT STATED'},drain:{value:'',status:'NOT STATED'},notes:['CONFLICT: pair count <x> mismatch','The shield is not a signal conductor.']});
 if((consHtml.match(/NOT STATED/g)||[]).length!==3)throw Error('unstated attributes must read NOT STATED, not default');
 if(!consHtml.includes('CONFLICT</span>')||consHtml.includes('<x>'))throw Error('conflict not surfaced or text not escaped');
 const shieldBlock=cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:2}));
 if(!shieldBlock.blockers.some(b=>/2 shielded cable\(s\) have no shield termination/.test(b)))throw Error('open shield terminations must block the quote');
 if(cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:0})).blockers.some(b=>/shield/.test(b)))throw Error('no shield blocker expected when all are recorded');
-console.log('PASS: cable construction display, shield termination tracking and quote blocker');
+console.log('PASS: cable construction, reviewed-note shield disposition candidates, conflict holds and quote blocker');
 
 // Overall harness length from the drawing: used only for conductors with no length of their own.
 const hNets=[{id:'A',endpoints:'P1:1, J1:1',wire:'W1',awg:'22',color:'RED'},{id:'B',endpoints:'P1:2, J1:2',wire:'W2',awg:'22',color:'BLK',length:'30 IN'},{id:'C',endpoints:'P1:3, J1:3',wire:'W3',awg:'22',color:'WHT',length:'bad'}];
@@ -899,12 +956,12 @@ console.log('PASS: harness length applies only to conductors without their own l
 
 // Numbered notes read from the drawing are added as soon as it is read, once, and stay candidates.
 {
- const n={st:{raw:{drawingNotes:[{id:'1',text:'INTERPRET DRAWING IAW EXAMPLE-STD-1.',page:1},{id:'10',text:'ALL UNUSED CONTACT OPENINGS SHALL BE POPULATED.',page:1}]},notes:[]}};
+ const n={st:{raw:{drawingNotes:[{id:'1',text:'INTERPRET DRAWING IAW EXAMPLE-STD-1.',page:1,box:{x0:10,y0:20,x1:200,y1:30},references:[]},{id:'10',text:'ALL UNUSED CONTACT OPENINGS SHALL BE POPULATED.',page:1,box:{x0:10,y0:40,x1:240,y1:50},references:[{page:4,box:{x0:300,y0:200,x1:390,y1:215},text:'SEE NOTE 10',method:'Explicit NOTE-number text'}]}]},notes:[]}};
  vm.createContext(n);vm.runInContext(block('function importTextNotes(','function importDetectedNotes('),n);
  if(n.importTextNotes()!==2||n.st.notes.length!==2)throw Error('both notes are added');
  if(n.importTextNotes()!==0||n.st.notes.length!==2)throw Error('importing twice must not duplicate');
  const x=n.st.notes[1];
- if(x.id!=='10'||x.status!=='DETECTED — REVIEW REQUIRED'||x.reviewed!==false||!/NOTES block/.test(x.method)||x.page!==1)throw Error('a read note is a candidate until reviewed: '+JSON.stringify(x));
+ if(x.id!=='10'||x.status!=='DETECTED — REVIEW REQUIRED'||x.reviewed!==false||!/detected note block/.test(x.method)||x.page!==1||!x.box||x.references.length!==1||x.references[0].page!==4)throw Error('a read note must retain its definition and reference locations until reviewed: '+JSON.stringify(x));
  n.st.raw={};if(n.importTextNotes()!==0)throw Error('no notes, nothing added');
  if(!/importTextNotes\(\);\s*\$\('bomVerified'\)/.test(src))throw Error('notes must be imported as part of reading the drawing');
  console.log('PASS: numbered notes are added when a drawing is read, once, as review candidates');

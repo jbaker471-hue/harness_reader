@@ -22,7 +22,9 @@ if ($LASTEXITCODE -ne 0 -or $goVersion -notmatch 'go1\.24\.7\s') {
     throw "Expected Go 1.24.7, got: $goVersion"
 }
 
-$env:GOFLAGS = "-mod=vendor"
+# The portable build must not depend on repository ownership/trust settings or
+# embed workstation-specific VCS metadata.
+$env:GOFLAGS = "-mod=vendor -buildvcs=false"
 $env:GOPROXY = "off"
 $env:GOTOOLCHAIN = "local"
 $env:CGO_ENABLED = "0"
@@ -43,4 +45,13 @@ if ($LASTEXITCODE -ne 0) { throw "Windows build failed" }
 
 node scripts/smoke.js .\Trivex_Harness_Auditor_v2.8.exe
 if ($LASTEXITCODE -ne 0) { throw "Executable smoke test failed" }
-Get-FileHash Trivex_Harness_Auditor_v2.8.exe -Algorithm SHA256
+$exePath = Join-Path $PSScriptRoot "Trivex_Harness_Auditor_v2.8.exe"
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+$stream = [System.IO.File]::OpenRead($exePath)
+try {
+    $hash = [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace("-", "")
+} finally {
+    $stream.Dispose()
+    $sha256.Dispose()
+}
+[PSCustomObject]@{ Algorithm = "SHA256"; Hash = $hash; Path = $exePath }

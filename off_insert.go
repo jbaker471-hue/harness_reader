@@ -76,6 +76,7 @@ func offInsertIssues(a *Analysis, models []CavityModel) []ViewIssue {
 			msg += " Affected: " + strings.Join(sigs, "; ") + "."
 		}
 		out = append(out, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "PIN_NOT_ON_INSERT", Message: msg, Connector: m.Tag, Part: m.Part, Pages: pg, Cavities: off,
+			Expected: fmt.Sprintf("cavity IDs from the verified %d-position insert", len(m.All)), Observed: strings.Join(off, ", "),
 			Action: "Send back to engineering: the wire list uses pin numbers that the connector part number cannot have."})
 	}
 	return out

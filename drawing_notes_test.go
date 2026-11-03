@@ -64,6 +64,9 @@ func TestNumberedNotesAreReadWithTheirWrappedLinesAndNotTheTable(t *testing.T) {
 		if want[n.ID] != n.Text {
 			t.Fatalf("note %s = %q, want %q", n.ID, n.Text, want[n.ID])
 		}
+		if n.Box == nil || n.Box.W() <= 0 || n.Box.H() <= 0 {
+			t.Fatalf("note %s has no bounded definition location: %+v", n.ID, n)
+		}
 		if strings.Contains(n.Text, "EXAMPLE CONNECTOR") || strings.Contains(n.Text, "EX-1000") {
 			t.Fatalf("the parts table leaked into note %s: %q", n.ID, n.Text)
 		}
@@ -73,11 +76,40 @@ func TestNumberedNotesAreReadWithTheirWrappedLinesAndNotTheTable(t *testing.T) {
 	}
 }
 
-func TestNoNotesWithoutANotesHeading(t *testing.T) {
+func TestExplicitNoteReferencesAreLinkedBySheetAndBareNumbersAreIgnored(t *testing.T) {
+	defs := inventedNotesPage()
+	refs := Page{Number: 2, Width: 1530, Height: 985, PageAccurate: true}
+	add := func(x float64, text string) {
+		refs.Words = append(refs.Words, Word{Text: text, X: x, Y: 500, Size: 7, X1: x + 0.55*7*float64(len(text))})
+	}
+	x := 100.0
+	for _, word := range strings.Fields("INSTALL PER NOTES 3 AND 10") {
+		add(x, word)
+		x += 0.55*7*float64(len(word)) + 3
+	}
+	// A bare number is deliberately not a note reference.
+	refs.Words = append(refs.Words, Word{Text: "5", X: 900, Y: 300, Size: 7, X1: 904})
+	got := drawingNotes([]Page{defs, refs})
+	byID := map[string]DrawingNote{}
+	for _, n := range got {
+		byID[n.ID] = n
+	}
+	for _, id := range []string{"3", "10"} {
+		n := byID[id]
+		if len(n.References) != 1 || n.References[0].Page != 2 || n.References[0].Box.W() <= 0 {
+			t.Fatalf("note %s references: %+v", id, n.References)
+		}
+	}
+	if len(byID["5"].References) != 0 {
+		t.Fatalf("bare number became a note reference: %+v", byID["5"].References)
+	}
+}
+
+func TestHeadinglessNumberedNoteBlockIsReadButPartsListIsNot(t *testing.T) {
 	p := inventedNotesPage()
 	p.Words = p.Words[4:] // drop the heading
-	if got := drawingNotes([]Page{p}); len(got) != 0 {
-		t.Fatalf("numbers with no NOTES heading were taken as notes: %+v", got)
+	if got := drawingNotes([]Page{p}); len(got) != 5 {
+		t.Fatalf("a headingless numbered construction-note block was not read: %+v", got)
 	}
 	// a page that is only a parts list
 	q := Page{Number: 1, Width: 1530, Height: 985, PageAccurate: true}
