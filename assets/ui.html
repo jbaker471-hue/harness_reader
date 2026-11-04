@@ -162,16 +162,16 @@ function showLocalRecognitionCheck(){
 // values as technician estimates and completed-job actuals become available.
 const laborOps=[
  ['cutkit','Measure, cut and identify conductor',1,2,4,'conductor'],
- ['strip','Strip conductor end',.4,.8,1.8,'end'],
+ ['strip','Strip conductor end — local observed time (10 s; a twisted pair is 2 ends)',.1667,.1667,.1667,'end'],
  ['crimp','Crimp — style not yet classified',1,2.5,6,'termination'],
- ['crimpClosedHand','Crimp — closed-barrel contact, hand tool',.7,1.4,3,'termination'],
+ ['crimpClosedHand','Crimp — closed-barrel contact, hand tool — local observed time (15 s, stripping excluded)',.25,.25,.25,'termination'],
  ['crimpPowered','Crimp — powered/bench applicator',.3,.7,1.5,'termination'],
  ['crimpOpen','Crimp — open-barrel contact/terminal',1,2,4,'termination'],
  ['crimpFerrule','Crimp — ferrule or splice',.7,1.5,3,'termination'],
  ['crimpLarge','Crimp — large lug/hydraulic',2,5,12,'termination'],
  ['coax','Coax/twinax/triax multi-step termination',6,12,25,'termination'],
  ['solder','Solder termination',2,5,12,'termination'],
- ['insert','Insert and retention-check contact',.3,.7,1.5,'contact'],
+ ['insert','Identify cavity, verify and insert contact — local observed time (2:32)',2.5333,2.5333,2.5333,'contact'],
  ['route','Route conductor on board/in bundle',.5,1.2,3,'conductor'],
  ['jacketPrep','Remove/trim outer jacket and prepare cable end',2,5,12,'cable end'],
  ['twistedPrep','Trim, untwist and dress pair/triad/quad',2,5,12,'cable end'],
@@ -179,7 +179,7 @@ const laborOps=[
  ['braidTrimEnd','Braid trimming — local observed time',2,2,2,'cable end'],
  ['drainPrep','Trim, sleeve and dress drain wire',1,3,7,'drain end'],
  ['label','Print/apply label or marker',1,2.5,5,'label'],
- ['band','Install shield/backshell band',2,5,10,'band'],
+ ['band','Install shield/backshell band — local estimate (5 min per band)',5,5,5,'band'],
  ['crimpRing','Install backshell crimp ring',3,7,15,'ring'],
  ['clamp','Assemble clamp-style backshell/strain relief',2,5,12,'backshell'],
  ['shield','Shield termination — disposition not yet classified',4,10,20,'shield end'],
@@ -197,8 +197,8 @@ const laborOps=[
  ['heatShrinkEnd','Install heat shrink — local observed time',3,3,3,'cable end'],
  ['backshell','Other backshell assembly',2,5,12,'backshell'],
  ['tie','Tie, lace or tape bundle',.3,.8,2,'occurrence'],
- ['test','Continuity test circuit',.2,.6,1.5,'circuit'],
- ['inspect','Visual/workmanship inspection point',.2,.6,1.5,'point']
+ ['test','Continuity test (ring-out) — local observed time (10:00 per 128 circuits)',.0781,.0781,.0781,'circuit'],
+ ['inspect','Inspect contact/socket position — local observed time (3:32 per 128 sockets)',.0276,.0276,.0276,'position']
 ];
 let laborRefs=[];
 function laborBase(counts,rates){
@@ -469,7 +469,7 @@ function laborRefreshRows(){
  for(const [k] of laborOps){const row=$('laborRow_'+k),count=Number($('laborCount_'+k)?.value||0);if(row)row.hidden=!(showAll||laborCoreOps.has(k)||count>0)}
 }
 function initLabor(){
- $('laborRows').innerHTML=laborOps.map(([k,label,low,base,high,unit])=>'<tr id="laborRow_'+k+'"><td>'+label+'<div class="small muted">per '+unit+'</div></td><td><input id="laborCount_'+k+'" type="number" min="0" step="'+(unit==='foot'?'0.1':'1')+'" value="0" oninput="laborRefreshRows()"></td><td><input id="laborLow_'+k+'" type="number" min="0" step="0.1" value="'+low+'"></td><td><input id="laborBase_'+k+'" type="number" min="0" step="0.1" value="'+base+'"></td><td><input id="laborHigh_'+k+'" type="number" min="0" step="0.1" value="'+high+'"></td></tr>').join('');
+ $('laborRows').innerHTML=laborOps.map(([k,label,low,base,high,unit])=>'<tr id="laborRow_'+k+'"><td>'+label+'<div class="small muted">per '+unit+'</div></td><td><input id="laborCount_'+k+'" type="number" min="0" step="'+(unit==='foot'?'0.1':'1')+'" value="0" oninput="laborRefreshRows()"></td><td><input id="laborLow_'+k+'" type="number" min="0" step="any" value="'+low+'"></td><td><input id="laborBase_'+k+'" type="number" min="0" step="any" value="'+base+'"></td><td><input id="laborHigh_'+k+'" type="number" min="0" step="any" value="'+high+'"></td></tr>').join('');
  if(!$('laborTechBuild')){
   const total=$('laborTechGuessInput'),row=total.closest('.row'),parts=document.createElement('div');parts.id='laborTechComponents';parts.className='row';parts.innerHTML='<label>Build / assembly hours <input id="laborTechBuild" type="number" min="0" step="0.1" value="0" oninput="renderLaborTechTotal()"></label><label>Pin-to-pin / test hours <input id="laborTechTest" type="number" min="0" step="0.1" value="0" oninput="renderLaborTechTotal()"></label><label>Other labor hours <input id="laborTechOther" type="number" min="0" step="0.1" value="0" oninput="renderLaborTechTotal()"></label><label>ROM planning range ±% <input id="laborTechROMRange" type="number" min="0" max="100" step="1" value="25" oninput="renderLaborTechTotal()"></label>';row.parentNode.insertBefore(parts,row);total.readOnly=true;total.parentElement.childNodes[0].textContent='Computed total labor hours ';const totalText=document.createElement('div');totalText.id='laborTechTotalText';totalText.className='small muted';total.parentElement.appendChild(totalText);
   const save=document.querySelector('button[onclick="laborCaptureDrawingReference()"]'),use=document.createElement('button');use.textContent='Use current ROM in quote';use.onclick=laborUseCurrentROM;save.parentNode.insertBefore(use,save.nextSibling);const link=document.createElement('button');link.textContent='Link current source PDF';link.onclick=laborLinkCurrentDrawing;save.parentNode.insertBefore(link,use.nextSibling);const linkStatus=document.createElement('span');linkStatus.id='laborLinkStatus';linkStatus.className='small muted';linkStatus.textContent='No persistent source link stored yet.';save.parentNode.appendChild(linkStatus);const output=document.createElement('div');output.id='laborRomOutput';output.className='callout';output.textContent='Enter build and test hours to create a quote ROM.';save.parentNode.parentNode.insertBefore(output,$('laborStats'));const persistence=document.createElement('div');persistence.id='laborPersistenceStatus';persistence.className='small muted';persistence.textContent='Checking automatic local reference storageâ€¦';$('laborStats').parentNode.insertBefore(persistence,$('laborStats'));renderLaborTechTotal();
@@ -524,8 +524,8 @@ async function runBuildPlan(){
      const ep=parseEndpoint(endpoint);if(ep?.kind==='cavity'&&ep.tag===String(c.tag).toUpperCase())wires.push({cavity:ep.cavity,awg:n.awg||'',wire:n.wire||n.id||''});
    }}
    for(const cav of splitCavs(c.occupied)){if(!wires.some(w=>w.cavity===cav))wires.push({cavity:cav,awg:'',wire:''})}
-   const unusedVerified=connectorConfidence(c).unused.level==='HIGH';
-   return {tag:c.tag,part:c.part,all:c.labels||[],allSource:model?.allVerified?model.allSource:(c.profile?.source||c.evidence||'manual entry'),allVerified:!!(c.verified&&c.labels?.length&&c.labels.length===c.capacity&&!model?.conflicts?.length),unused:unusedVerified?(model?.unused||[]):(model?.explicitUnused||[]).map(u=>u.cavity),unusedVerified,wired:wires,contact:c.contactOverride||''};
+   const unusedVerified=inferredUnusedReady(c),modelInventory=!!(model?.allVerified&&model.all?.length&&!model.conflicts?.length);
+   return {tag:c.tag,part:c.part,all:modelInventory?model.all:(c.labels||[]),allSource:model?.allVerified?model.allSource:(c.profile?.source||c.evidence||'manual entry'),allVerified:modelInventory||!!(c.verified&&c.labels?.length&&c.labels.length===c.capacity&&!model?.conflicts?.length),unused:unusedVerified?(model?.unused||[]):(model?.explicitUnused||[]).map(u=>u.cavity),unusedVerified,wired:wires,contact:c.contactOverride||''};
  });
  const req={policy:$('planPolicy').value,buildQty:Math.max(1,Number($('buildQty').value)||1),connectors,bom:st.bom.map(b=>({item:String(b.item||''),part:String(b.part||''),qty:asRequired(b)?'A/R':String(b.qtyText||b.qty||''),description:String(b.description||'')}))};
  try{
@@ -706,6 +706,8 @@ const FACE_FILTERS={all:null,wired:['wired'],notused:['unused'],problem:['open',
 const FACE_FILTER_LABEL={all:'All',wired:'Wired',notused:'Not used',problem:'Needs attention'};
 const FACE_MODE_LABEL={both:'Front and rear',front:'Front only',rear:'Rear only'};
 function faceFilterMatch(filter,status){const f=FACE_FILTERS[filter];return !f||f.includes(status)}
+// A cavity released by process of elimination is shown and filtered as not used.
+function faceVisual(status,ready){return ready&&status==='open'?'unused':status}
 const faceUi={};
 function faceUiOf(c){return faceUi[c.id]||(faceUi[c.id]={mode:'both',filter:'all',sel:'',flip:false})}
 function faceRefresh(i){const c=st.connectors[i],e=$('face-view-'+i);if(c&&e)e.innerHTML=renderFaceView(c,i);}
@@ -716,8 +718,40 @@ function faceDetail(c,id,d,net){
  const rows=net.get(id)||[],status=faceStatus(d,id,net);
  return [c.tag+':'+(id||'UNLABELED'),status.toUpperCase(),faceAction(c,status),...rows.map(r=>'Wire '+(r.wire||'not stated')+' | signal '+(r.signal||'not stated')+' | '+(r.awg||'?')+' AWG | '+(r.color||'color not stated')+' | far end '+(r.far||'not stated'))].join(' · ');
 }
-function inferredUnusedReady(c){return connectorConfidence(c).unused.level==='HIGH'}
-function faceAction(c,status){return status==='open'&&inferredUnusedReady(c)?'INFERRED NOT USED — independently reconciled and ready for the specified unused-position preparation':FACE_ACTION[status]}
+// Process of elimination: unused = the connector's verified cavity inventory minus every wired cavity
+// found on the drawing. It is released automatically when nothing on the drawing contradicts it,
+// and rated higher when an independent comparison agrees. No technician checkbox is required.
+function eliminationStatus(c){
+ const fam=connFamily(c.part,c.arrangement),d=faceData(c,'front',fam),net=faceNetRows(c.tag),tag=String(c.tag||'').toUpperCase();
+ const wires=st.raw?.wires||[],raw=wires.filter(w=>String(w.connector||'').toUpperCase()===tag||String(w.end||'').toUpperCase()===tag);
+ const hold=[],agree=[];
+ if(!(d.m?.allVerified&&d.all.length))hold.push('the cavity inventory for this connector is not known from the drawing or a matching catalog layout');
+ if(!raw.length&&!net.size&&!d.occupied.size)hold.push('no wires were found for this connector, so nothing can be eliminated');
+ if(d.m?.conflicts?.length)hold.push(d.m.conflicts.length+' drawing conflict'+(d.m.conflicts.length===1?'':'s')+' on this connector');
+ if(String(d.m?.unusedStatus||'').startsWith('HELD'))hold.push(String(d.m.unusedStatus));
+ const offInsert=[...new Set([...d.occupied,...net.keys()])].filter(id=>d.all.length&&!d.all.includes(id));
+ if(offInsert.length)hold.push('wires on cavities this insert does not have: '+offInsert.join(', '));
+ const wiredExplicit=[...d.explicit].filter(id=>d.occupied.has(id)||net.has(id));
+ if(wiredExplicit.length)hold.push('cavities marked unused but also wired: '+wiredExplicit.join(', '));
+ const unassigned=wires.filter(w=>String(w.connector||'').toUpperCase()==='UNASSIGNED').length;
+ if(unassigned)hold.push(unassigned+' wire row'+(unassigned===1?'':'s')+' on the drawing could not be tied to a connector and might belong here');
+ const mentions=wires.filter(w=>String(w.end||'')==='UNRESOLVED ENDPOINT'&&new RegExp('\\b'+tag.replace(/[^A-Z0-9]/g,'')+'\\b').test(String(w.endSignal||'').toUpperCase().replace(/[-_]/g,''))).length;
+ if(mentions)hold.push(mentions+' wire row'+(mentions===1?'':'s')+' name this connector at a far end that could not be read');
+ if(d.usedState==='held'||d.usedState==='over')hold.push('the stated count of '+d.usedStated+' used contacts ('+d.usedSource+') does not match the '+d.wiredCount+' wired cavities found');
+ const weak=raw.filter(w=>/CANDIDATE|UNASSIGNED|CHECK ENDPOINT/i.test(String(w.confidence||''))||!String(w.method||'').trim());
+ if(weak.length)hold.push(weak.length+' wire row'+(weak.length===1?'':'s')+' were read by position, not from a table heading');
+ if(d.usedStated&&d.usedState!=='held'&&d.usedState!=='over'&&d.wiredCount===d.usedStated)agree.push('the stated count of '+d.usedStated+' used contacts ('+(d.usedSource||'entered')+') matches the wired cavities');
+ const explicitFree=[...d.explicit].filter(id=>!d.occupied.has(id)&&!net.has(id));
+ if(explicitFree.length&&!wiredExplicit.length)agree.push(explicitFree.length+' cavit'+(explicitFree.length===1?'y':'ies')+' the drawing marks unused '+(explicitFree.length===1?'is':'are')+' among the eliminated ones');
+ if(raw.length&&raw.every(w=>Number(w.corroboration)>=2))agree.push('every wire for this connector is listed consistently in two or more places on the drawing');
+ const solid=(d.v?.positions||[]).filter(p=>p.label&&p.mark==='solid').map(p=>String(p.label));
+ if(solid.length){const wired=new Set([...d.occupied,...net.keys()]);if(solid.length===wired.size&&solid.every(id=>wired.has(id)))agree.push('the filled cavities on the drawn face view are exactly the wired cavities')}
+ const eliminated=[...d.open];
+ const level=hold.length?'HOLD':agree.length?'CONFIRMED':'ELIMINATED';
+ return {level,hold,agree,eliminated,explicit:explicitFree,total:d.all.length,wired:d.wiredCount};
+}
+function inferredUnusedReady(c){return eliminationStatus(c).level!=='HOLD'}
+function faceAction(c,status){if(status!=='open')return FACE_ACTION[status];const e=eliminationStatus(c);return e.level==='CONFIRMED'?'NOT USED (by elimination, confirmed: '+e.agree[0]+'): pre-populate per the fill policy':e.level==='ELIMINATED'?'NOT USED (by elimination: no wire on the drawing goes here): pre-populate per the fill policy':FACE_ACTION[status]}
 function faceHover(i,id,side){const c=st.connectors[i];if(!c)return;const d=faceData(c,side||'front',connFamily(c.part,c.arrangement)),net=faceNetRows(c.tag),el=$('face-info-'+i);if(el)el.textContent=faceDetail(c,id,d,net)}
 function faceToggle(i,side){const c=st.connectors[i];faceSides[c.id]=side;const target=$('face-view-'+i);if(target)target.innerHTML=renderFaceView(c,i)}
 const famCache=new Map();
@@ -809,10 +843,10 @@ function renderLayoutLibrary(){
 const FACE_SIDE_LABEL={front:'FRONT · mating face',rear:'REAR · wire / contact insertion side'};
 function faceSvg(c,i,side,net,fam,ui){
  ui=ui||{mode:'both',filter:'all',sel:'',flip:false};
- const d=faceData(c,side,fam),list=d.kind==='assumed-grid',geo=d.kind==='family',kindGeo=geo;
+ const d=faceData(c,side,fam),list=d.kind==='assumed-grid',geo=d.kind==='family',kindGeo=geo,ready=inferredUnusedReady(c);
  const fill={wired:'#168873',unused:'#f6e7c8',open:'#fff',provisional:'#fff8e8',offinsert:'#c94b4b',conflict:'#c94b4b',unresolved:'#e0e8ee'};
  const dot=d.pts.map(p=>{
-  const id=p.id,status=faceStatus(d,id,net),arg=JSON.stringify(id).replace(/"/g,'&quot;'),dim=!faceFilterMatch(ui.filter,status),sel=ui.sel!==''&&ui.sel===id;
+  const id=p.id,status=faceVisual(faceStatus(d,id,net),ready),arg=JSON.stringify(id).replace(/"/g,'&quot;'),dim=!faceFilterMatch(ui.filter,status),sel=ui.sel!==''&&ui.sel===id;
   const stroke=status==='conflict'||status==='offinsert'?'#9d2230':status==='unused'||status==='open'||status==='provisional'?'#b27d29':'#426279';
   const click=i>=0?` onclick="faceSelect(${i},${arg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();faceSelect(${i},${arg})}"`:'';
   const mark=status==='provisional'?`<path d="M${p.x-4} ${p.y-4}l8 8 M${p.x+4} ${p.y-4}l-8 8" stroke="#d6a052" stroke-width="2"/>`:status==='unused'?`<path d="M${p.x-5} ${p.y-5}l10 10 M${p.x+5} ${p.y-5}l-10 10" stroke="#8a5a12" stroke-width="3"/>`:status==='open'?`<path d="M${p.x-4} ${p.y-4}l8 8 M${p.x+4} ${p.y-4}l-8 8" stroke="#b27d29" stroke-width="2"/>`:'';
@@ -896,7 +930,7 @@ function pinUsageHtml(c,i){
   if(inferredReady&&g.open.length)why.push(g.open.length+' inferred from the reconciled connector inventory minus the complete reviewed pinout'+(d.usedState==='agree'?', also matching the stated count of '+d.usedStated+' used contacts':''));
   parts.push(`<p class="small"><b>Not used (${notUsed.length}):</b> ${safe(compressRanges(notUsed))}<br><span class="muted">${safe(why.join(' · '))}. Prepare these only with the drawing-specified unused-position treatment.</span></p>`);
  }else if(hasInventory&&!prov.length&&!g.unresolved.length)parts.push('<p class="small"><b>Not used:</b> none; every cavity carries a wire.</p>');
- if(unaccounted.length)parts.push('<p class="callout bad"><b>UNACCOUNTED — HOLD ('+unaccounted.length+'):</b> '+safe(compressRanges(unaccounted))+'. These are inventory-minus-wire candidates, but the independent evidence gates are not complete. Do not pull contacts or install filler contacts/sealing plugs until the pinout, conductor coverage and layout reconcile.</p>');
+ if(unaccounted.length)parts.push('<p class="callout bad"><b>UNACCOUNTED — HOLD ('+unaccounted.length+'):</b> '+safe(compressRanges(unaccounted))+'. No wire on the drawing goes to these cavities, but process of elimination is on hold because '+safe(eliminationStatus(c).hold.join('; ')||'the cavity inventory is not known')+'. Do not pre-populate them until that is resolved.</p>');
  const held=String(d.m?.unusedStatus||'').startsWith('HELD')?d.m.unusedStatus:'';
  if(off.length)parts.push('<p class="callout bad"><b>Not on this insert ('+off.length+'):</b> '+safe(compressRanges(off))+' are wired on the drawing but the insert has only '+d.all.length+' cavities (numbers '+safe(compressRanges(d.all.slice(0,1).concat(d.all.slice(-1))))+'). Check the drawing, the part number or the pin numbers.</p>');
  if(prov.length)parts.push('<p class="small"><b>Probably not used, provisional ('+prov.length+'):</b> '+safe(compressRanges(prov))+'<br><span class="muted">Every cavity that has no wire. Not confirmed because the sources conflict (see above).'+(off.length?' If the '+off.length+' off-insert wire'+(off.length>1?'s are':' is')+' real, each needs one of these cavities, so '+Math.max(0,prov.length-off.length)+' to '+prov.length+' of them are unused.':'')+' Each unused cavity gets a sealing plug, no wire.</span></p>');
@@ -923,12 +957,11 @@ function connectorConfidence(c){
  }else if(netRows.length)pin=allReviewed&&c.verified?{level:'MEDIUM',why:`${netRows.length} manually entered or corrected net row${netRows.length===1?' was':'s were'} independently reviewed, but no machine-readable source rows corroborate them.`,action:'Keep at MEDIUM unless source extraction independently corroborates the same pin mapping; perform pin-to-pin test.'}:{level:'LOW',why:`${netRows.length} manually entered or corrected net row${netRows.length===1?' exists':'s exist'}, but independent review is incomplete.`,action:'Review each row against the rendered drawing and independently check the source pin list and insert layout.'};
  const held=String(d.m?.unusedStatus||'').startsWith('HELD'),corroborated=String(d.m?.unusedStatus||'').startsWith('CORROBORATED')||d.usedState==='agree';
  const explicit=[...d.explicit].filter(id=>!d.occupied.has(id)&&!net.has(id)),derived=[...d.open],hasUnused=explicit.length+derived.length>0;
- let unused={level:'HELD',why:'The exact unused-pin list is not currently supportable.',action:'Resolve the cavity inventory, wiring coverage, and every source conflict before using an unused-pin list.'};
- if(d.m?.allVerified&&d.all.length&&!held&&!d.m?.conflicts?.length&&(raw.length||netRows.length)){
-  if(sourceStrong&&(corroborated||derived.length===0)&&allReviewed&&c.verified&&coverageAttested&&factClean)unused={level:'HIGH',why:`Exact ${d.all.length}-cavity inventory; ${explicit.length} explicitly marked and ${derived.length} inferred unused; source extraction, every conductor/run count, every net, complete wiring-sheet coverage, the sourced used-contact count, and the source pin list/insert layout independently agree.`,action:'Use the reconciled cavity list for pre-pinning/pre-population, then confirm the drawing revision and specified sealing/filler policy.'};
-  else if(corroborated||allReviewed)unused={level:'MEDIUM',why:`Exact cavity inventory with no conflicts; ${hasUnused?explicit.length+derived.length+' unused candidate'+(explicit.length+derived.length===1?'':'s'):'no unused cavities'}; one independent review signal is still missing.`,action:'Confirm all wiring sheets and the unused-position note or used-contact count.'};
-  else unused={level:'LOW',why:`Exact cavity inventory, but the ${derived.length} derived open position${derived.length===1?'':'s'} rely on complete wire recognition that has not been reviewed.`,action:'Review every wiring sheet; do not kit plugs from this list yet.'};
- }
+ const el=eliminationStatus(c);
+ let unused;
+ if(el.level==='CONFIRMED')unused={level:'HIGH',why:`By elimination: ${el.total} cavities minus ${el.wired} wired = ${el.eliminated.length+el.explicit.length} not used. Confirmed because ${el.agree.join('; ')}. Nothing on the drawing contradicts it.`,action:'Pre-populate the unused cavities per the fill policy. Still perform the drawing-required pin-to-pin test.'};
+ else if(el.level==='ELIMINATED')unused={level:'MEDIUM',why:`By elimination: ${el.total} cavities minus ${el.wired} wired = ${el.eliminated.length+el.explicit.length} not used. Nothing on the drawing contradicts it, but the drawing gives no second count to compare with.`,action:'Ready to pre-populate. The pin-to-pin test after build is the final check.'};
+ else unused={level:'HELD',why:'Process of elimination is on hold: '+el.hold.join('; ')+'.',action:'Resolve the listed item in Page review; the unused list is released automatically once nothing contradicts it.'};
  const incomplete=d.missingPositions.length||d.unknownPositions.length||d.unlabelledPositions||d.repeatedPositions.length;
  let layout={level:'HELD',why:'No sourced physical cavity placement is available.',action:'Use a reviewed drawing face view or an exact-part insert-layout reference.'};
  if(d.kind==='drawing'&&!incomplete){
@@ -955,13 +988,13 @@ function renderFaceView(c,i){
  const rows=ids.map(id=>{const r=(net.get(id)||[])[0]||{},s=faceStatus(d,id,net);return `<tr class="${ui.sel===id?'sel':''}" onclick="faceSelect(${i},${arg(id)})"><td>${safe(id)}</td><td>${safe(c.profile?.contactCandidates?.[0]?.contactSize||'?')}</td><td>${safe(r.wire||'—')}</td><td>${safe(r.awg||'—')}</td><td>${safe(r.color||'—')}</td><td>${safe(s==='open'?(inferredUnusedReady(c)?'inferred not used':'unaccounted'):s)}</td><td>${safe(faceAction(c,s))}</td><td>${safe(why(id,s))}</td></tr>`}).join('');
  const incomplete=d.kind==='drawing'&&(d.missingPositions.length||d.unknownPositions.length||d.unlabelledPositions||d.repeatedPositions.length);
  const modeBtn=m=>`<button type="button" aria-pressed="${ui.mode===m}" onclick="faceSetMode(${i},'${m}')">${FACE_MODE_LABEL[m]}</button>`;
- const fcount=f=>ids.filter(id=>faceFilterMatch(f,faceStatus(d,id,net))).length;
+ const ready=inferredUnusedReady(c),fcount=f=>ids.filter(id=>faceFilterMatch(f,faceVisual(faceStatus(d,id,net),ready))).length;
  const filterBtn=f=>`<button type="button" aria-pressed="${ui.filter===f}" onclick="faceSetFilter(${i},'${f}')">${FACE_FILTER_LABEL[f]} (${fcount(f)})</button>`;
  const sides=(ui.mode==='both'?['front','rear']:[ui.mode]).map(s=>faceSvg(c,i,s,net,fam,ui)).join('');
  const sel=ui.sel&&ids.includes(ui.sel)?faceDetail(c,ui.sel,d,net):'Click a cavity for its details.';
  const inferenceReady=inferredUnusedReady(c),unusedIds=ids.filter(id=>faceStatus(d,id,net)==='unused'||(inferenceReady&&faceStatus(d,id,net)==='open')),openIds=inferenceReady?[]:ids.filter(id=>faceStatus(d,id,net)==='open');
- const notUsed=unusedIds.length?`<div class="face-notused"><b>NOT USED on this connector (${unusedIds.length}):</b> ${safe(unusedIds.join(', '))}<br><span class="small">${cnt.unused} explicitly marked, ${inferenceReady?cnt.open:0} inferred by reconciling the complete reviewed pinout against the verified connector inventory. Apply only the drawing-specified unused-position treatment.</span></div>`:'';
- const unaccounted=openIds.length?`<div class="callout bad"><b>UNACCOUNTED — HOLD (${openIds.length}):</b> ${safe(openIds.join(', '))}. These positions are candidates, but the independent pinout, conductor-coverage and connector-layout gates have not all passed. Do not remove contacts or install plugs yet.</div>`:'';
+ const notUsed=unusedIds.length?`<div class="face-notused"><b>NOT USED on this connector (${unusedIds.length}):</b> ${safe(unusedIds.join(', '))}<br><span class="small">${cnt.unused} marked unused on the drawing or by you, ${inferenceReady?cnt.open:0} found by elimination (no wire on the drawing goes to them). Apply only the drawing-specified unused-position treatment.</span></div>`:'';
+ const unaccounted=openIds.length?`<div class="callout bad"><b>UNACCOUNTED — HOLD (${openIds.length}):</b> ${safe(openIds.join(', '))}. No wire on the drawing goes to these cavities, but process of elimination is on hold because ${safe(eliminationStatus(c).hold.join('; ')||'the cavity inventory is not known')}. Do not pre-populate them until that is resolved.</div>`:'';
  return `<div class="facebox"><div class="row" style="justify-content:space-between"><b>Layout of ${safe(c.tag||'this connector')}, front and rear · DRAFT</b><span class="tag ${complete&&inferenceReady?'warn':'bad'}">${d.m?.allVerified&&d.all.length?`Wired ${cnt.wired} · not used ${cnt.unused+(inferenceReady?cnt.open:0)} · ${inferenceReady?'reconciled':'unaccounted '+cnt.open}${cnt.provisional?' (+'+cnt.provisional+' provisional)':''} of ${d.all.length}${complete?'':' · view incomplete'}`:'Cavity inventory NOT VERIFIED'}</span></div><div class="face-ctl" role="group" aria-label="View"><span class="small">View</span>${['both','front','rear'].map(modeBtn).join('')}<span class="small" style="margin-left:10px">Show</span>${Object.keys(FACE_FILTERS).filter(f=>f==='all'||fcount(f)>0||ui.filter===f).map(filterBtn).join('')}</div><div class="row" style="align-items:flex-start;gap:12px">${sides}</div><div class="face-legend"><span style="color:#168873">Wired: contact + wire</span><span style="color:#8a5a12">✕ Not used (explicit or reconciled)</span><span style="color:#b27d29">✕ Unaccounted (hold)</span><span style="color:#c94b4b">Conflict</span><span style="color:#8ca2b6">Unresolved</span></div><div class="face-detail small" id="face-info-${i}" aria-live="polite">${safe(sel)}</div>${ui.sel&&ids.includes(ui.sel)?`<div class="face-ctl"><button type="button" onclick="faceToggleUnused(${i},${arg(ui.sel)})">${d.manual.has(ui.sel)?'Clear my "not used" mark on ':'Mark as not used: '}${safe(ui.sel)}</button></div>`:''}${connectorConfidenceHtml(c)}${pinUsageHtml(c,i)}${usedCountHtml(c,i,d)}${notUsed}${unaccounted}<details><summary><b>Connector identification and checks</b> <span class="small muted">${safe(fam?.recognized?fam.family:'family not recognized')} · layout source · used-contact count</span></summary>${famLine(fam,c)}${fam?.geometry?`<p class="small"><b>Layout source:</b> ${safe(fam.geometry.status||'UNVERIFIED')} · ${safe(fam.geometry.basis||'')}</p>`:''}<p class="small muted">A derived unused position becomes actionable only when the complete reviewed pinout and conductor coverage reconcile against the verified connector cavity inventory. Otherwise it remains unaccounted.</p>${expectedHtml(fam,d.all.length,c.capacity,cnt.wired)}${famPicker(c,i)}${incomplete?`<p class="callout bad">Face-view geometry INCOMPLETE: ${safe([d.missingPositions.length+' inventory cavities lack drawn positions',d.unknownPositions.length+' labels not in inventory',d.unlabelledPositions+' unlabeled positions',d.repeatedPositions.length+' duplicated position labels'].join(' · '))}. Do not use visual positions for production.</p>`:''}${d.m?.allVerified?`<p class="small"><b>Cavity inventory:</b> ${safe(d.m.allSource)}<br><b>Inventory-minus-wiring result:</b> ${safe(String(d.m.unusedStatus||'').startsWith('HELD')?d.m.unusedStatus:((d.m.unused||[]).join(', ')||'None'))}<br>${inferenceReady?'Independent evidence gates pass; this exact unused list is ready for the specified pre-population treatment.':'Evidence gates remain open; treat these as candidates, not preparation instructions.'}</p>`:''}${d.m?.conflicts?.length?`<p class="callout bad">${safe(d.m.conflicts.join(' · '))}</p>`:''}</details><details><summary><b>Cavity action table</b> <span class="small muted">every cavity with its status, action and basis</span></summary><div class="face-table tablebox"><table><thead><tr><th>Cavity</th><th>Size</th><th>Wire</th><th>AWG</th><th>Color</th><th>Status</th><th>Action</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table></div></details></div>`;
 }
 

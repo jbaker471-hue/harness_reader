@@ -2,6 +2,13 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-04 update (Claude)
+
+- Unused pins are found by **process of elimination** again: verified cavity inventory minus every wired cavity on the drawing. No technician checkbox is needed. `eliminationStatus(c)` in `assets/ui.html` releases the list automatically (ELIMINATED, MEDIUM) when nothing on the drawing contradicts it, and rates it CONFIRMED (HIGH) when an independent comparison agrees: the drawing's stated used-contact count, the drawing's own unused notes, every wire listed consistently in two places, or the filled cavities on a drawn face view. It HOLDs only for a concrete reason, which it names: inventory unknown, drawing conflict, wires off the insert, a cavity marked unused that is also wired, an unassigned wire row anywhere on the drawing, a far end naming this connector that could not be read, a stated used count that disagrees, or position-only wire rows. Eliminated cavities show and filter as Not used on the face view, and the build plan gets them as the unused list.
+- Labor defaults replaced with the shop's observed times (single values): strip 10 s per conductor end (a twisted pair is 2 ends), closed-barrel hand crimp 15 s (stripping excluded), identify/verify/insert 2:32 per contact, ring-out 10:00 per 128 circuits (scales per circuit), contact/socket inspection 3:32 per 128 positions (scales per position), banding 5 min per band, heat shrink 3 min and braid trim 2 min per cable end. A 128-circuit two-sided harness totals about 13.1 h, of which insertion is 10.8 h. Regression test added.
+- Verified: UI regression (60 pass), go vet, go test, go test -shuffle=on -count=3, Windows GUI build, executable smoke test (Linux build of the same source), and a headless-browser run on the synthetic acceptance drawings with no page errors. SHA256.txt updated for the rebuilt exe.
+- Known: on the synthetic acceptance drawings J2 is held because the fixtures wire it to letter cavities (A-D...) that a 128-position 25-35 insert does not have; that is a fixture design, flagged correctly.
+
 ## Source state
 
 - Branch `main` at `1c5fc5e` (PR #12), identical to `origin/main`.

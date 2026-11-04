@@ -59,7 +59,7 @@ console.log('PASS: labor setup/quantity arithmetic, actual-vs-estimate precedenc
 
 const rangeCounts={crimpClosedHand:10,label:2};
 let ranged=labor.laborRange(rangeCounts,{},2,1,10);
-if(Math.abs(ranged.low-1.33)>1e-8||Math.abs(ranged.hours-1.6966666666666668)>1e-8||Math.abs(ranged.high-2.466666666666667)>1e-8)throw Error('operation range, quantity, setup or allowance arithmetic failed');
+if(Math.abs(ranged.low-1.165)>1e-8||Math.abs(ranged.hours-1.275)>1e-8||Math.abs(ranged.high-(1+12.5*2/60*1.1))>1e-8)throw Error('operation range, quantity, setup or allowance arithmetic failed');
 equal(ranged.breakdown.map(x=>x.key),['crimpClosedHand','label']);
 for(const args of [[{}, {},1,0,0],[rangeCounts,{crimpClosedHand:{low:4,base:2,high:6}},1,0,0],[rangeCounts,{},1,0,101],[{label:1.5},{},1,0,0]]){
  let rejected=false;try{labor.laborRange(...args)}catch{rejected=true}if(!rejected)throw Error('invalid operation range accepted');
@@ -69,6 +69,13 @@ const laborOperationKeys=vm.runInContext('laborOps.map(x=>x[0])',labor);
 for(const key of ['jacketPrep','twistedPrep','shieldTrim','braidTrimEnd','heatShrinkEnd','drainPrep','shieldFloat','shieldStandalone','shieldPinSolder','shieldPinOther','shieldPinUnknown','shieldBackshell','shieldConnector','shieldGround','shieldSplice'])if(!laborOperationKeys.includes(key))throw Error('missing shielded-cable preparation or disposition operation '+key);
 equal(labor.laborShieldDisposition({c1:{a:'Not terminated (cut back and insulated)',b:'Backshell'},c2:{a:'Standalone shield lead / pigtail',b:'Shield to pin/contact — solder sleeve'},c3:{a:'Shield to pin/contact — other specified method',b:'Shield to pin/contact — method not classified'},c4:{a:'Connector shell',b:'Ground point'},c5:{a:'Splice',b:''}}),{classified:9,floating:1,standalone:1,pinSolder:1,pinOther:1,pinUnknown:1,backshell:1,connector:1,ground:1,splice:1,unresolved:1});
 const observedEnds=labor.laborRange({braidTrimEnd:2,heatShrinkEnd:2},{},1,0,0);if(Math.abs(observedEnds.base-1/6)>1e-9)throw Error('two-sided braid trim + heat shrink should total 10 minutes');
+// Shop-floor times recorded by the user on a 128-circuit, connector-to-connector harness (both sides, 256 ends).
+{const L=labor.laborRange({strip:256,crimpClosedHand:256,insert:256,test:128,inspect:128,band:2,heatShrinkEnd:2,braidTrimEnd:2},{},1,0,0),m=k=>L.breakdown.find(x=>x.key===k).count*L.breakdown.find(x=>x.key===k).base;
+ const want={strip:42.67,crimpClosedHand:64,insert:648.52,test:10,inspect:3.53,band:10,heatShrinkEnd:6,braidTrimEnd:4};
+ for(const [k,v] of Object.entries(want))if(Math.abs(m(k)-v)>0.02)throw Error('observed time for '+k+': '+m(k)+' min, expected '+v);
+ for(const x of L.breakdown)if(x.low!==x.base||x.base!==x.high)throw Error('observed row '+x.key+' must be a single value');
+ if(Math.abs(L.hours-(42.67+64+648.52+10+3.53+10+6+4)/60)>0.01||L.low!==L.high)throw Error('observed harness total wrong: '+L.hours);
+ console.log('PASS: observed shop times give 10.8 h insertion, 64 min crimp, 10 min ring-out and 3.5 min inspection for a 128-circuit harness');}
 console.log('PASS: jacket, twisted-conductor, shield-trim, drain-wire and per-end shield-disposition operations remain separate');
 
 const totals={};vm.createContext(totals);
@@ -687,7 +694,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  let h=ctx.pinUsageHtml(c,0);
  if(!h.includes('USED 2')||!h.includes('UNACCOUNTED 4')||!h.includes('Used (2):</b> 1, 2')||!h.includes('UNACCOUNTED — HOLD (4):</b> 3–6'))throw Error('summary wrong: '+h.slice(0,500));
  if(!h.includes('W1')||!h.includes('PWR')||!h.includes('J2:A'))throw Error('the used pin must say what it goes to');
- if(!h.includes('inventory-minus-wire candidates'))throw Error('held inference reason missing');
+ if(!h.includes('process of elimination is on hold because')||!h.includes('cavity inventory for this connector is not known'))throw Error('held elimination must give its reason: '+h);
  // nothing wired at all
  c={id:'b',tag:'P9',part:'X',occupied:'',labels:lab(6),capacity:6};
  h=ctx.pinUsageHtml(c,0);
@@ -713,12 +720,23 @@ console.log('PASS: harness length applies only to conductors without their own l
  const ctx={st:{raw:{wires:[{page:2,connector:'P1',cavity:'1',end:'J1',endCavity:'A',method:'pinout-table',confidence:'DRAFT — HEADER-GROUNDED'}],cavityModels:[{tag:'P1',part:'X',all:['1','2'],allVerified:true,wired:['1'],unused:['2'],unusedStatus:'CANDIDATE — confirm every wiring sheet',explicitUnused:[],conflicts:[],views:[{page:2,side:'front',r:20,labeled:2,positions:[{label:'1',x:-5,y:0,r:2},{label:'2',x:5,y:0,r:2}]}]}]},nets:[{id:'N1',wire:'W1',role:'conductor',sheet:'2',endpoints:'P1:1,J1:A',reviewed:false}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,connFamily:()=>null,safe:s=>String(s).replace(/[&<>\"]/g,''),sortCav:isolate.sortCav,unique:a=>[...new Set(a)]};
  vm.createContext(ctx);vm.runInContext(block('function parseEndpoint(','function validateNets(')+block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const c={tag:'P1',part:'X',occupied:'1',labels:['1','2'],verified:false};let a=ctx.connectorConfidence(c);
- if(a.pin.level!=='MEDIUM'||a.unused.level!=='LOW'||a.layout.level!=='MEDIUM')throw Error('initial confidence levels wrong: '+JSON.stringify(a));
- ctx.st.nets[0].reviewed=true;ctx.st.raw.cavityModels[0].unusedStatus='CORROBORATED — stated count agrees';a=ctx.connectorConfidence(c);
- if(a.pin.level==='HIGH'||a.unused.level==='HIGH')throw Error('reviewed nets alone must not produce high confidence');
- c.verified=true;a=ctx.connectorConfidence(c);if(a.pin.level==='HIGH'||a.unused.level==='HIGH')throw Error('connector review without complete-sheet attestation must not produce high confidence');
- c.pinoutCoverageVerified=true;a=ctx.connectorConfidence(c);
- if(a.pin.level!=='HIGH'||a.unused.level!=='HIGH')throw Error('review/corroboration did not raise confidence: '+JSON.stringify(a));
+ // Process of elimination needs no technician checkbox: 2 cavities minus 1 wired = 1 unused, nothing contradicts it.
+ if(a.pin.level!=='MEDIUM'||a.unused.level!=='MEDIUM'||a.layout.level!=='MEDIUM'||!/2 cavities minus 1 wired = 1 not used/.test(a.unused.why))throw Error('initial confidence levels wrong: '+JSON.stringify(a));
+ if(ctx.eliminationStatus(c).level!=='ELIMINATED'||!ctx.inferredUnusedReady(c))throw Error('uncontradicted elimination must be ready without review');
+ // An independent comparison (the drawing's own used-contact count) confirms it.
+ ctx.st.raw.cavityModels[0].usedStated=1;ctx.st.raw.cavityModels[0].usedSource='sheet 2 note 4';a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HIGH'||!a.unused.why.includes('matches the wired cavities'))throw Error('a matching stated count must confirm elimination: '+JSON.stringify(a.unused));
+ // A stated count that disagrees holds it.
+ ctx.st.raw.cavityModels[0].usedStated=2;a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HELD'||!a.unused.why.includes('does not match'))throw Error('a disagreeing stated count must hold elimination: '+JSON.stringify(a.unused));
+ ctx.st.raw.cavityModels[0].usedStated=0;
+ // A wire row that could not be tied to any connector might belong here, so elimination holds.
+ ctx.st.raw.wires.push({page:3,connector:'UNASSIGNED',cavity:'7',end:'UNRESOLVED ENDPOINT',method:'pinout-table'});a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HELD'||!a.unused.why.includes('could not be tied to a connector'))throw Error('an unassigned wire row must hold elimination');
+ ctx.st.raw.wires.pop();
+ // Pin-mapping confidence still rises only with review.
+ ctx.st.nets[0].reviewed=true;c.verified=true;c.pinoutCoverageVerified=true;a=ctx.connectorConfidence(c);
+ if(a.pin.level!=='HIGH')throw Error('review did not raise pin confidence: '+JSON.stringify(a.pin));
  ctx.st.raw.cavityModels[0].conflicts=['Cavity 2 is wired but also declared unused'];a=ctx.connectorConfidence(c);
  if(a.unused.level!=='HELD')throw Error('source conflict must hold unused confidence');
  ctx.st.raw.wires=[];a=ctx.connectorConfidence(c);if(a.pin.level!=='MEDIUM')throw Error('manual/corrected rows without source corroboration must be capped at medium');
