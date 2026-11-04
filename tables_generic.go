@@ -31,6 +31,10 @@ type genericTable struct {
 	Title   string
 	Rows    []map[string]string
 	HeaderY float64
+	// RowY is the baseline of each row in Rows (recognizer frame), and Audit
+	// the completeness check of a pin/wire table (nil when not checked).
+	RowY  []float64
+	Audit *TableAudit
 }
 
 var headerVocab = map[string]string{
@@ -443,8 +447,9 @@ func mergeTableCells(dst, src map[string]string, prepend bool) {
 	}
 }
 
-func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind string, cols []tColumn, em float64, startY float64) []map[string]string {
+func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind string, cols []tColumn, em float64, startY float64) ([]map[string]string, []float64) {
 	rows := []map[string]string{}
+	rowY := []float64{}
 	misses := 0
 	lastY := startY
 	lastRowY := startY
@@ -558,6 +563,7 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 		}
 		lastRowY = l.Y
 		rows = append(rows, c)
+		rowY = append(rowY, l.Y)
 	}
 	if centered && len(rows) > 0 && pitch > 0 {
 		sort.SliceStable(frags, func(a, b int) bool { return frags[a].y < frags[b].y })
@@ -567,7 +573,7 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 			}
 		}
 	}
-	return rows
+	return rows, rowY
 }
 
 func genericTables(p Page) []genericTable {
@@ -605,13 +611,13 @@ func genericTables(p Page) []genericTable {
 			if kind == "" {
 				continue
 			}
-			down := readRows(lines, maxI+1, 1, bandSet, kind, seg, em, lines[maxI].Y)
-			up := readRows(lines, minI-1, -1, bandSet, kind, seg, em, lines[minI].Y)
+			down, downY := readRows(lines, maxI+1, 1, bandSet, kind, seg, em, lines[maxI].Y)
+			up, upY := readRows(lines, minI-1, -1, bandSet, kind, seg, em, lines[minI].Y)
 			t := genericTable{Page: p.Number, Kind: kind, Cols: seg, HeaderY: hy}
 			if len(up) > len(down) {
-				t.Up, t.Rows = true, up
+				t.Up, t.Rows, t.RowY = true, up, upY
 			} else {
-				t.Rows = down
+				t.Rows, t.RowY = down, downY
 			}
 			if len(t.Rows) == 0 {
 				continue
@@ -623,6 +629,10 @@ func genericTables(p Page) []genericTable {
 				}
 				if !has["from"] {
 					t.Title = tableTitleTag(lines, minI, seg[0].x0, seg[len(seg)-1].x1+160)
+				}
+				if !t.Up {
+					a := auditWireTable(p, lines, t, bandSet, em, lines[maxI].Y)
+					t.Audit = &a
 				}
 			}
 			out = append(out, t)

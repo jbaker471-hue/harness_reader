@@ -1045,6 +1045,20 @@ func legacyPage(pl PageLayout) Page {
 		bx, _ := conv(lw.Box.X1, lw.Box.Y1)
 		p.Words = append(p.Words, Word{Text: lw.Text, X: x, Y: fh - y, Size: lw.Size, X1: math.Max(ax, bx)})
 	}
+	// Horizontal rules, for counting the rows of ruled tables.
+	p.RulesTruncated = pl.VectorDetailTruncated
+	for _, s := range pl.Segments {
+		x0, y0 := conv(s[0], s[1])
+		x1, y1 := conv(s[2], s[3])
+		if math.Abs(y0-y1) > 0.6 || math.Abs(x1-x0) < 8 {
+			continue
+		}
+		if x0 > x1 {
+			x0, x1 = x1, x0
+		}
+		y := fh - (y0+y1)/2
+		p.HRules = append(p.HRules, Segment{x0, y, x1, y})
+	}
 	sort.SliceStable(p.Words, func(i, j int) bool {
 		if d := p.Words[i].Y - p.Words[j].Y; d > 2 || d < -2 {
 			return p.Words[i].Y > p.Words[j].Y

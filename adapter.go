@@ -83,6 +83,7 @@ type ViewAnalysis struct {
 	InsertViews    []InsertDiagram    `json:"insertDiagrams"`
 	CavityModels   []CavityModel      `json:"cavityModels"`
 	Unused         []UnusedCavity     `json:"unusedCavities"`
+	TableAudits    []TableAudit       `json:"tableAudits"`
 	Pages          int                `json:"pages"`
 	Words          int                `json:"words"`
 	Sha256         string             `json:"sha256"`
@@ -139,6 +140,10 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	v.Diagnostics = pageDiagnostics(x, &a, diagrams)
 	v.CavityModels = buildCavityModels(&a, diagrams)
 	v.Unused = a.Unused
+	v.TableAudits = a.TableAudits
+	if v.TableAudits == nil {
+		v.TableAudits = []TableAudit{}
+	}
 	if v.Unused == nil {
 		v.Unused = []UnusedCavity{}
 	}

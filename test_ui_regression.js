@@ -734,6 +734,14 @@ console.log('PASS: harness length applies only to conductors without their own l
  ctx.st.raw.wires.push({page:3,connector:'UNASSIGNED',cavity:'7',end:'UNRESOLVED ENDPOINT',method:'pinout-table'});a=ctx.connectorConfidence(c);
  if(a.unused.level!=='HELD'||!a.unused.why.includes('could not be tied to a connector'))throw Error('an unassigned wire row must hold elimination');
  ctx.st.raw.wires.pop();
+ // A pin table whose printed rows were not all read holds elimination and names the row; a fully read ruled table confirms it.
+ ctx.st.raw.tableAudits=[{page:2,connectors:['J1','P1'],status:'INCOMPLETE',rowsRead:1,ruled:true,ruledRows:2,detail:'pin/wire table on sheet 2: 1 printed row(s) with a pin or wire were not read.',missed:[{text:'2, 3 W2 JUMPER',reason:'a ruled row of the table that was not read'}]}];a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HELD'||!a.unused.why.includes('were not read')||!a.unused.why.includes('2, 3 W2 JUMPER'))throw Error('an incomplete pin table must hold elimination and name the row: '+JSON.stringify(a.unused));
+ ctx.st.raw.tableAudits=[{page:2,connectors:['P1'],status:'COMPLETE',rowsRead:1,ruled:true,ruledRows:1,detail:'pin/wire table on sheet 2 has 1 ruled rows and every one was read.',missed:[]}];a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HIGH'||!a.unused.why.includes('every one was read'))throw Error('a fully read ruled pin table must confirm elimination: '+JSON.stringify(a.unused));
+ ctx.st.raw.tableAudits=[{page:2,connectors:['J9'],status:'INCOMPLETE',rowsRead:1,ruled:false,ruledRows:0,detail:'x',missed:[{text:'x'}]}];a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='MEDIUM')throw Error('another connector\'s table must not affect this one: '+JSON.stringify(a.unused));
+ ctx.st.raw.tableAudits=[];
  // Pin-mapping confidence still rises only with review.
  ctx.st.nets[0].reviewed=true;c.verified=true;c.pinoutCoverageVerified=true;a=ctx.connectorConfidence(c);
  if(a.pin.level!=='HIGH')throw Error('review did not raise pin confidence: '+JSON.stringify(a.pin));

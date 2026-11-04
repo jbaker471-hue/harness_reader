@@ -79,6 +79,7 @@ type Analysis struct {
 	ToolingMatches []ToolMatch      `json:"toolingMatches"`
 	Unused         []UnusedCavity   `json:"unused"`
 	UsedCounts     []StatedUsed     `json:"usedCounts"`
+	TableAudits    []TableAudit     `json:"tableAudits"`
 }
 type PageSummary struct {
 	Page       int    `json:"page"`
@@ -512,11 +513,17 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	a.Findings = []Finding{}
 	a.Audits = []ConnectorAudit{}
 	a.PageSummary = []PageSummary{}
+	a.TableAudits = []TableAudit{}
 	var tables []genericTable
 	for _, p := range d.Pages {
 		a.Words += len(p.Words)
 		gts := genericTables(p)
 		tables = append(tables, gts...)
+		for _, t := range gts {
+			if t.Audit != nil {
+				a.TableAudits = append(a.TableAudits, *t.Audit)
+			}
+		}
 		bb := bomRows(p)
 		// Retry with geometry-based columns rather than a fixed BOM template.
 		if len(bb) == 0 {
@@ -806,6 +813,16 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "NO_NATIVE_TEXT", Message: "No machine-readable text extracted (scanned page, or lettering drawn as graphics). Use page review."})
 	}
 	a.Findings = append(a.Findings, flexibleWarnings(d, a)...)
+	for _, t := range a.TableAudits {
+		if t.Status != "INCOMPLETE" {
+			continue
+		}
+		who := "the connectors in this table"
+		if len(t.Connectors) > 0 {
+			who = strings.Join(t.Connectors, ", ")
+		}
+		a.Findings = append(a.Findings, Finding{Severity: "WARNING", Code: "TABLE_ROW_NOT_READ", Category: CatExtraction, Pages: []int{t.Page}, Message: t.Detail + " Unused pins for " + who + " are on hold until those rows are read (select the table in Page review) or confirmed not to be wires."})
+	}
 	a.Findings = append(a.Findings, drawingReferenceFindings(d, a.BOM)...)
 
 	for _, c := range a.Connectors {

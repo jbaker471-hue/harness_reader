@@ -738,6 +738,12 @@ function eliminationStatus(c){
  const mentions=wires.filter(w=>String(w.end||'')==='UNRESOLVED ENDPOINT'&&new RegExp('\\b'+tag.replace(/[^A-Z0-9]/g,'')+'\\b').test(String(w.endSignal||'').toUpperCase().replace(/[-_]/g,''))).length;
  if(mentions)hold.push(mentions+' wire row'+(mentions===1?'':'s')+' name this connector at a far end that could not be read');
  if(d.usedState==='held'||d.usedState==='over')hold.push('the stated count of '+d.usedStated+' used contacts ('+d.usedSource+') does not match the '+d.wiredCount+' wired cavities found');
+ // Completeness of the pin/wire tables this connector appears in (read rows vs printed and ruled rows).
+ const audits=(st.raw?.tableAudits||[]).filter(t=>(t.connectors||[]).map(s=>String(s).toUpperCase()).includes(tag));
+ for(const t of audits){
+  if(t.status==='INCOMPLETE'){const m=(t.missed||[]);hold.push(String(t.detail).replace(/\.$/,'')+(m.length?' (first: "'+String(m[0].text||'').slice(0,80)+'")':''))}
+  else if(t.ruled&&t.ruledRows>0&&t.ruledRows===t.rowsRead)agree.push(String(t.detail).replace(/\.$/,''));
+ }
  const weak=raw.filter(w=>/CANDIDATE|UNASSIGNED|CHECK ENDPOINT/i.test(String(w.confidence||''))||!String(w.method||'').trim());
  if(weak.length)hold.push(weak.length+' wire row'+(weak.length===1?'':'s')+' were read by position, not from a table heading');
  if(d.usedStated&&d.usedState!=='held'&&d.usedState!=='over'&&d.wiredCount===d.usedStated)agree.push('the stated count of '+d.usedStated+' used contacts ('+(d.usedSource||'entered')+') matches the wired cavities');
