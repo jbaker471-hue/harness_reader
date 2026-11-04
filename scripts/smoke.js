@@ -80,7 +80,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   const f38=await api('api/connector-family?part=D38999/26FD35PN',undefined,'GET');assert(f38.layoutStandards.some(x=>x.code==='MIL-STD-1560'&&x.sources.length)&&f38.specs.length===1&&f38.geometry&&f38.geometry.positions.length===37&&f38.geometry.status.includes('UNREVIEWED'),'connector documentation links or stored insert layout missing from packaged executable');
   assert(equivalences.some(x=>x.specification==='AS22520/1'&&x.primary.includes('AF8')&&x.conditions.includes('exact turret/positioner')),'AF8 powered-route conditions missing');
   assert(equivalences.some(x=>x.specification==='AS22520/23'&&x.status.includes('QUALIFICATION REVIEW')),'large-gauge qualification safeguard missing');
-  const plan=await api('api/build-plan',{buildQty:2,policy:'plug-only',connectors:[{tag:'P1',part:'D38999/26FG35PA',all:['1','2'],allVerified:true,wired:[{cavity:'1',awg:'24'}]}]});
+  const plan=await api('api/build-plan',{buildQty:2,policy:'plug-only',connectors:[{tag:'P1',part:'D38999/26FG35PA',all:['1','2'],allVerified:true,unused:['2'],unusedVerified:true,wired:[{cavity:'1',awg:'24'}]}]});
   assert.equal(plan.buildQty,2);assert.equal(plan.connectors[0].crimp[0].status,'OK');
   assert.equal(plan.connectors[0].unused.length,1);
   await api('api/closing');

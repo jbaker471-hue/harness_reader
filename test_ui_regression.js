@@ -66,8 +66,9 @@ for(const args of [[{}, {},1,0,0],[rangeCounts,{crimpClosedHand:{low:4,base:2,hi
 }
 console.log('PASS: operation low/base/high arithmetic, explicit allowance, breakdown and invalid-input rejection');
 const laborOperationKeys=vm.runInContext('laborOps.map(x=>x[0])',labor);
-for(const key of ['jacketPrep','twistedPrep','shieldTrim','drainPrep','shieldFloat','shieldStandalone','shieldPinSolder','shieldPinOther','shieldPinUnknown','shieldBackshell','shieldConnector','shieldGround','shieldSplice'])if(!laborOperationKeys.includes(key))throw Error('missing shielded-cable preparation or disposition operation '+key);
+for(const key of ['jacketPrep','twistedPrep','shieldTrim','braidTrimEnd','heatShrinkEnd','drainPrep','shieldFloat','shieldStandalone','shieldPinSolder','shieldPinOther','shieldPinUnknown','shieldBackshell','shieldConnector','shieldGround','shieldSplice'])if(!laborOperationKeys.includes(key))throw Error('missing shielded-cable preparation or disposition operation '+key);
 equal(labor.laborShieldDisposition({c1:{a:'Not terminated (cut back and insulated)',b:'Backshell'},c2:{a:'Standalone shield lead / pigtail',b:'Shield to pin/contact — solder sleeve'},c3:{a:'Shield to pin/contact — other specified method',b:'Shield to pin/contact — method not classified'},c4:{a:'Connector shell',b:'Ground point'},c5:{a:'Splice',b:''}}),{classified:9,floating:1,standalone:1,pinSolder:1,pinOther:1,pinUnknown:1,backshell:1,connector:1,ground:1,splice:1,unresolved:1});
+const observedEnds=labor.laborRange({braidTrimEnd:2,heatShrinkEnd:2},{},1,0,0);if(Math.abs(observedEnds.base-1/6)>1e-9)throw Error('two-sided braid trim + heat shrink should total 10 minutes');
 console.log('PASS: jacket, twisted-conductor, shield-trim, drain-wire and per-end shield-disposition operations remain separate');
 
 const totals={};vm.createContext(totals);
@@ -455,8 +456,8 @@ console.log('PASS: harness length applies only to conductors without their own l
  equal(ctx.faceStatus(nm,'2',new Map()),'unresolved');
  const html=ctx.renderFaceView?'':'';
  if(!src.includes("(ui.mode==='both'?['front','rear']:[ui.mode]).map(s=>faceSvg(c,i,s,net,fam,ui))"))throw Error('front and rear views must both be rendered');
- if(!src.includes('sealing plug')||!src.includes('Crimp contact, insert wire'))throw Error('open vs wired action text missing');
- console.log('PASS: front and rear views, wired vs open (plug) status, held inventory never reports open');
+ if(!src.includes('UNACCOUNTED — HOLD')||!src.includes('Crimp contact, insert wire'))throw Error('unaccounted vs wired action text missing');
+ console.log('PASS: front and rear views, wired vs unaccounted status, held inventory never authorizes unused preparation');
 }
 
 // The family decoded from the part number picks the view: a stated layout is placed (and mirrored by face and
@@ -553,7 +554,7 @@ console.log('PASS: harness length applies only to conductors without their own l
 // Cavities the drawing says are unused are shown as NOT USED, separately from cavities that merely have no wire;
 // the view can be filtered, a cavity can be pinned, and both views stay available.
 {
- const els={};const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5'],allVerified:true,unused:['3','5'],unusedStatus:'',explicitUnused:[{cavity:'4',source:'note on sheet 2'}],conflicts:[]}]},nets:[{wire:'W1',endpoints:'P1:1,J1:1',awg:'22',color:'WHT'}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),$:id=>els[id]||null,renderFaceView:()=>'<x>'};
+ const els={};const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5'],allVerified:true,unused:['3','5'],unusedStatus:'',explicitUnused:[{cavity:'4',source:'note on sheet 2'}],conflicts:[]}]},nets:[{wire:'W1',endpoints:'P1:1,J1:1',awg:'22',color:'WHT'}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),$:id=>els[id]||null,renderFaceView:()=>'<x>',conductorFacts:()=>({errors:['held']})};
  vm.createContext(ctx);
  vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const c={id:'c1',tag:'P1',part:'X',occupied:'1, 2',labels:['1','2','3','4','5']};
@@ -566,7 +567,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  // an unused cavity that also carries a wire is a conflict, never silently unused
  const dc=ctx.faceData({...c,occupied:'1, 4'},'front');if(ctx.faceStatus(dc,'4',net)!=='conflict')throw Error('unused cavity with a wire must conflict');
  // filters
- if(!ctx.faceFilterMatch('all','wired')||!ctx.faceFilterMatch('notused','unused')||!ctx.faceFilterMatch('notused','open')||ctx.faceFilterMatch('notused','wired')||!ctx.faceFilterMatch('problem','unresolved'))throw Error('filters wrong');
+ if(!ctx.faceFilterMatch('all','wired')||!ctx.faceFilterMatch('notused','unused')||ctx.faceFilterMatch('notused','open')||ctx.faceFilterMatch('notused','wired')||!ctx.faceFilterMatch('problem','open')||!ctx.faceFilterMatch('problem','unresolved'))throw Error('filters wrong');
  // state: mode, filter, pin / unpin
  ctx.faceSetMode(0,'rear');if(ctx.faceUiOf(c).mode!=='rear')throw Error('mode not set');
  ctx.faceSetMode(0,'bogus');if(ctx.faceUiOf(c).mode!=='rear')throw Error('invalid mode accepted');
@@ -631,10 +632,12 @@ console.log('PASS: harness length applies only to conductors without their own l
  let c=mk({});ctx.st.connectors=[c];
  if(S(c,'4')!=='open')throw Error('with a typed occupied list the other inventory cavities are open (derived): '+S(c,'4'));
  c=mk({usedCount:3});let d=ctx.faceData(c,'front');
- if(d.usedState!=='agree'||d.usedStated!==3||d.usedSource!=='entered by you')throw Error('matching count not recognized');
- c=mk({usedCount:5});d=ctx.faceData(c,'front');
+ if(d.usedState!=='unsourced')throw Error('a typed count without a drawing reference must remain unsourced');
+ c=mk({usedCount:3,usedCountSource:'sheet 2, note 7'});d=ctx.faceData(c,'front');
+ if(d.usedState!=='agree'||d.usedStated!==3||d.usedSource!=='sheet 2, note 7')throw Error('sourced matching count not recognized');
+ c=mk({usedCount:5,usedCountSource:'sheet 2, note 7'});d=ctx.faceData(c,'front');
  if(d.usedState!=='held'||d.open.size!==0)throw Error('a stated count above the wired count must hold the unused decision');
- c=mk({usedCount:2});d=ctx.faceData(c,'front');
+ c=mk({usedCount:2,usedCountSource:'sheet 2, note 7'});d=ctx.faceData(c,'front');
  if(d.usedState!=='over')throw Error('a stated count below the wired count is a conflict');
  // the drawing's own count (from the model) wins over a typed one
  ctx.st.raw={cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:['4','5','6'],unusedStatus:'CORROBORATED',usedStated:3,usedSource:'statement on sheet 1',explicitUnused:[],conflicts:[],wired:['1','2','3']}]};
@@ -650,11 +653,13 @@ console.log('PASS: harness length applies only to conductors without their own l
  ctx.faceToggleUnused(0,'5');if(JSON.stringify(c.manualUnused)!=='["5"]')throw Error('mark not stored');
  ctx.faceToggleUnused(0,'5');if(c.manualUnused.length!==0)throw Error('mark not cleared');
  ctx.setUsedCount(0,'4.4');if(c.usedCount!==4)throw Error('count not stored as a whole number');
+ ctx.setUsedCountSource(0,' sheet 3, callout A ');if(c.usedCountSource!=='sheet 3, callout A')throw Error('count source not stored');
  ctx.setUsedCount(0,'-3');if(c.usedCount!=='')throw Error('negative or empty count must clear');
  // the card text
- ctx.st.raw={};c=mk({usedCount:5});d=ctx.faceData(c,'front');
+ ctx.st.raw={};c=mk({usedCount:5,usedCountSource:'sheet 2, note 7'});d=ctx.faceData(c,'front');
  let h=ctx.usedCountHtml(c,0,d);if(!h.includes('HELD')||!h.includes('2 used cavities have no recognized wire'))throw Error('held text missing');
- c=mk({usedCount:3});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('COUNT MATCHES WIRING'))throw Error('match text missing');
+ c=mk({usedCount:3});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('SOURCE REQUIRED'))throw Error('unsourced text missing');
+ c=mk({usedCount:3,usedCountSource:'sheet 2, note 7'});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('COUNT MATCHES WIRING'))throw Error('match text missing');
  c=mk({});h=ctx.usedCountHtml(c,0,ctx.faceData(c,'front'));if(!h.includes('None stated'))throw Error('not-stated text missing');
  console.log('PASS: stated used-contact count agrees, holds or conflicts with the wiring; manual not-used marks conflict with wires');
 }
@@ -669,7 +674,7 @@ console.log('PASS: harness length applies only to conductors without their own l
 
 // Each connector states plainly which pins are used and which are not, with the reason, and says so when it cannot tell.
 {
- const ctx={st:{raw:{},nets:[{wire:'W1',endpoints:'P1:1,J2:A',awg:'22',color:'WHT',signal:'PWR'}]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ const ctx={st:{raw:{},nets:[{wire:'W1',endpoints:'P1:1,J2:A',awg:'22',color:'WHT',signal:'PWR'}]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),conductorFacts:()=>({errors:['held']})};
  vm.createContext(ctx);
  vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const eq=(a,b,m)=>{if(a!==b)throw Error(m+': '+JSON.stringify(a)+' != '+JSON.stringify(b))};
@@ -680,9 +685,9 @@ console.log('PASS: harness length applies only to conductors without their own l
  // wired 1,2 typed plus 1 from the net; inventory of 6
  let c={id:'a',tag:'P1',part:'X',occupied:'1, 2',labels:lab(6),capacity:6};
  let h=ctx.pinUsageHtml(c,0);
- if(!h.includes('USED 2')||!h.includes('NOT USED 4')||!h.includes('Used (2):</b> 1, 2')||!h.includes('Not used (4):</b> 3–6'))throw Error('summary wrong: '+h.slice(0,400));
+ if(!h.includes('USED 2')||!h.includes('UNACCOUNTED 4')||!h.includes('Used (2):</b> 1, 2')||!h.includes('UNACCOUNTED — HOLD (4):</b> 3–6'))throw Error('summary wrong: '+h.slice(0,500));
  if(!h.includes('W1')||!h.includes('PWR')||!h.includes('J2:A'))throw Error('the used pin must say what it goes to');
- if(!h.includes('4 with no wire found'))throw Error('reason for not used missing');
+ if(!h.includes('inventory-minus-wire candidates'))throw Error('held inference reason missing');
  // nothing wired at all
  c={id:'b',tag:'P9',part:'X',occupied:'',labels:lab(6),capacity:6};
  h=ctx.pinUsageHtml(c,0);
@@ -700,24 +705,38 @@ console.log('PASS: harness length applies only to conductors without their own l
  h=ctx.pinUsageHtml(c,0);
  if(!h.includes('Conflict (1)')||!h.includes('both wired and marked not used'))throw Error('conflict missing');
  if(!src.includes('${pinUsageHtml(c,i)}')||!src.includes("+pinUsageHtml(c,i)+famPicker(c,i)+'</div>'"))throw Error('usage block missing from the view, with or without a layout');
- console.log('PASS: pin usage summary names used pins with their wires, not-used pins with the reason, and says when it cannot tell');
+ console.log('PASS: pin usage summary names used pins with their wires and holds unreconciled inventory-minus-wire candidates');
 }
 
 // Confidence separates pin mapping, the unused-pin list, and physical placement.
 {
- const ctx={st:{raw:{wires:[{page:2,connector:'P1',cavity:'1',end:'J1',endCavity:'A',method:'pinout-table',confidence:'DRAFT — HEADER-GROUNDED'}],cavityModels:[{tag:'P1',part:'X',all:['1','2'],allVerified:true,wired:['1'],unused:['2'],unusedStatus:'CANDIDATE — confirm every wiring sheet',explicitUnused:[],conflicts:[],views:[{page:2,side:'front',r:20,labeled:2,positions:[{label:'1',x:-5,y:0,r:2},{label:'2',x:5,y:0,r:2}]}]}]},nets:[{wire:'W1',endpoints:'P1:1,J1:A',reviewed:false}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,connFamily:()=>null,safe:s=>String(s).replace(/[&<>\"]/g,''),sortCav:isolate.sortCav};
- vm.createContext(ctx);vm.runInContext(block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const ctx={st:{raw:{wires:[{page:2,connector:'P1',cavity:'1',end:'J1',endCavity:'A',method:'pinout-table',confidence:'DRAFT — HEADER-GROUNDED'}],cavityModels:[{tag:'P1',part:'X',all:['1','2'],allVerified:true,wired:['1'],unused:['2'],unusedStatus:'CANDIDATE — confirm every wiring sheet',explicitUnused:[],conflicts:[],views:[{page:2,side:'front',r:20,labeled:2,positions:[{label:'1',x:-5,y:0,r:2},{label:'2',x:5,y:0,r:2}]}]}]},nets:[{id:'N1',wire:'W1',role:'conductor',sheet:'2',endpoints:'P1:1,J1:A',reviewed:false}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,connFamily:()=>null,safe:s=>String(s).replace(/[&<>\"]/g,''),sortCav:isolate.sortCav,unique:a=>[...new Set(a)]};
+ vm.createContext(ctx);vm.runInContext(block('function parseEndpoint(','function validateNets(')+block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const c={tag:'P1',part:'X',occupied:'1',labels:['1','2'],verified:false};let a=ctx.connectorConfidence(c);
  if(a.pin.level!=='MEDIUM'||a.unused.level!=='LOW'||a.layout.level!=='MEDIUM')throw Error('initial confidence levels wrong: '+JSON.stringify(a));
  ctx.st.nets[0].reviewed=true;ctx.st.raw.cavityModels[0].unusedStatus='CORROBORATED — stated count agrees';a=ctx.connectorConfidence(c);
  if(a.pin.level==='HIGH'||a.unused.level==='HIGH')throw Error('reviewed nets alone must not produce high confidence');
- c.verified=true;a=ctx.connectorConfidence(c);
+ c.verified=true;a=ctx.connectorConfidence(c);if(a.pin.level==='HIGH'||a.unused.level==='HIGH')throw Error('connector review without complete-sheet attestation must not produce high confidence');
+ c.pinoutCoverageVerified=true;a=ctx.connectorConfidence(c);
  if(a.pin.level!=='HIGH'||a.unused.level!=='HIGH')throw Error('review/corroboration did not raise confidence: '+JSON.stringify(a));
  ctx.st.raw.cavityModels[0].conflicts=['Cavity 2 is wired but also declared unused'];a=ctx.connectorConfidence(c);
  if(a.unused.level!=='HELD')throw Error('source conflict must hold unused confidence');
  ctx.st.raw.wires=[];a=ctx.connectorConfidence(c);if(a.pin.level!=='MEDIUM')throw Error('manual/corrected rows without source corroboration must be capped at medium');
  ctx.st.nets=[];a=ctx.connectorConfidence(c);if(a.pin.level!=='HELD')throw Error('missing source and manual rows must hold pinout confidence');
  console.log('PASS: independent pinout, unused-pin and physical-layout confidence levels');
+}
+
+// Two insulated conductors plus a shield path is still a two-conductor cable run.
+{
+ const ctx={st:{raw:{cavityModels:[{tag:'P1',usedStated:3}]},connectors:[{tag:'P1',contactType:'PIN',capacity:3}],nets:[
+  {id:'N1',wire:'W1-A',run:'TS1',runConductors:2,role:'conductor',sheet:'1',endpoints:'P1:1, J1:A'},
+  {id:'N2',wire:'W1-B',run:'TS1',runConductors:2,role:'conductor',sheet:'1',endpoints:'P1:2, J1:B'},
+  {id:'N3',wire:'W1-SH',run:'TS1',runConductors:2,role:'shield',sheet:'1',endpoints:'P1:3, @SHIELD1'}
+ ]},sourceCavityModel:isolate.sourceCavityModel,unique:a=>[...new Set(a)],safe:s=>String(s)};
+ vm.createContext(ctx);vm.runInContext(block('function parseEndpoint(','function validateNets('),ctx);
+ let f=ctx.conductorFacts();if(f.errors.length||f.conductors!==2||f.shieldPaths!==1||f.runs[0].conductors.length!==2)throw Error('twisted shielded run counted incorrectly: '+JSON.stringify(f));
+ ctx.st.nets.splice(1,1);f=ctx.conductorFacts();if(!f.errors.some(x=>x.includes('1 of 2 insulated conductors')))throw Error('missing conductor did not hold run balance');
+ console.log('PASS: cable/run count conservation keeps insulated conductors separate from shield and drain paths');
 }
 
 // A connector that only appears as the far end of wires still gets a card, so its used pins are shown.
@@ -746,14 +765,14 @@ console.log('PASS: harness length applies only to conductors without their own l
 
 // Two wired cavities that are not on the insert are called out, and the rest are offered as provisional, not confirmed.
 {
- const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:[],unusedProvisional:['4','5','6'],unusedStatus:'HELD — resolve source and inventory conflicts',explicitUnused:[],conflicts:['Cavity 9 is wired but does not exist in the sourced cavity inventory.'],wired:['1','2','3','9']}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:[],unusedProvisional:['4','5','6'],unusedStatus:'HELD — resolve source and inventory conflicts',explicitUnused:[],conflicts:['Cavity 9 is wired but does not exist in the sourced cavity inventory.'],wired:['1','2','3','9']}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),conductorFacts:()=>({errors:['held']})};
  vm.createContext(ctx);
  vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const c={id:'a',tag:'P1',part:'X',occupied:'1, 2, 3, 9',labels:['1','2','3','4','5','6'],capacity:6};
  const d=ctx.faceData(c,'front'),net=ctx.faceNetRows('P1'),S=id=>ctx.faceStatus(d,id,net);
  if(S('9')!=='offinsert')throw Error('a wired cavity that is not on the insert must be flagged: '+S('9'));
  if(S('4')!=='provisional'||S('1')!=='wired')throw Error('provisional / wired wrong');
- if(!ctx.faceFilterMatch('notused','provisional')||!ctx.faceFilterMatch('problem','offinsert'))throw Error('filters must include the new statuses');
+ if(ctx.faceFilterMatch('notused','provisional')||!ctx.faceFilterMatch('problem','provisional')||!ctx.faceFilterMatch('problem','offinsert'))throw Error('filters must keep provisional positions under needs-attention');
  const h=ctx.pinUsageHtml(c,0);
  if(!h.includes('NOT ON INSERT 1')||!h.includes('Not on this insert (1):</b> 9')||!h.includes('has only 6 cavities'))throw Error('off-insert callout missing: '+h.slice(0,300));
  if(!h.includes('Probably not used, provisional (3):</b> 4–6')||!h.includes('Not confirmed because the sources conflict'))throw Error('provisional list missing');
@@ -829,7 +848,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!card.includes('<details class="conn-edit">')||card.includes("'':'open'"))throw Error('manual entry is always one collapsed line; its summary says whether the card is ready');
  const view=src.slice(src.indexOf('function renderFaceView('),src.indexOf('function renderConnectors('));
  if(/<details open><summary><b>Connector identification/.test(view))throw Error('identification details should start collapsed');
- if(!view.includes('never assumed unused'))throw Error('the never-assume-unused statement must remain');
+ if(!view.includes('becomes actionable only when the complete reviewed pinout and conductor coverage reconcile'))throw Error('the evidence-gated unused-position statement must remain');
  if(!view.includes('${usedCountHtml(c,i,d)}')||view.indexOf('${usedCountHtml(c,i,d)}')>view.indexOf('Connector identification'))throw Error('the stated used-contact count stays visible, outside the collapsed checks');
  console.log('PASS: checking tools are collapsed; layout, pin usage and the used-contact count stay visible');
 }
