@@ -21,6 +21,9 @@ func TestFillInstructionPhrasings(t *testing.T) {
 		{"CAVITIES NOT USED ON P1 AND J2 SHALL BE PLUGGED.", "plug-only", "J2,P1", "", ""},
 		{"POPULATE UNUSED CAVITIES OF PLUG P3 WITH PINS.", "contact-only", "P3", "", ""},
 		{"1. ALL CONTACTS PER M39029. SEAL UNUSED CAVITIES PER FIND NO. 3.", "plug-only", "", "3", ""},
+		{"ANY UNUSED CONTACT OPENING SHALL BE POPULATED CONTACTS OR SEALING PLUGS.", "either", "", "", ""},
+		{"UNUSED CAVITIES SHALL BE FILLED WITH SEALING PLUGS OR CONTACTS.", "either", "", "", ""},
+		{"FILL UNUSED OPENINGS WITH CONTACTS AND/OR SEALING PLUGS.", "either", "", "", ""},
 	} {
 		f, ok := parseFillInstruction(tc.text)
 		if !ok || f.Policy != tc.policy || strings.Join(f.Connectors, ",") != tc.conns || strings.Join(f.FindNos, ",") != tc.finds || strings.Join(f.Parts, ",") != tc.parts {

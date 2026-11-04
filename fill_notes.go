@@ -60,7 +60,7 @@ func resolveFillParts(fs []FillInstruction, bom []BOMRow) []FillInstruction {
 }
 
 var (
-	reFillUnused = regexp.MustCompile(`\b(?:UNUSED|SPARE|EMPTY|UNPOPULATED|VACANT|UNWIRED|UNOCCUPIED|NON-?USED|ALL\s+OTHER|REMAINING|OPEN|NOT\s+USED)\b[^.;]{0,40}?\b(?:CONTACT\s+CAVIT(?:Y|IES)|CAVIT(?:Y|IES)|POSITIONS?|HOLES?|LOCATIONS?|CONTACTS?|PINS?|SOCKETS?)\b|\b(?:CAVIT(?:Y|IES)|POSITIONS?|CONTACTS?|HOLES?)\b[^.;]{0,20}?\bNOT\s+(?:USED|WIRED|OCCUPIED)\b`)
+	reFillUnused = regexp.MustCompile(`\b(?:UNUSED|SPARE|EMPTY|UNPOPULATED|VACANT|UNWIRED|UNOCCUPIED|NON-?USED|ALL\s+OTHER|REMAINING|OPEN|NOT\s+USED)\b[^.;]{0,40}?\b(?:CONTACT\s+CAVIT(?:Y|IES)|CAVIT(?:Y|IES)|POSITIONS?|HOLES?|LOCATIONS?|OPENINGS?|CONTACTS?|PINS?|SOCKETS?)\b|\b(?:CAVIT(?:Y|IES)|POSITIONS?|CONTACTS?|HOLES?|OPENINGS?)\b[^.;]{0,20}?\bNOT\s+(?:USED|WIRED|OCCUPIED)\b`)
 	reFillPlug   = regexp.MustCompile(`\b(?:SEALING\s+PLUGS?|SEAL\s+PLUGS?|FILLER\s+PLUGS?|CAVITY\s+PLUGS?|PLUGS?|PLUGGED|SEALED|SEAL|MS27488[-0-9A-Z]*)\b`)
 	// a contact named as the thing to install, not the cavity type
 	reFillContactAfterVerb = regexp.MustCompile(`\b(?:WITH|USING|INSTALL|INSERT|POPULATE|POPULATED|FILL|FILLED|LOAD|LOADED)\b[^.;]*?\b(?:CONTACTS?|PINS?|SOCKETS?|M39029/[0-9-]+)\b`)
@@ -69,6 +69,7 @@ var (
 	reFillNoPlug           = regexp.MustCompile(`\b(?:DO\s+NOT|DON'T|NO|WITHOUT|NOT)\s+(?:INSTALL\s+|INSERT\s+|USE\s+)?(?:ANY\s+)?(?:SEALING\s+)?PLUGS?\b`)
 	reFillFind             = regexp.MustCompile(`\b(?:FIND|ITEM|F/N)\s*(?:NO\.?|NUMBER|#)?\s*([0-9]{1,3}[A-Z]?)\b`)
 	reFillPart             = regexp.MustCompile(`\b(?:MS27488-[0-9A-Z-]+|M39029/[0-9]+-[0-9]+)\b`)
+	reFillEither           = regexp.MustCompile(`\b(?:CONTACTS?|PINS?|SOCKETS?)\s+(?:AND\s*/\s*)?OR\s+(?:WITH\s+)?(?:SEALING\s+|SEAL\s+|FILLER\s+)?PLUGS?\b|\bPLUGS?\s+(?:AND\s*/\s*)?OR\s+(?:WITH\s+)?(?:FILLER\s+)?(?:CONTACTS?|PINS?|SOCKETS?)\b`)
 	reConnPlugNoun         = regexp.MustCompile(`\b(?:CONNECTOR,?\s+)?(?:PLUG|RECEPTACLE)\s+((?:J|P|X|TB|CN|PL|SK)-?[0-9]{1,4}[A-Z]?)\b`)
 	reFillTag              = regexp.MustCompile(`\b((?:J|P|X|TB|CN|PL|SK)-?[0-9]{1,4}[A-Z]?)\b`)
 )
@@ -97,6 +98,9 @@ func parseFillInstruction(text string) (FillInstruction, bool) {
 	}
 	f := FillInstruction{Text: strings.TrimSpace(text), Connectors: []string{}, FindNos: []string{}, Parts: []string{}}
 	switch {
+	case contact && plug && reFillEither.MatchString(u):
+		// "CONTACTS OR SEALING PLUGS": the drawing allows either treatment
+		f.Policy = "either"
 	case contact && plug:
 		f.Policy = "contact+plug"
 	case plug:

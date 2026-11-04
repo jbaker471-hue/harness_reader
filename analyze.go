@@ -544,6 +544,9 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			bb = gb
 		}
 		w := pairedSchematicRows(p)
+		if au, ok := auditSchematic(p, w); ok {
+			a.TableAudits = append(a.TableAudits, au)
+		}
 		if len(w) == 0 {
 			w = wireRows(p)
 		}

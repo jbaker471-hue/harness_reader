@@ -749,7 +749,18 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!ctx.fillPhrase(c).includes('filler contact + sealing plug (MS27488-22-2), per note 4'))throw Error('fill phrase: '+ctx.fillPhrase(c));
  ctx.st.raw.fillInstructions.push({policy:'plug-only',note:'9',page:2,text:'SEAL UNUSED CAVITIES',connectors:[]});fl=ctx.fillFor(c);
  if(fl.policy!==''||!fl.conflict||!fl.source.includes('note 4')||!fl.source.includes('note 9'))throw Error('disagreeing notes must be a conflict naming both: '+JSON.stringify(fl));
+ ctx.st.raw.fillInstructions=[{policy:'either',note:'10',page:1,text:'ANY UNUSED CONTACT OPENING SHALL BE POPULATED CONTACTS OR SEALING PLUGS',connectors:[]}];fl=ctx.fillFor(c);
+ if(fl.policy!=='contact+plug'||!fl.either||!fl.source.includes('allows contacts or sealing plugs'))throw Error('an either note must use the shop practice and say so: '+JSON.stringify(fl));
+ ctx.st.bom=[{item:'12',part:'MS27488-22-2',description:'22AWG SEALING PLUG'}];fl=ctx.fillFor(c);if(fl.plug!=='MS27488-22-2'||fl.plugSource!=='parts list item 12')throw Error('the single parts-list sealing plug must be used: '+JSON.stringify(fl));
+ ctx.st.bom.push({item:'13',part:'MS27488-16-2',description:'SEALING PLUG'});fl=ctx.fillFor(c);if(fl.plug)throw Error('two different parts-list plugs must not be guessed between: '+JSON.stringify(fl));
+ ctx.st.bom=[];
  ctx.st.raw.fillInstructions=[];fl=ctx.fillFor(c);if(fl.policy!==''||fl.conflict||!/no drawing note/.test(fl.source))throw Error('no note must say so: '+JSON.stringify(fl));
+ // Independent counts: agreement confirms elimination, any disagreement holds it.
+ ctx.st.raw.captureChecks=[{id:'UNUSED_CAVITIES',connector:'P1',status:'AGREE',message:'4 independent readings of the empty cavities of P1 agree.',methods:[{name:'Sealing plugs in the parts list ÷ connectors',value:'1'}]}];a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HIGH'||!a.unused.why.includes('Sealing plugs in the parts list'))throw Error('agreeing counts must confirm: '+JSON.stringify(a.unused));
+ ctx.st.raw.captureChecks=[{id:'CONDUCTOR_COUNT',status:'DISAGREE',methods:[{name:'Wire rows read',value:'95'},{name:'Cable callouts',value:'96'}]}];a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HELD'||!a.unused.why.includes('conductors disagree')||!a.unused.why.includes('95'))throw Error('a conductor-count disagreement must hold elimination: '+JSON.stringify(a.unused));
+ ctx.st.raw.captureChecks=[];
  // Pin-mapping confidence still rises only with review.
  ctx.st.nets[0].reviewed=true;c.verified=true;c.pinoutCoverageVerified=true;a=ctx.connectorConfidence(c);
  if(a.pin.level!=='HIGH')throw Error('review did not raise pin confidence: '+JSON.stringify(a.pin));
