@@ -710,33 +710,14 @@ func gaugeLabelCount(l evidenceLine) int {
 	return n
 }
 
-var (
-	rePinNumber    = regexp.MustCompile(`^0*([1-9][0-9]{0,2})$`)
-	rePinLetter    = regexp.MustCompile(`^(?:[A-HJ-NP-Z]|[a-hj-np-z]|([A-HJ-NP-Z])[A-HJ-NP-Z])$`)
-	rePinColourEnd = regexp.MustCompile(`^0*([1-9][0-9]{0,2})([A-Z]{2,6}(?:/[A-Z]{2,6})?)$`)
-	rePinColourBeg = regexp.MustCompile(`^([A-Z]{2,6}(?:/[A-Z]{2,6})?)0*([1-9][0-9]{0,2})$`)
-)
-
-// pinToken reads a cavity label as printed beside a connector block: a number
-// (leading zeros dropped), a contact letter (A, b, AA; I and O are not used
-// as contact letters), or a number glued to its colour ("12WHT", "WHT12").
+// pinToken reads a cavity label as printed beside a connector block. Only
+// plain numbers are accepted: letter contacts, zero-padded and colour-glued
+// labels were tried and matched ordinary text on wire lines in a field drawing
+// (most contacts were lost), so they are reported by shape instead of read.
 func pinToken(t string) (string, bool) {
 	t = strings.TrimSpace(t)
-	if m := rePinNumber.FindStringSubmatch(t); m != nil {
-		return m[1], true
-	}
-	if m := rePinLetter.FindStringSubmatch(t); m != nil {
-		if len(t) == 2 && t[0] != t[1] {
-			return "", false // two different letters is a word or a colour, not a contact
-		}
+	if reDigitPin.MatchString(t) {
 		return t, true
-	}
-	u := strings.ToUpper(t)
-	if m := rePinColourEnd.FindStringSubmatch(u); m != nil && schematicColor(m[2]) != "" {
-		return m[1], true
-	}
-	if m := rePinColourBeg.FindStringSubmatch(u); m != nil && schematicColor(m[1]) != "" {
-		return m[2], true
 	}
 	return "", false
 }
@@ -763,16 +744,24 @@ func tokenShape(t string) string {
 		return "hyphenated code"
 	case strings.Contains(t, "/") && digit > 0:
 		return "slashed code"
+	case alpha == 0 && other == 0 && t[0] == '0':
+		return fmt.Sprintf("%d-digit number with leading zero", digit)
 	case alpha == 0 && other == 0:
 		return fmt.Sprintf("%d-digit number", digit)
 	case digit == 0 && other == 0 && schematicColor(strings.ToUpper(t)) != "":
 		return "colour word"
 	case digit == 0 && other == 0 && alpha == 1:
-		return "single letter I or O"
+		return "single letter"
+	case digit == 0 && other == 0 && alpha == 2 && t[0] == t[1]:
+		return "doubled letter"
 	case digit == 0 && other == 0:
 		return fmt.Sprintf("%d-letter word", alpha)
+	case other == 0 && t[0] >= '0' && t[0] <= '9' && schematicColor(strings.ToUpper(strings.TrimLeft(t, "0123456789"))) != "":
+		return "number glued to a colour word"
 	case other == 0 && t[0] >= '0' && t[0] <= '9':
 		return "digits then letters"
+	case other == 0 && schematicColor(strings.ToUpper(strings.TrimRight(t, "0123456789"))) != "":
+		return "colour word glued to a number"
 	case other == 0:
 		return "letters then digits"
 	case alpha == 0 && digit == 0:
