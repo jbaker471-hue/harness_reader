@@ -721,8 +721,15 @@ console.log('PASS: harness length applies only to conductors without their own l
  vm.createContext(ctx);vm.runInContext(block('function parseEndpoint(','function validateNets(')+block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const c={tag:'P1',part:'X',occupied:'1',labels:['1','2'],verified:false};let a=ctx.connectorConfidence(c);
  // Process of elimination needs no technician checkbox: 2 cavities minus 1 wired = 1 unused, nothing contradicts it.
- if(a.pin.level!=='MEDIUM'||a.unused.level!=='MEDIUM'||a.layout.level!=='MEDIUM'||!/2 cavities minus 1 wired = 1 not used/.test(a.unused.why))throw Error('initial confidence levels wrong: '+JSON.stringify(a));
- if(ctx.eliminationStatus(c).level!=='ELIMINATED'||!ctx.inferredUnusedReady(c))throw Error('uncontradicted elimination must be ready without review');
+ if(a.pin.level!=='MEDIUM'||a.unused.level!=='MEDIUM'||a.layout.level!=='MEDIUM'||!/2 cavities minus 1 wired = 1 not used, UNCONFIRMED/.test(a.unused.why))throw Error('initial confidence levels wrong: '+JSON.stringify(a));
+ // Without a second count it stays UNCONFIRMED and is not released for pre-population (a missed wire would become a plugged cavity).
+ if(ctx.eliminationStatus(c).level!=='ELIMINATED'||ctx.inferredUnusedReady(c)||!/UNCONFIRMED/.test(a.unused.why))throw Error('elimination without an independent count must not be released: '+JSON.stringify(a.unused));
+ // A complete gauge-label count on the wiring sheet confirms it.
+ ctx.st.raw.tableAudits=[{page:2,title:'wire gauge labels',connectors:['P1'],status:'COMPLETE',rowsRead:1,counted:true,ruledRows:1,detail:'every one of the 1 printed wire gauge labels on sheet 2 has a wire read',missed:[]}];
+ if(ctx.eliminationStatus(c).level!=='CONFIRMED'||!ctx.inferredUnusedReady(c))throw Error('a complete gauge-label count must confirm elimination');
+ ctx.st.raw.tableAudits=[{page:1,title:'wire gauge labels',connectors:['P1','J9'],status:'INCOMPLETE',rowsRead:0,counted:true,ruledRows:44,detail:'sheet 1 shows 44 printed wire gauge labels but only 0 wire(s) were read on it',missed:[{text:'1 WHT 24 AWG WHT 1'}]}];a=ctx.connectorConfidence(c);
+ if(a.unused.level!=='HELD'||!a.unused.why.includes('44 printed wire gauge labels'))throw Error('an unread wiring sheet must hold elimination: '+JSON.stringify(a.unused));
+ ctx.st.raw.tableAudits=[];a=ctx.connectorConfidence(c);
  // An independent comparison (the drawing's own used-contact count) confirms it.
  ctx.st.raw.cavityModels[0].usedStated=1;ctx.st.raw.cavityModels[0].usedSource='sheet 2 note 4';a=ctx.connectorConfidence(c);
  if(a.unused.level!=='HIGH'||!a.unused.why.includes('matches the wired cavities'))throw Error('a matching stated count must confirm elimination: '+JSON.stringify(a.unused));

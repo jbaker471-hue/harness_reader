@@ -35,7 +35,8 @@ type TableAudit struct {
 	Connectors []string    `json:"connectors"`
 	RowsRead   int         `json:"rowsRead"`
 	Ruled      bool        `json:"ruled"`
-	RuledRows  int         `json:"ruledRows"` // ruled bands holding text; 0 when not ruled
+	RuledRows  int         `json:"ruledRows"` // ruled bands holding text (or printed gauge labels when Counted); 0 when not ruled
+	Counted    bool        `json:"counted"`   // RuledRows is an independent count of printed wire lines
 	Missed     []MissedRow `json:"missed"`
 	Status     string      `json:"status"` // COMPLETE | INCOMPLETE
 	Detail     string      `json:"detail"`

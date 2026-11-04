@@ -48,6 +48,21 @@ func replicaPins() (used, unused []int) {
 
 func buildReplicaDrawing() replicaDrawing { return buildReplicaVariant("") }
 
+// replicaColor: pairs alternate WHT/BLU; the "quad" variant cycles the
+// four-conductor colours WHT, BLU, ORA, GRN as printed on real drawings.
+func replicaColor(corrupt string, i int) string {
+	switch corrupt {
+	case "nocolour":
+		return ""
+	case "oddcolour":
+		return []string{"XQ", "ZRP"}[i%2]
+	}
+	if corrupt == "quad" || strings.HasPrefix(corrupt, "nosheet3") || corrupt == "quadnobom" {
+		return []string{"WHT", "BLU", "ORA", "GRN"}[i%4]
+	}
+	return map[bool]string{true: "WHT", false: "BLU"}[i%2 == 0]
+}
+
 // corrupt: "ambiguous" prints a stray second pin label on one sheet-3 line;
 // "onesided" leaves the far-end pin off one sheet-4 line.
 func buildReplicaVariant(corrupt string) replicaDrawing {
@@ -176,6 +191,9 @@ func buildReplicaVariant(corrupt string) replicaDrawing {
 			}
 		}
 		text(&b, 1800, hy-24, 9, "PARTS LIST")
+		if strings.Contains(corrupt, "nobom") {
+			items = nil // the parts list is not readable (e.g. drawn as outlines)
+		}
 		for i, it := range items {
 			ry := hy + 16 + float64(i)*rowH + 8
 			line(&b, xs[0]-6, hy+16+float64(i+1)*rowH, x1, hy+16+float64(i+1)*rowH)
@@ -248,11 +266,15 @@ func buildReplicaVariant(corrupt string) replicaDrawing {
 		}
 		lx, rx := 640.0, 1820.0 // connector block inner edges
 		top := 1380.0
-		text(&b, lx-50, top+40, 8, "RIG-P5")
+		if !(strings.HasPrefix(corrupt, "nosheet3") && sheet == 3) {
+			text(&b, lx-50, top+40, 8, "RIG-P5")
+		}
 		text(&b, lx-50, top+30, 7, "D38999/")
 		text(&b, lx-50, top+20, 7, "26FJ35PA")
 		text(&b, lx-50, top+10, 7, "BENCH")
-		text(&b, rx, top+40, 8, "BOX-P5")
+		if !(strings.HasPrefix(corrupt, "nosheet3") && sheet == 3) {
+			text(&b, rx, top+40, 8, "BOX-P5")
+		}
 		text(&b, rx, top+30, 7, "D38999/")
 		text(&b, rx, top+20, 7, "26FJ35SA")
 		text(&b, rx, top+10, 7, "UNIT")
@@ -281,13 +303,13 @@ func buildReplicaVariant(corrupt string) replicaDrawing {
 		for i, x := range ws {
 			// signal names sit a little below the pin/color line, as on the real sheets
 			text(&b, lx-150, y-5, 6, x.sigA)
-			text(&b, lx+4, y, 6, fmt.Sprintf("%d  %s", x.pinA, map[bool]string{true: "WHT", false: "BLU"}[i%2 == 0]))
+			text(&b, lx+4, y, 6, fmt.Sprintf("%d  %s", x.pinA, replicaColor(corrupt, i)))
 			text(&b, 960, y, 6, x.awg+" AWG")
 			switch {
 			case corrupt == "onesided" && sheet == 4 && i == 7:
-				text(&b, rx-38, y, 6, map[bool]string{true: "WHT", false: "BLU"}[i%2 == 0])
+				text(&b, rx-38, y, 6, replicaColor(corrupt, i))
 			default:
-				text(&b, rx-38, y, 6, fmt.Sprintf("%s  %d", map[bool]string{true: "WHT", false: "BLU"}[i%2 == 0], x.pinB))
+				text(&b, rx-38, y, 6, fmt.Sprintf("%s  %d", replicaColor(corrupt, i), x.pinB))
 			}
 			if corrupt == "ambiguous" && sheet == 3 && i == 5 {
 				text(&b, rx-90, y, 6, "WHT  99")

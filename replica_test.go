@@ -57,11 +57,11 @@ func TestReplicaDrawingKnownAnswer(t *testing.T) {
 	if len(v.CavityModels) != 2 {
 		t.Fatalf("cavity models: %d", len(v.CavityModels))
 	}
-	if len(v.TableAudits) != 3 {
-		t.Fatalf("want one completeness audit per wiring sheet, got %+v", v.TableAudits)
+	if len(v.TableAudits) != 6 {
+		t.Fatalf("want a line audit and a gauge-label count per wiring sheet, got %+v", v.TableAudits)
 	}
 	for _, a := range v.TableAudits {
-		if a.Status != "COMPLETE" || a.Title != "wiring diagram" {
+		if a.Status != "COMPLETE" || (a.Title != "wiring diagram" && a.Title != "wire gauge labels") {
 			t.Fatalf("audit %+v", a)
 		}
 	}
@@ -79,24 +79,62 @@ func TestReplicaDrawingKnownAnswer(t *testing.T) {
 	}
 }
 
-func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
-	for _, mode := range []string{"ambiguous", "onesided"} {
+// A conductor listed for a pin counts whatever its colour word: four-colour
+// cables, no colour at all, unfamiliar colour words, a stray extra pin label.
+func TestReplicaDrawingReadsWiresWithoutRelyingOnColour(t *testing.T) {
+	for _, mode := range []string{"quad", "nocolour", "oddcolour", "ambiguous", "quadnobom"} {
 		d := buildReplicaVariant(mode)
 		x, err := ExtractDocument(d.pdf)
 		if err != nil {
 			t.Fatal(err)
 		}
 		v, _ := viewFromExtraction(x)
-		incomplete := []string{}
-		for _, a := range v.TableAudits {
-			if a.Status == "INCOMPLETE" && len(a.Missed) == 1 {
-				incomplete = append(incomplete, itoa(a.Page))
+		if len(v.Wires) != len(d.wires) {
+			t.Fatalf("%s: read %d of %d wires", mode, len(v.Wires), len(d.wires))
+		}
+		for _, w := range v.Wires {
+			if w.Cavity != w.EndCavity {
+				t.Fatalf("%s: wrong pairing %+v", mode, w)
 			}
 		}
-		sort.Strings(incomplete)
-		wantSheet := map[string]string{"ambiguous": "3", "onesided": "4"}[mode]
-		if strings.Join(incomplete, ",") != wantSheet {
-			t.Fatalf("%s: want exactly one missed line on sheet %s, audits %+v", mode, wantSheet, v.TableAudits)
+		for _, m := range v.CavityModels {
+			if len(m.Unused) != len(d.unused) {
+				t.Fatalf("%s: %s unused %d, want %d", mode, m.Tag, len(m.Unused), len(d.unused))
+			}
+		}
+		for _, a := range v.TableAudits {
+			if a.Status != "COMPLETE" {
+				t.Fatalf("%s: %+v", mode, a)
+			}
+		}
+	}
+}
+
+// Wires that cannot be read are never silently turned into unused cavities.
+func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
+	for _, tc := range []struct{ mode, want string }{
+		{"onesided", "wire gauge labels 4,wiring diagram 4"},
+		{"nosheet3", "wire gauge labels 3"},
+		{"nosheet3nobom", "wire gauge labels 3"},
+	} {
+		d := buildReplicaVariant(tc.mode)
+		x, err := ExtractDocument(d.pdf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, _ := viewFromExtraction(x)
+		bad := []string{}
+		for _, a := range v.TableAudits {
+			if a.Status == "INCOMPLETE" {
+				if len(a.Missed) == 0 || len(a.Connectors) != 2 {
+					t.Fatalf("%s: incomplete audit must list the missed lines and both connectors: %+v", tc.mode, a)
+				}
+				bad = append(bad, a.Title+" "+itoa(a.Page))
+			}
+		}
+		sort.Strings(bad)
+		if strings.Join(bad, ",") != tc.want {
+			t.Fatalf("%s: incomplete audits %v, want %s", tc.mode, bad, tc.want)
 		}
 		disagree := 0
 		for _, c := range v.CaptureChecks {
@@ -104,8 +142,11 @@ func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 				disagree++
 			}
 		}
+		if strings.Contains(tc.mode, "nobom") {
+			continue // no parts list: the gauge-label count alone must hold it
+		}
 		if disagree != 3 {
-			t.Fatalf("%s: conductor and both empty-cavity counts must disagree, got %d", mode, disagree)
+			t.Fatalf("%s: conductor and both empty-cavity counts must disagree, got %d", tc.mode, disagree)
 		}
 	}
 }

@@ -544,6 +544,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			bb = gb
 		}
 		w := pairedSchematicRows(p)
+		w = append(w, positionalSchematicRows(p, w)...)
 		if au, ok := auditSchematic(p, w); ok {
 			a.TableAudits = append(a.TableAudits, au)
 		}
@@ -689,6 +690,10 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	// Connector part references may occur in a non-D38999 parts list or in
 	// a different location from the older fixed P1/SA drawing template.
 	for _, c := range flexibleConnectors(d, a.BOM, a.Wires, a.Connectors) {
+		// text glued together from neighbouring words is not a part number
+		if reGluedPart.MatchString(c.Part) || strings.Count(strings.ToUpper(c.Part), "D38999") > 1 {
+			continue
+		}
 		if c.Tag != "UNASSIGNED" && seenCon[c.Tag] {
 			continue
 		}
@@ -803,6 +808,32 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			a.Connectors = append(a.Connectors, Connector{w.Connector, "NOT RESOLVED", 0, "UNKNOWN", []int{w.Page}, "UNRESOLVED"})
 		}
 	}
+	// Part numbers printed in the connector headers of the wiring sheets (split
+	// over two lines). They fill a connector the parts list did not resolve and
+	// are compared with the part the parts list gives.
+	for _, p := range d.Pages {
+		for tag, part := range headerPartNumbers(p) {
+			n, st := getLayout(part)
+			found := false
+			for i := range a.Connectors {
+				c := &a.Connectors[i]
+				if c.Tag != tag {
+					continue
+				}
+				found = true
+				switch {
+				case c.Part == "" || c.Part == "NOT RESOLVED" || (c.CavityCount == 0 && n > 0):
+					// the header part decodes to a known insert; the earlier reading did not
+					c.Part, c.CavityCount, c.LayoutStatus, c.Family = part, n, st, "MIL-DTL-38999"
+				case !strings.EqualFold(c.Part, part):
+					a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "CONNECTOR_PART_MISMATCH", Category: CatConflict, Pages: []int{p.Number}, Message: fmt.Sprintf("%s: the wiring sheet header gives %s but the parts list gives %s.", tag, part, c.Part)})
+				}
+			}
+			if !found && seenWireTag(a.Wires, tag) {
+				a.Connectors = append(a.Connectors, Connector{Tag: tag, Part: part, CavityCount: n, Family: "MIL-DTL-38999", Pages: []int{p.Number}, LayoutStatus: st})
+			}
+		}
+	}
 	if len(a.Connectors) == 0 {
 		a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "NO_CONNECTORS", Message: "No connector records identified. Text extraction may have succeeded, but connector interpretation has not. Check the per-page coverage and supported identifier patterns; no cavity release is permitted."})
 	}
@@ -814,6 +845,15 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	}
 	if a.Words == 0 {
 		a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "NO_NATIVE_TEXT", Message: "No machine-readable text extracted (scanned page, or lettering drawn as graphics). Use page review."})
+	}
+	{
+		tags := []string{}
+		for _, c := range a.Connectors {
+			if c.Tag != "" && c.Tag != "UNASSIGNED" {
+				tags = append(tags, c.Tag)
+			}
+		}
+		a.TableAudits = append(a.TableAudits, gaugeLabelAudits(d, a.Wires, tags)...)
 	}
 	a.Findings = append(a.Findings, flexibleWarnings(d, a)...)
 	for _, t := range a.TableAudits {
