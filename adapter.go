@@ -102,12 +102,13 @@ type ViewAnalysis struct {
 		BOMRows    int
 		Category   string
 	} `json:"pageSummary"`
-	PdfText          string          `json:"pdfText"`
-	AssemblyFeatures []string        `json:"assemblyFeatures"`
-	HarnessLengths   []HarnessLength `json:"harnessLengths"`
-	DrawingUnit      *DrawingUnit    `json:"drawingUnit"`
-	DrawingNotes     []DrawingNote   `json:"drawingNotes"`
-	CaptureChecks    []CaptureCheck  `json:"captureChecks"`
+	PdfText          string            `json:"pdfText"`
+	AssemblyFeatures []string          `json:"assemblyFeatures"`
+	HarnessLengths   []HarnessLength   `json:"harnessLengths"`
+	DrawingUnit      *DrawingUnit      `json:"drawingUnit"`
+	DrawingNotes     []DrawingNote     `json:"drawingNotes"`
+	FillInstructions []FillInstruction `json:"fillInstructions"`
+	CaptureChecks    []CaptureCheck    `json:"captureChecks"`
 }
 
 func viewAnalysis(b []byte) (ViewAnalysis, error) {
@@ -283,6 +284,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	v.HarnessLengths = harnessLengths(d.Pages)
 	v.DrawingUnit = drawingUnitStatement(d.Pages)
 	v.DrawingNotes = drawingNotes(d.Pages)
+	v.FillInstructions = resolveFillParts(fillInstructions(v.DrawingNotes, d.Pages), a.BOM)
 	v.HarnessLengths = applyDrawingUnit(v.HarnessLengths, v.DrawingUnit)
 	v.CaptureChecks = captureChecks(&a, v.Callouts, v.HarnessLengths)
 	if v.DrawingUnit == nil {

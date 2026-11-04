@@ -742,6 +742,14 @@ console.log('PASS: harness length applies only to conductors without their own l
  ctx.st.raw.tableAudits=[{page:2,connectors:['J9'],status:'INCOMPLETE',rowsRead:1,ruled:false,ruledRows:0,detail:'x',missed:[{text:'x'}]}];a=ctx.connectorConfidence(c);
  if(a.unused.level!=='MEDIUM')throw Error('another connector\'s table must not affect this one: '+JSON.stringify(a.unused));
  ctx.st.raw.tableAudits=[];
+ // What goes into unused cavities comes from the drawing notes: a note naming the connector wins, an unscoped note covers the rest.
+ ctx.st.raw.fillInstructions=[{policy:'contact+plug',note:'4',page:1,text:'INSTALL CONTACTS AND SEALING PLUGS IN ALL UNUSED CAVITIES',connectors:[],plugPart:'MS27488-22-2',plugSource:'find no. 3'},{policy:'plug-only',note:'7',page:1,text:'SEAL UNUSED CAVITIES OF J9',connectors:['J9']}];
+ let fl=ctx.fillFor(c);if(fl.policy!=='contact+plug'||fl.plug!=='MS27488-22-2'||!fl.source.includes('note 4'))throw Error('unscoped note must apply: '+JSON.stringify(fl));
+ fl=ctx.fillFor({tag:'J9'});if(fl.policy!=='plug-only'||!fl.source.includes('note 7'))throw Error('a note naming the connector must win: '+JSON.stringify(fl));
+ if(!ctx.fillPhrase(c).includes('filler contact + sealing plug (MS27488-22-2), per note 4'))throw Error('fill phrase: '+ctx.fillPhrase(c));
+ ctx.st.raw.fillInstructions.push({policy:'plug-only',note:'9',page:2,text:'SEAL UNUSED CAVITIES',connectors:[]});fl=ctx.fillFor(c);
+ if(fl.policy!==''||!fl.conflict||!fl.source.includes('note 4')||!fl.source.includes('note 9'))throw Error('disagreeing notes must be a conflict naming both: '+JSON.stringify(fl));
+ ctx.st.raw.fillInstructions=[];fl=ctx.fillFor(c);if(fl.policy!==''||fl.conflict||!/no drawing note/.test(fl.source))throw Error('no note must say so: '+JSON.stringify(fl));
  // Pin-mapping confidence still rises only with review.
  ctx.st.nets[0].reviewed=true;c.verified=true;c.pinoutCoverageVerified=true;a=ctx.connectorConfidence(c);
  if(a.pin.level!=='HIGH')throw Error('review did not raise pin confidence: '+JSON.stringify(a.pin));

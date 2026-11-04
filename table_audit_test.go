@@ -16,6 +16,11 @@ func buildAuditTablePDF(rows [][]string, ruled bool) []byte {
 // withParts adds a connector table naming 13-position D38999 parts, so the
 // connectors have a catalog cavity inventory.
 func buildAuditTablePDFParts(rows [][]string, ruled, withParts bool) []byte {
+	return buildAuditTablePDFExtra(rows, ruled, withParts, nil)
+}
+
+// extra adds free text (notes, a parts list) at fixed positions.
+func buildAuditTablePDFExtra(rows [][]string, ruled, withParts bool, extra []synthText) []byte {
 	var b strings.Builder
 	txt := func(x, y float64, s string) {
 		fmt.Fprintf(&b, "BT /F1 7 Tf 1 0 0 1 %.2f %.2f Tm (%s) Tj ET\n", x, y, pdfEsc(s))
@@ -58,7 +63,10 @@ func buildAuditTablePDFParts(rows [][]string, ruled, withParts bool) []byte {
 		txt(100, 284, "J2")
 		txt(170, 284, "D38999/26WB35SN")
 	}
-	txt(100, 120, "NOTES: SYNTHETIC NON-CUI TABLE AUDIT FIXTURE")
+	for _, e := range extra {
+		txt(e.x, e.y, e.s)
+	}
+	txt(100, 60, "SYNTHETIC NON-CUI TABLE AUDIT FIXTURE")
 	w := &pdfWriter{}
 	catalog := w.reserve()
 	pages := w.reserve()
