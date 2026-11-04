@@ -1228,7 +1228,7 @@ function renderDrawingIssues(){
 }
 function openPdfViewerAt(page){if(!st.pdfURL)return alert('Source PDF must be reattached');$('pdfFrame').src=st.pdfURL+'#page='+page;viewPDF()}
 function viewEvidence(page,box){if(!st.raw)return alert('Read a drawing first');tab('evidence');st.highlight=box?{page,box}:null;if(Number($('evidencePage').value)!==page||!st.pageView){$('evidencePage').value=String(page);loadPageView(page)}else drawOverlay();$('pageReviewPanel').scrollIntoView({behavior:'smooth',block:'start'})}
-function exportDrawingIssues(){const items=st.raw?.issues||[];csv('Trivex_Drawing_Discrepancies.csv',[['Category','Severity','Code','Connector','Part','Drawing Sheets','Cavities','Expected','Observed','Required action'],...items.map(i=>[CAT_LABEL[issueCat(i)],i.Severity,i.Code,i.Connector,i.Part,(i.Pages||[]).join(';'),(i.Cavities||[]).join(';'),i.Expected,i.Observed,i.Action])])}
+function exportDrawingIssues(){const items=st.raw?.issues||[];csv('Trivex_Drawing_Discrepancies.csv',[['Category','Severity','Code','Connector','Part','Drawing Sheets','Cavities','Expected','Observed','Detail','Required action'],...items.map(i=>[CAT_LABEL[issueCat(i)],i.Severity,i.Code,i.Connector,i.Part,(i.Pages||[]).join(';'),(i.Cavities||[]).join(';'),i.Expected,i.Observed,i.Message,i.Action])])}
 function normalizeIssues(raw){for(const i of raw?.issues||[]){for(const [upper,lower] of [['Category','category'],['Severity','severity'],['Message','message'],['Pages','pages'],['Code','code'],['Connector','connector'],['Part','part'],['Cavities','cavities'],['Expected','expected'],['Observed','observed'],['Action','action']]){if(i[upper]===undefined)i[upper]=i[lower]}}}
 
 

@@ -378,3 +378,55 @@ func headerPartTags(d PDFData) (map[string]string, []TableAudit) {
 	}
 	return out, conflicts
 }
+
+var reInsertCore = regexp.MustCompile(`D38999/\d{2}[A-Z]([A-HJ][0-9]{2}[PSHJAB])`)
+
+// normPart drops spaces and dashes and reads M38999/MD38999 as D38999 so formatting differences
+// between the header and the parts list are not reported as a conflict.
+func normPart(s string) string {
+	s = strings.ToUpper(strings.Map(func(r rune) rune {
+		if r == ' ' || r == '-' || r == '‐' || r == '–' {
+			return -1
+		}
+		return r
+	}, s))
+	switch {
+	case strings.HasPrefix(s, "MD38999"):
+		s = s[1:]
+	case strings.HasPrefix(s, "M38999"):
+		s = "D" + s[1:]
+	}
+	return s
+}
+
+// headerPartFinding grades a disagreement between the part printed in a wiring
+// sheet header and the part the connector already has:
+//   - formatting only: nothing to report;
+//   - the header part belongs to another connector in the parts list: the
+//     reader may have paired the part with the wrong designator (REVIEW);
+//   - same insert arrangement and contact type, other letters differ (finish,
+//     series, key): pinning is unaffected (REVIEW);
+//   - different insert or contact type: a real conflict that holds the
+//     connector (ERROR).
+func headerPartFinding(conns []Connector, c Connector, header string, page int) (Finding, bool) {
+	if normPart(c.Part) == normPart(header) || strings.HasPrefix(normPart(c.Part), normPart(header)) || strings.HasPrefix(normPart(header), normPart(c.Part)) {
+		return Finding{}, false
+	}
+	f := Finding{Pages: []int{page}, Connector: c.Tag, Part: c.Part, Expected: "Parts list: " + c.Part, Observed: "Wiring sheet header: " + header}
+	for _, o := range conns {
+		if o.Tag != c.Tag && normPart(o.Part) == normPart(header) {
+			f.Severity, f.Category, f.Code = "REVIEW", CatReview, "CONNECTOR_PART_PAIRING_REVIEW"
+			f.Message = fmt.Sprintf("%s: the wiring sheet header part %s is the parts-list part of %s. The reader may have paired the header with the wrong designator; the parts-list part %s is kept.", c.Tag, header, o.Tag, c.Part)
+			return f, true
+		}
+	}
+	h, l := reInsertCore.FindStringSubmatch(strings.ToUpper(header)), reInsertCore.FindStringSubmatch(strings.ToUpper(c.Part))
+	if h != nil && l != nil && h[1] == l[1] {
+		f.Severity, f.Category, f.Code = "REVIEW", CatReview, "CONNECTOR_PART_SUFFIX_DIFFERS"
+		f.Message = fmt.Sprintf("%s: the wiring sheet header gives %s and the parts list gives %s. Both have insert %s, so cavities and contacts are the same; the finish, series or key letters differ.", c.Tag, header, c.Part, h[1])
+		return f, true
+	}
+	f.Severity, f.Category, f.Code = "ERROR", CatConflict, "CONNECTOR_PART_MISMATCH"
+	f.Message = fmt.Sprintf("%s: the wiring sheet header gives %s but the parts list gives %s.", c.Tag, header, c.Part)
+	return f, true
+}

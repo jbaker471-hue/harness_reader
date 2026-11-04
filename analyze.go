@@ -59,6 +59,11 @@ type Finding struct {
 	Message  string `json:"message"`
 	Pages    []int  `json:"pages"`
 	Category string `json:"category"`
+	// optional structured detail, copied into the discrepancy export
+	Connector string `json:"connector,omitempty"`
+	Part      string `json:"part,omitempty"`
+	Expected  string `json:"expected,omitempty"`
+	Observed  string `json:"observed,omitempty"`
 }
 type ConnectorAudit struct {
 	Tag      string   `json:"tag"`
@@ -827,8 +832,10 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 				case c.Part == "" || c.Part == "NOT RESOLVED" || (c.CavityCount == 0 && n > 0):
 					// the header part decodes to a known insert; the earlier reading did not
 					c.Part, c.CavityCount, c.LayoutStatus, c.Family = part, n, st, "MIL-DTL-38999"
-				case !strings.EqualFold(c.Part, part):
-					a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "CONNECTOR_PART_MISMATCH", Category: CatConflict, Pages: []int{p.Number}, Message: fmt.Sprintf("%s: the wiring sheet header gives %s but the parts list gives %s.", tag, part, c.Part)})
+				default:
+					if f, ok := headerPartFinding(a.Connectors, *c, part, p.Number); ok {
+						a.Findings = append(a.Findings, f)
+					}
 				}
 			}
 			if !found && seenWireTag(a.Wires, tag) {

@@ -219,7 +219,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 		v.Boms = append(v.Boms, ViewBOM{Item: bom.Item, Qty: bom.Qty, Part: bom.Part, Description: bom.Description, Vendor: bom.Vendor, Reference: bom.Reference, Page: bom.Page, PartReference: bom.PartReference})
 	}
 	for _, f := range a.Findings {
-		x := ViewIssue{Severity: f.Severity, Category: f.Category, Code: f.Code, Message: f.Message, Pages: f.Pages, Action: "Review original source sheet and obtain approved engineering resolution before production release.", Cavities: []string{}}
+		x := ViewIssue{Severity: f.Severity, Category: f.Category, Code: f.Code, Message: f.Message, Pages: f.Pages, Connector: f.Connector, Part: f.Part, Expected: f.Expected, Observed: f.Observed, Action: "Review original source sheet and obtain approved engineering resolution before production release.", Cavities: []string{}}
 		switch f.Category {
 		case CatExtraction:
 			x.Action = "PDF recognition is incomplete. This is NOT proof of an error in the customer drawing. Open the sheet in page review and select or enter the missing records; do not use an inferred cavity list."
