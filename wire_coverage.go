@@ -64,6 +64,7 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 		w    Word
 		line int
 		em   float64
+		pin  string // the cavity as read (leading zeros and a glued colour removed)
 	}
 	var toks []tok
 	gauges := map[int][]int{} // line -> word indices of its gauge labels, left to right
@@ -85,10 +86,11 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 		labels += len(gauges[i])
 		em := lineEm(l)
 		for j, w := range ws {
-			if isGauge[j] || !reDigitPin.MatchString(w.Text) {
+			pin, ok := pinToken(w.Text)
+			if isGauge[j] || !ok {
 				continue
 			}
-			toks = append(toks, tok{w, i, em})
+			toks = append(toks, tok{w, i, em, pin})
 		}
 	}
 	if len(gauges) < 3 {
@@ -221,6 +223,16 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 		byLine[t.line] = append(byLine[t.line], i)
 	}
 	noPin, noConn, same := 0, 0, 0
+	// shapes of what is printed on the side of a label that has no pin (structure only)
+	shapes := map[string]int{}
+	emptySide := map[string]int{}
+	isPinTok := map[int]map[float64]bool{}
+	for _, t := range toks {
+		if isPinTok[t.line] == nil {
+			isPinTok[t.line] = map[float64]bool{}
+		}
+		isPinTok[t.line][t.w.X] = true
+	}
 	for i, l := range lines {
 		gs := gauges[i]
 		if len(gs) == 0 {
@@ -259,6 +271,23 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 			switch {
 			case !anyL || !anyR:
 				noPin++
+				side, a, b := "left", lo, gx
+				if anyL {
+					side, a, b = "right", gx, hi
+				}
+				emptySide[side]++
+				for j, w := range ws {
+					if j == g || w.X <= a || w.X >= b || strings.EqualFold(w.Text, "AWG") || isPinTok[i][w.X] {
+						continue
+					}
+					isG := false
+					for _, gg := range gs {
+						isG = isG || gg == j
+					}
+					if !isG {
+						shapes[tokenShape(w.Text)]++
+					}
+				}
 				continue
 			case li < 0 || ri < 0:
 				noConn++
@@ -269,8 +298,9 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 				same++
 				continue
 			}
-			lw, rw := toks[li].w, toks[ri].w
-			if pairRead[lb.tag+":"+lw.Text+">"+rb.tag+":"+rw.Text] {
+			lw := toks[li].w
+			lp, rp := toks[li].pin, toks[ri].pin
+			if pairRead[lb.tag+":"+lp+">"+rb.tag+":"+rp] {
 				continue
 			}
 			conf := "DRAFT — READ BY PIN COLUMN POSITION; CHECK SOURCE"
@@ -289,7 +319,7 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 			if c := schematicColor(colour); c != "" {
 				colour = c
 			}
-			out = append(out, WireRow{Page: p.Number, Connector: lb.tag, Cavity: lw.Text, End: rb.tag, EndCavity: rw.Text, Color: colour, AWG: gauge, Y: l.Y, Method: "paired-schematic-position", Confidence: conf})
+			out = append(out, WireRow{Page: p.Number, Connector: lb.tag, Cavity: lp, End: rb.tag, EndCavity: rp, Color: colour, AWG: gauge, Y: l.Y, Method: "paired-schematic-position", Confidence: conf})
 		}
 	}
 	if len(out)+len(rows) < 3 {
@@ -298,7 +328,30 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 	if labels-len(rows)-len(out) > 0 {
 		parts := []string{}
 		if noPin > 0 {
-			parts = append(parts, fmt.Sprintf("%d label(s) have no pin number on one side", noPin))
+			sides := []string{}
+			for _, sd := range []string{"left", "right"} {
+				if emptySide[sd] > 0 {
+					sides = append(sides, fmt.Sprintf("%d on the %s", emptySide[sd], sd))
+				}
+			}
+			msg := fmt.Sprintf("%d label(s) have no pin on one side (%s)", noPin, strings.Join(sides, ", "))
+			if len(shapes) > 0 {
+				ks := []string{}
+				for k := range shapes {
+					ks = append(ks, k)
+				}
+				sort.Slice(ks, func(a, b int) bool {
+					return shapes[ks[a]] > shapes[ks[b]] || (shapes[ks[a]] == shapes[ks[b]] && ks[a] < ks[b])
+				})
+				items := []string{}
+				for _, k := range ks {
+					items = append(items, fmt.Sprintf("%d %s", shapes[k], k))
+				}
+				msg += "; that side holds " + strings.Join(items, ", ")
+			} else {
+				msg += "; that side holds no text on the line"
+			}
+			parts = append(parts, msg)
 		}
 		if noConn > 0 {
 			parts = append(parts, fmt.Sprintf("%d label(s) have a pin whose connector block header was not matched", noConn))
@@ -655,4 +708,75 @@ func gaugeLabelCount(l evidenceLine) int {
 		n = 1
 	}
 	return n
+}
+
+var (
+	rePinNumber    = regexp.MustCompile(`^0*([1-9][0-9]{0,2})$`)
+	rePinLetter    = regexp.MustCompile(`^(?:[A-HJ-NP-Z]|[a-hj-np-z]|([A-HJ-NP-Z])[A-HJ-NP-Z])$`)
+	rePinColourEnd = regexp.MustCompile(`^0*([1-9][0-9]{0,2})([A-Z]{2,6}(?:/[A-Z]{2,6})?)$`)
+	rePinColourBeg = regexp.MustCompile(`^([A-Z]{2,6}(?:/[A-Z]{2,6})?)0*([1-9][0-9]{0,2})$`)
+)
+
+// pinToken reads a cavity label as printed beside a connector block: a number
+// (leading zeros dropped), a contact letter (A, b, AA; I and O are not used
+// as contact letters), or a number glued to its colour ("12WHT", "WHT12").
+func pinToken(t string) (string, bool) {
+	t = strings.TrimSpace(t)
+	if m := rePinNumber.FindStringSubmatch(t); m != nil {
+		return m[1], true
+	}
+	if m := rePinLetter.FindStringSubmatch(t); m != nil {
+		if len(t) == 2 && t[0] != t[1] {
+			return "", false // two different letters is a word or a colour, not a contact
+		}
+		return t, true
+	}
+	u := strings.ToUpper(t)
+	if m := rePinColourEnd.FindStringSubmatch(u); m != nil && schematicColor(m[2]) != "" {
+		return m[1], true
+	}
+	if m := rePinColourBeg.FindStringSubmatch(u); m != nil && schematicColor(m[1]) != "" {
+		return m[2], true
+	}
+	return "", false
+}
+
+// tokenShape names the form of a printed item without its text, for reasons
+// that must not carry drawing content.
+func tokenShape(t string) string {
+	t = strings.TrimSpace(t)
+	alpha, digit, other := 0, 0, 0
+	for _, r := range t {
+		switch {
+		case r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z':
+			alpha++
+		case r >= '0' && r <= '9':
+			digit++
+		default:
+			other++
+		}
+	}
+	switch {
+	case t == "":
+		return "empty item"
+	case strings.ContainsAny(t, "-–") && digit > 0:
+		return "hyphenated code"
+	case strings.Contains(t, "/") && digit > 0:
+		return "slashed code"
+	case alpha == 0 && other == 0:
+		return fmt.Sprintf("%d-digit number", digit)
+	case digit == 0 && other == 0 && schematicColor(strings.ToUpper(t)) != "":
+		return "colour word"
+	case digit == 0 && other == 0 && alpha == 1:
+		return "single letter I or O"
+	case digit == 0 && other == 0:
+		return fmt.Sprintf("%d-letter word", alpha)
+	case other == 0 && t[0] >= '0' && t[0] <= '9':
+		return "digits then letters"
+	case other == 0:
+		return "letters then digits"
+	case alpha == 0 && digit == 0:
+		return "symbol"
+	}
+	return "mixed item with symbols"
 }
