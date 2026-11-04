@@ -131,7 +131,7 @@ func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 				}
 				bad = append(bad, a.Title+" "+itoa(a.Page))
 				// an unread wiring sheet says which step of the column reader failed
-				if tc.mode == "noheader3nobom" && a.Title == "wire gauge labels" && !strings.Contains(a.Detail, "column reader: pin columns found") {
+				if tc.mode == "noheader3nobom" && a.Title == "wire gauge labels" && !strings.Contains(a.Detail, "header was not matched") {
 					t.Fatalf("%s: unread sheet should explain why: %s", tc.mode, a.Detail)
 				}
 			}

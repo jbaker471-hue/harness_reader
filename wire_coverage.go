@@ -23,26 +23,41 @@ var (
 	reColourWord = regexp.MustCompile(`^[A-Za-z]{2,6}(?:/[A-Za-z]{2,6})?$`)
 )
 
-// positionalSchematicRows reads a wiring diagram by its columns, not its
-// colour words: a conductor is a printed line with a pin in the column beside
-// the left connector block and a pin in the column beside the right one. The
-// colour, when printed, is recorded but never decides whether a wire counts.
-// Lines already read by the colour-based reader are skipped.
+// positionalSchematicRows reads a wiring diagram by pin position, not by its
+// colour words. Every conductor carries a printed gauge label ("24 AWG"); the
+// wire runs from the pin nearest the label on its left to the pin nearest it
+// on its right. A printed line may carry several labels when connectors are
+// chained (a main connector to a smaller one, and that one on to another):
+// each label is its own wire, between the pins on either side of it.
 //
-// why says, in structure only (no drawing text), why no wire was read by
-// column; it is "" when wires were read. It goes into the gauge-label audit so
-// an unread sheet explains itself in the discrepancy export.
+// Each pin belongs to the connector block it sits in. Pins are grouped into
+// columns (left- or right-aligned numbers both line up); a column is split
+// into blocks where a connector header is printed between two of its pins or
+// where its pins stop; each block's connector is read once from the header
+// above it: its designator, or else its header part number when exactly one
+// connector of the drawing has that part. A block whose header is not found is
+// never given the header of the block above it, except when the gap it follows
+// is another column's header (a fan-out on the other side of the wires). The
+// colour, when printed, is recorded but never decides whether a wire counts.
+// Wires already read by the colour-based reader are skipped.
+//
+// why says, in structure only (no drawing text), why some printed wire labels
+// were not read; it is "" when every one was. It goes into the gauge-label
+// audit so an unread sheet explains itself in the discrepancy export.
 func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string) (out []WireRow, why string) {
 	if !p.PageAccurate || p.Width <= 0 {
 		return nil, "page geometry is not accurate enough to read columns"
 	}
-	read := map[int]bool{}
+	readAt := map[int]int{}
+	pairRead := map[string]bool{}
 	for _, r := range rows {
-		read[int(math.Round(r.Y))] = true
+		readAt[int(math.Round(r.Y))]++
+		pairRead[r.Connector+":"+r.Cavity+">"+r.End+":"+r.EndCavity] = true
+		pairRead[r.End+":"+r.EndCavity+">"+r.Connector+":"+r.Cavity] = true
 	}
-	isRead := func(y float64) bool {
+	readNear := func(y float64) int {
 		k := int(math.Round(y))
-		return read[k] || read[k-1] || read[k+1]
+		return readAt[k] + readAt[k-1] + readAt[k+1]
 	}
 	lines := pageLines(p)
 	type tok struct {
@@ -50,129 +65,253 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 		line int
 		em   float64
 	}
-	var digits []tok
-	var gaugeX []float64
+	var toks []tok
+	gauges := map[int][]int{} // line -> word indices of its gauge labels, left to right
 	words := make([][]Word, len(lines))
+	labels := 0
 	for i, l := range lines {
 		ws := schematicWords(l)
 		words[i] = ws
+		isGauge := map[int]bool{}
+		for j, w := range ws {
+			if (j+1 < len(ws) && schematicGauge.MatchString(w.Text) && strings.EqualFold(ws[j+1].Text, "AWG")) || reGaugeLabel.MatchString(w.Text) {
+				gauges[i] = append(gauges[i], j)
+				isGauge[j] = true
+			}
+		}
+		if len(gauges[i]) == 0 {
+			continue
+		}
+		labels += len(gauges[i])
 		em := lineEm(l)
 		for j, w := range ws {
-			if j+1 < len(ws) && strings.EqualFold(ws[j+1].Text, "AWG") {
-				gaugeX = append(gaugeX, w.X) // the gauge number of a wire label, not a pin
+			if isGauge[j] || !reDigitPin.MatchString(w.Text) {
 				continue
 			}
-			if reDigitPin.MatchString(w.Text) {
-				digits = append(digits, tok{w, i, em})
+			toks = append(toks, tok{w, i, em})
+		}
+	}
+	if len(gauges) < 3 {
+		return nil, ""
+	}
+	if len(toks) < 6 {
+		return nil, fmt.Sprintf("only %d pin numbers found beside the %d printed wire gauge labels", len(toks), labels)
+	}
+	// Columns: numbers on different lines whose left edges or right edges line up.
+	parent := make([]int, len(toks))
+	for i := range parent {
+		parent[i] = i
+	}
+	find := func(i int) int {
+		for parent[i] != i {
+			parent[i] = parent[parent[i]]
+			i = parent[i]
+		}
+		return i
+	}
+	for i := range toks {
+		for j := i + 1; j < len(toks); j++ {
+			a, b := toks[i], toks[j]
+			if a.line == b.line {
+				continue
+			}
+			tol := 0.6 * math.Max(a.em, b.em)
+			if math.Abs(a.w.X-b.w.X) <= tol || math.Abs(a.w.right()-b.w.right()) <= tol {
+				parent[find(i)] = find(j)
 			}
 		}
 	}
-	if len(digits) < 6 {
-		return nil, fmt.Sprintf("only %d pin numbers found on the sheet", len(digits))
+	type block struct{ tag, via string }
+	blockOf := map[int]*block{}
+	cols := map[int][]int{}
+	for i := range toks {
+		cols[find(i)] = append(cols[find(i)], i)
 	}
-	mid := p.Width / 2
-	if len(gaugeX) >= 3 {
-		sort.Float64s(gaugeX)
-		mid = gaugeX[len(gaugeX)/2]
+	blocks, resolved := 0, 0
+	isHeaderWord := func(w Word) bool {
+		t := strings.ToUpper(strings.TrimSpace(w.Text))
+		return !w.Rotated && ((t != "" && reRefDesignator.FindString(t) == t) || reSplitPNHead.MatchString(t))
 	}
-	// Cluster digit tokens into vertical columns.
-	sort.Slice(digits, func(i, j int) bool { return digits[i].w.X < digits[j].w.X })
-	type column struct {
-		x     float64
-		lines map[int]Word
-	}
-	var cols []column
-	for _, d := range digits {
-		if n := len(cols); n > 0 && d.w.X-cols[n-1].x <= 1.2*d.em {
-			cols[n-1].lines[d.line] = d.w
-			continue
+	for _, idx := range cols {
+		sort.Slice(idx, func(a, b int) bool { return toks[idx[a]].w.Y > toks[idx[b]].w.Y })
+		gaps := []float64{}
+		for k := 1; k < len(idx); k++ {
+			gaps = append(gaps, toks[idx[k-1]].w.Y-toks[idx[k]].w.Y)
 		}
-		cols = append(cols, column{x: d.w.X, lines: map[int]Word{d.line: d.w}})
-	}
-	// The pin columns are the innermost well-populated columns on each side
-	// of the wire run (signal names and face-view labels lie further out).
-	var left, right *column
-	for i := range cols {
-		c := &cols[i]
-		if len(c.lines) < 3 {
-			continue
+		pitch := 0.0
+		if len(gaps) > 0 {
+			s := append([]float64(nil), gaps...)
+			sort.Float64s(s)
+			pitch = s[len(s)/2]
 		}
-		if c.x < mid && (left == nil || c.x > left.x) {
-			left = c
+		colX := 0.0
+		for _, t := range idx {
+			colX += toks[t].w.X
 		}
-		if c.x > mid && (right == nil || c.x < right.x) {
-			right = c
+		colX /= float64(len(idx))
+		// a connector header printed between two heights: near this column, or anywhere
+		headerBetween := func(hi, lo float64, anywhere bool) bool {
+			for _, w := range p.Words {
+				if w.Y < hi && w.Y > lo && (anywhere || math.Abs(w.X-colX) <= p.Width*.12) && isHeaderWord(w) {
+					return true
+				}
+			}
+			return false
+		}
+		type seg struct {
+			from, to int
+			cont     bool // follows a gap that is another column's header
+		}
+		var segs []seg
+		start := 0
+		for k := 1; k < len(idx); k++ {
+			hi, lo := toks[idx[k-1]].w.Y, toks[idx[k]].w.Y
+			near := headerBetween(hi, lo, false)
+			if near || (gaps[k-1] > 2.5*pitch && gaps[k-1] > 2.5*toks[idx[k]].em) {
+				segs = append(segs, seg{start, k, false})
+				start = k
+				if !near && headerBetween(hi, lo, true) {
+					segs = append(segs, seg{-1, -1, true}) // marks the next segment
+				}
+			}
+		}
+		segs = append(segs, seg{start, len(idx), false})
+		ceiling := math.Inf(1) // a block's header lies below the block above it
+		var prev *block
+		cont := false
+		for _, sg := range segs {
+			if sg.from < 0 {
+				cont = true
+				continue
+			}
+			part := idx[sg.from:sg.to]
+			pins := map[int]Word{}
+			x := 0.0
+			for _, t := range part {
+				pins[toks[t].line] = toks[t].w
+				x += toks[t].w.X
+			}
+			x /= float64(len(part))
+			tag, via := columnConnector(p, x, pins, partTags, ceiling)
+			ceiling = toks[part[len(part)-1]].w.Y
+			var b *block
+			switch {
+			case tag != "":
+				b = &block{tag, via}
+			case cont && prev != nil && prev.tag != "":
+				b = prev // the same connector continues past another column's header
+			default:
+				b = &block{}
+			}
+			cont = false
+			if b != prev {
+				blocks++
+				if b.tag != "" {
+					resolved++
+				}
+			}
+			for _, t := range part {
+				blockOf[t] = b
+			}
+			prev = b
 		}
 	}
-	populated := 0
-	for _, c := range cols {
-		if len(c.lines) >= 3 {
-			populated++
-		}
+	byLine := map[int][]int{}
+	for i, t := range toks {
+		byLine[t.line] = append(byLine[t.line], i)
 	}
-	switch {
-	case left == nil && right == nil:
-		return nil, fmt.Sprintf("no pin column found on either side of the wire labels (%d number columns, %d with 3 or more pins)", len(cols), populated)
-	case left == nil:
-		return nil, fmt.Sprintf("no pin column found left of the wire labels (%d number columns, %d with 3 or more pins)", len(cols), populated)
-	case right == nil:
-		return nil, fmt.Sprintf("no pin column found right of the wire labels (%d number columns, %d with 3 or more pins)", len(cols), populated)
-	case right.x-left.x < p.Width*.15:
-		return nil, fmt.Sprintf("the two pin columns are only %.0f%% of the sheet width apart", 100*(right.x-left.x)/p.Width)
-	}
-	// Which connector each column belongs to is decided once, from the header
-	// above the column: its designator, or else its part number when exactly
-	// one connector of the drawing has that part.
-	from, fromVia := columnConnector(p, left.x, left.lines, partTags)
-	to, toVia := columnConnector(p, right.x, right.lines, partTags)
-	switch {
-	case from == "" && to == "":
-		return nil, fmt.Sprintf("pin columns found (%d and %d pins) but no connector designator or header part number was matched above either column", len(left.lines), len(right.lines))
-	case from == "":
-		return nil, fmt.Sprintf("pin columns found (%d and %d pins); the right column is %s (by %s) but no connector was matched above the left column", len(left.lines), len(right.lines), to, toVia)
-	case to == "":
-		return nil, fmt.Sprintf("pin columns found (%d and %d pins); the left column is %s (by %s) but no connector was matched above the right column", len(left.lines), len(right.lines), from, fromVia)
-	case from == to:
-		return nil, fmt.Sprintf("both pin columns matched the same connector %s (left by %s, right by %s)", from, fromVia, toVia)
-	}
-	conf := "DRAFT — READ BY PIN COLUMN POSITION; CHECK SOURCE"
-	if fromVia == "part" || toVia == "part" {
-		conf = "DRAFT — READ BY PIN COLUMN POSITION; CONNECTOR MATCHED BY THE HEADER PART NUMBER (DESIGNATOR NOT READ); CHECK SOURCE"
-	}
-	paired := 0
+	noPin, noConn, same := 0, 0, 0
 	for i, l := range lines {
-		lw, okL := left.lines[i]
-		rw, okR := right.lines[i]
-		if !okL || !okR {
+		gs := gauges[i]
+		if len(gs) == 0 {
 			continue
 		}
-		paired++
-		if isRead(l.Y) {
-			continue
+		if len(gs) == 1 && readNear(l.Y) > 0 {
+			continue // read by the colour-based reader
 		}
-		colour, gauge := "", ""
 		ws := words[i]
-		for j, w := range ws {
-			if w.X == lw.X && j+1 < len(ws) && reColourWord.MatchString(ws[j+1].Text) {
-				colour = strings.ToUpper(ws[j+1].Text)
+		for k, g := range gs {
+			gx := ws[g].X
+			lo, hi := math.Inf(-1), math.Inf(1)
+			if k > 0 {
+				lo = ws[gs[k-1]].X
 			}
-			if j+1 < len(ws) && schematicGauge.MatchString(w.Text) && strings.EqualFold(ws[j+1].Text, "AWG") {
-				gauge = w.Text
+			if k+1 < len(gs) {
+				hi = ws[gs[k+1]].X
 			}
-			if m := reGaugeLabel.FindStringSubmatch(w.Text); m != nil {
+			li, ri, anyL, anyR := -1, -1, false, false
+			for _, t := range byLine[i] {
+				x := toks[t].w.X
+				resolvedPin := blockOf[t] != nil && blockOf[t].tag != ""
+				if x > lo && x < gx {
+					anyL = true
+					if resolvedPin && (li < 0 || x > toks[li].w.X) {
+						li = t
+					}
+				}
+				if x > gx && x < hi {
+					anyR = true
+					if resolvedPin && (ri < 0 || x < toks[ri].w.X) {
+						ri = t
+					}
+				}
+			}
+			switch {
+			case !anyL || !anyR:
+				noPin++
+				continue
+			case li < 0 || ri < 0:
+				noConn++
+				continue
+			}
+			lb, rb := blockOf[li], blockOf[ri]
+			if lb.tag == rb.tag {
+				same++
+				continue
+			}
+			lw, rw := toks[li].w, toks[ri].w
+			if pairRead[lb.tag+":"+lw.Text+">"+rb.tag+":"+rw.Text] {
+				continue
+			}
+			conf := "DRAFT — READ BY PIN COLUMN POSITION; CHECK SOURCE"
+			if lb.via == "part" || rb.via == "part" {
+				conf = "DRAFT — READ BY PIN COLUMN POSITION; CONNECTOR MATCHED BY THE HEADER PART NUMBER (DESIGNATOR NOT READ); CHECK SOURCE"
+			}
+			colour, gauge := "", ws[g].Text
+			if m := reGaugeLabel.FindStringSubmatch(gauge); m != nil {
 				gauge = m[1]
 			}
+			for j, w := range ws {
+				if w.X == lw.X && j+1 < len(ws) && reColourWord.MatchString(ws[j+1].Text) && !strings.EqualFold(ws[j+1].Text, "AWG") {
+					colour = strings.ToUpper(ws[j+1].Text)
+				}
+			}
+			if c := schematicColor(colour); c != "" {
+				colour = c
+			}
+			out = append(out, WireRow{Page: p.Number, Connector: lb.tag, Cavity: lw.Text, End: rb.tag, EndCavity: rw.Text, Color: colour, AWG: gauge, Y: l.Y, Method: "paired-schematic-position", Confidence: conf})
 		}
-		if c := schematicColor(colour); c != "" {
-			colour = c
-		}
-		out = append(out, WireRow{Page: p.Number, Connector: from, Cavity: lw.Text, End: to, EndCavity: rw.Text, Color: colour, AWG: gauge, Y: l.Y, Method: "paired-schematic-position",
-			Confidence: conf})
 	}
 	if len(out)+len(rows) < 3 {
-		return nil, fmt.Sprintf("columns %s and %s found, but only %d line(s) have a pin in both columns", from, to, paired)
+		out = nil
 	}
-	return out, ""
+	if labels-len(rows)-len(out) > 0 {
+		parts := []string{}
+		if noPin > 0 {
+			parts = append(parts, fmt.Sprintf("%d label(s) have no pin number on one side", noPin))
+		}
+		if noConn > 0 {
+			parts = append(parts, fmt.Sprintf("%d label(s) have a pin whose connector block header was not matched", noConn))
+		}
+		if same > 0 {
+			parts = append(parts, fmt.Sprintf("%d label(s) have both pins in blocks matched to the same connector", same))
+		}
+		why = fmt.Sprintf("%d pin blocks found, %d with a connector matched", blocks, resolved)
+		if len(parts) > 0 {
+			why += "; " + strings.Join(parts, "; ")
+		}
+	}
+	return out, why
 }
 
 var reDigitPin = regexp.MustCompile(`^[1-9][0-9]{0,2}$`)
@@ -219,7 +358,11 @@ func gaugeLabelAudits(d PDFData, wires []WireRow, connectors []string, why map[i
 			continue // not a wiring diagram (a parts list says "24 AWG" inside longer text)
 		}
 		rows := byPage[p.Number]
-		a := TableAudit{Page: p.Number, Title: "wire gauge labels", Counted: true, RuledRows: len(gl), RowsRead: len(rows), Missed: []MissedRow{}, Connectors: []string{}}
+		total := 0
+		for _, l := range gl {
+			total += gaugeLabelCount(l)
+		}
+		a := TableAudit{Page: p.Number, Title: "wire gauge labels", Counted: true, RuledRows: total, RowsRead: len(rows), Missed: []MissedRow{}, Connectors: []string{}}
 		seen := map[string]bool{}
 		for _, r := range rows {
 			for _, t := range []string{r.Connector, r.End} {
@@ -230,15 +373,17 @@ func gaugeLabelAudits(d PDFData, wires []WireRow, connectors []string, why map[i
 			}
 		}
 		for _, l := range gl {
-			found := false
+			n, found := gaugeLabelCount(l), 0
 			for _, r := range rows {
 				if math.Abs(r.Y-l.Y) <= 2 {
-					found = true
-					break
+					found++
 				}
 			}
-			if !found {
+			switch {
+			case found == 0:
 				a.Missed = append(a.Missed, MissedRow{Text: strings.TrimSpace(l.Text), Reason: "a printed wire line (gauge label) with no wire read", Y: l.Y})
+			case found < n:
+				a.Missed = append(a.Missed, MissedRow{Text: strings.TrimSpace(l.Text), Reason: fmt.Sprintf("a printed line with %d gauge labels (chained connectors) but only %d wire(s) read", n, found), Y: l.Y})
 			}
 		}
 		if len(a.Missed) > 0 {
@@ -250,14 +395,14 @@ func gaugeLabelAudits(d PDFData, wires []WireRow, connectors []string, why map[i
 				}
 			}
 			a.Status = "INCOMPLETE"
-			a.Detail = fmt.Sprintf("sheet %d shows %d printed wire gauge labels but only %d wire(s) were read on it", p.Number, len(gl), len(rows))
+			a.Detail = fmt.Sprintf("sheet %d shows %d printed wire gauge labels but only %d wire(s) were read on it", p.Number, total, len(rows))
 			if r := why[p.Number]; r != "" {
 				a.Detail += " (column reader: " + r + ")"
 			}
 			a.Detail += "."
 		} else {
 			a.Status = "COMPLETE"
-			a.Detail = fmt.Sprintf("every one of the %d printed wire gauge labels on sheet %d has a wire read", len(gl), p.Number)
+			a.Detail = fmt.Sprintf("every one of the %d printed wire gauge labels on sheet %d has a wire read", total, p.Number)
 		}
 		sort.Strings(a.Connectors)
 		out = append(out, a)
@@ -328,7 +473,9 @@ var reGluedPart = regexp.MustCompile(`^[0-9]{1,3}[A-Z]{4,}$`)
 
 // columnConnector finds the connector a pin column belongs to from the header
 // printed above the column's first pin. via is "designator" or "part".
-func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[string]string) (string, string) {
+// Text at or above ceiling (the lowest pin of the block above in the same
+// column) belongs to that block and is not considered.
+func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[string]string, ceiling float64) (string, string) {
 	top, size := math.Inf(-1), 6.0
 	for _, w := range rows {
 		if w.Y > top {
@@ -339,7 +486,7 @@ func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[strin
 	best, bestScore, ambiguous := "", math.Inf(1), false
 	for _, w := range p.Words {
 		t := strings.ToUpper(strings.TrimSpace(w.Text))
-		if w.Rotated || reRefDesignator.FindString(t) != t || t == "" {
+		if w.Rotated || reRefDesignator.FindString(t) != t || t == "" || w.Y >= ceiling {
 			continue
 		}
 		dy, dx := w.Y-top, math.Abs(w.X-colX)
@@ -360,7 +507,7 @@ func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[strin
 	// the part number printed in the same header ("D38999/" over its tail)
 	for _, h := range p.Words {
 		ht := strings.ToUpper(strings.TrimSpace(h.Text))
-		if !reSplitPNHead.MatchString(ht) || h.Y-top <= 0 || h.Y-top > 12*size || math.Abs(h.X-colX) > reach {
+		if !reSplitPNHead.MatchString(ht) || h.Y-top <= 0 || h.Y-top > 12*size || math.Abs(h.X-colX) > reach || h.Y >= ceiling {
 			continue
 		}
 		em := math.Max(h.Size, 4)
@@ -481,4 +628,31 @@ func contactWord(b byte) string {
 		return "socket"
 	}
 	return string(b)
+}
+
+// gaugeLabelCount is the number of wire gauge labels on one printed line (more
+// than one where connectors are chained along the line).
+func gaugeLabelCount(l evidenceLine) int {
+	n := 0
+	for i, w := range l.Words {
+		if reGaugeLabel.MatchString(w.Text) {
+			n++
+			continue
+		}
+		if i+1 < len(l.Words) && schematicGauge.MatchString(strings.TrimSpace(w.Text)) && strings.EqualFold(strings.TrimSpace(l.Words[i+1].Text), "AWG") && l.Words[i+1].X-w.right() < 2*math.Max(w.Size, 4) {
+			n++
+		}
+	}
+	if n == 0 {
+		// "24 AWG" printed inside one fragment with other text
+		for _, w := range schematicWords(l) {
+			if strings.EqualFold(w.Text, "AWG") {
+				n++
+			}
+		}
+	}
+	if n == 0 {
+		n = 1
+	}
+	return n
 }
