@@ -28,9 +28,13 @@ var (
 // the left connector block and a pin in the column beside the right one. The
 // colour, when printed, is recorded but never decides whether a wire counts.
 // Lines already read by the colour-based reader are skipped.
-func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string) []WireRow {
+//
+// why says, in structure only (no drawing text), why no wire was read by
+// column; it is "" when wires were read. It goes into the gauge-label audit so
+// an unread sheet explains itself in the discrepancy export.
+func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string) (out []WireRow, why string) {
 	if !p.PageAccurate || p.Width <= 0 {
-		return nil
+		return nil, "page geometry is not accurate enough to read columns"
 	}
 	read := map[int]bool{}
 	for _, r := range rows {
@@ -64,7 +68,7 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 		}
 	}
 	if len(digits) < 6 {
-		return nil
+		return nil, fmt.Sprintf("only %d pin numbers found on the sheet", len(digits))
 	}
 	mid := p.Width / 2
 	if len(gaugeX) >= 3 {
@@ -100,26 +104,50 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 			right = c
 		}
 	}
-	if left == nil || right == nil || right.x-left.x < p.Width*.15 {
-		return nil
+	populated := 0
+	for _, c := range cols {
+		if len(c.lines) >= 3 {
+			populated++
+		}
+	}
+	switch {
+	case left == nil && right == nil:
+		return nil, fmt.Sprintf("no pin column found on either side of the wire labels (%d number columns, %d with 3 or more pins)", len(cols), populated)
+	case left == nil:
+		return nil, fmt.Sprintf("no pin column found left of the wire labels (%d number columns, %d with 3 or more pins)", len(cols), populated)
+	case right == nil:
+		return nil, fmt.Sprintf("no pin column found right of the wire labels (%d number columns, %d with 3 or more pins)", len(cols), populated)
+	case right.x-left.x < p.Width*.15:
+		return nil, fmt.Sprintf("the two pin columns are only %.0f%% of the sheet width apart", 100*(right.x-left.x)/p.Width)
 	}
 	// Which connector each column belongs to is decided once, from the header
 	// above the column: its designator, or else its part number when exactly
 	// one connector of the drawing has that part.
 	from, fromVia := columnConnector(p, left.x, left.lines, partTags)
 	to, toVia := columnConnector(p, right.x, right.lines, partTags)
-	if from == "" || to == "" || from == to {
-		return nil
+	switch {
+	case from == "" && to == "":
+		return nil, fmt.Sprintf("pin columns found (%d and %d pins) but no connector designator or header part number was matched above either column", len(left.lines), len(right.lines))
+	case from == "":
+		return nil, fmt.Sprintf("pin columns found (%d and %d pins); the right column is %s (by %s) but no connector was matched above the left column", len(left.lines), len(right.lines), to, toVia)
+	case to == "":
+		return nil, fmt.Sprintf("pin columns found (%d and %d pins); the left column is %s (by %s) but no connector was matched above the right column", len(left.lines), len(right.lines), from, fromVia)
+	case from == to:
+		return nil, fmt.Sprintf("both pin columns matched the same connector %s (left by %s, right by %s)", from, fromVia, toVia)
 	}
 	conf := "DRAFT — READ BY PIN COLUMN POSITION; CHECK SOURCE"
 	if fromVia == "part" || toVia == "part" {
 		conf = "DRAFT — READ BY PIN COLUMN POSITION; CONNECTOR MATCHED BY THE HEADER PART NUMBER (DESIGNATOR NOT READ); CHECK SOURCE"
 	}
-	var out []WireRow
+	paired := 0
 	for i, l := range lines {
 		lw, okL := left.lines[i]
 		rw, okR := right.lines[i]
-		if !okL || !okR || isRead(l.Y) {
+		if !okL || !okR {
+			continue
+		}
+		paired++
+		if isRead(l.Y) {
 			continue
 		}
 		colour, gauge := "", ""
@@ -142,9 +170,9 @@ func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string)
 			Confidence: conf})
 	}
 	if len(out)+len(rows) < 3 {
-		return nil
+		return nil, fmt.Sprintf("columns %s and %s found, but only %d line(s) have a pin in both columns", from, to, paired)
 	}
-	return out
+	return out, ""
 }
 
 var reDigitPin = regexp.MustCompile(`^[1-9][0-9]{0,2}$`)
@@ -172,7 +200,7 @@ func gaugeLines(p Page) []evidenceLine {
 // gaugeLabelAudits compares the printed gauge labels of each wiring sheet with
 // the wires read on it. connectors are every connector of the drawing: a
 // sheet with no wire read cannot say which connectors it belongs to.
-func gaugeLabelAudits(d PDFData, wires []WireRow, connectors []string) []TableAudit {
+func gaugeLabelAudits(d PDFData, wires []WireRow, connectors []string, why map[int]string) []TableAudit {
 	out := []TableAudit{}
 	byPage := map[int][]WireRow{}
 	all := append([]string(nil), connectors...)
@@ -223,6 +251,10 @@ func gaugeLabelAudits(d PDFData, wires []WireRow, connectors []string) []TableAu
 			}
 			a.Status = "INCOMPLETE"
 			a.Detail = fmt.Sprintf("sheet %d shows %d printed wire gauge labels but only %d wire(s) were read on it", p.Number, len(gl), len(rows))
+			if r := why[p.Number]; r != "" {
+				a.Detail += " (column reader: " + r + ")"
+			}
+			a.Detail += "."
 		} else {
 			a.Status = "COMPLETE"
 			a.Detail = fmt.Sprintf("every one of the %d printed wire gauge labels on sheet %d has a wire read", len(gl), p.Number)
@@ -417,15 +449,36 @@ func headerPartFinding(conns []Connector, c Connector, header string, page int) 
 	switch {
 	case h != nil && l != nil && h[1] == l[1]:
 		f.Message += fmt.Sprintf(" Both have insert %s, so the cavity layout is the same; the connector to order and build is not.", h[1])
+	case h != nil && l != nil && h[1][:3] == l[1][:3] && isPinSocketPair(h[1][3], l[1][3]):
+		f.Message += fmt.Sprintf(" The two are mating halves (insert %s with %s contacts vs %s with %s contacts): the header may show the connector this one mates with, not this connector.", h[1][:3], contactWord(h[1][3]), l[1][:3], contactWord(l[1][3]))
 	case h != nil && l != nil:
 		f.Message += fmt.Sprintf(" The inserts differ (%s vs %s), so the cavity layout or contact type is not the same.", h[1], l[1])
 	}
 	for _, o := range conns {
-		if o.Tag != c.Tag && normPart(o.Part) == normPart(header) {
-			f.Message += fmt.Sprintf(" The header part is also the parts-list part of %s: check that this header belongs to %s.", o.Tag, c.Tag)
-			break
+		if o.Tag == c.Tag || normPart(o.Part) != normPart(header) {
+			continue
 		}
+		if o.Tag == "" || o.Tag == "UNASSIGNED" || o.Tag == "UNRESOLVED ENDPOINT" {
+			f.Message += " The parts list also lists the header part, for a connector whose designator was not read: check that this header belongs to " + c.Tag + "."
+		} else {
+			f.Message += fmt.Sprintf(" The header part is also the parts-list part of %s: check that this header belongs to %s.", o.Tag, c.Tag)
+		}
+		break
 	}
 	f.Message += " The parts-list part is kept until engineering resolves it."
 	return f, true
+}
+
+func isPinSocketPair(a, b byte) bool {
+	return (a == 'P' && b == 'S') || (a == 'S' && b == 'P')
+}
+
+func contactWord(b byte) string {
+	switch b {
+	case 'P':
+		return "pin"
+	case 'S':
+		return "socket"
+	}
+	return string(b)
 }

@@ -39,4 +39,10 @@ func TestHeaderPartDisagreementIsGraded(t *testing.T) {
 	if !strings.Contains(f.Message, "BOX-P5") {
 		t.Errorf("header part of another connector should be named: %s", f.Message)
 	}
+	// mating halves, the other one listed without a designator
+	conns2 := []Connector{{Tag: "RIG-J5", Part: "D38999/20WJ35SN"}, {Tag: "UNASSIGNED", Part: "D38999/26WJ35PN"}}
+	f, ok := headerPartFinding(conns2, conns2[0], "D38999/26WJ35PN", 4)
+	if !ok || f.Severity != "ERROR" || !strings.Contains(f.Message, "mating halves") || strings.Contains(f.Message, "of UNASSIGNED") || !strings.Contains(f.Message, "designator was not read") {
+		t.Errorf("mating-half message wrong: %+v", f)
+	}
 }

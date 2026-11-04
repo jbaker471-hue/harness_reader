@@ -130,6 +130,10 @@ func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 					t.Fatalf("%s: incomplete audit must list the missed lines and both connectors: %+v", tc.mode, a)
 				}
 				bad = append(bad, a.Title+" "+itoa(a.Page))
+				// an unread wiring sheet says which step of the column reader failed
+				if tc.mode == "noheader3nobom" && a.Title == "wire gauge labels" && !strings.Contains(a.Detail, "column reader: pin columns found") {
+					t.Fatalf("%s: unread sheet should explain why: %s", tc.mode, a.Detail)
+				}
 			}
 		}
 		sort.Strings(bad)

@@ -521,6 +521,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	a.TableAudits = []TableAudit{}
 	var tables []genericTable
 	partTags, headerConflicts := headerPartTags(d)
+	colWhy := map[int]string{}
 	a.TableAudits = append(a.TableAudits, headerConflicts...)
 	for _, p := range d.Pages {
 		a.Words += len(p.Words)
@@ -551,7 +552,11 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			bb = gb
 		}
 		w := pairedSchematicRows(p)
-		w = append(w, positionalSchematicRows(p, w, partTags)...)
+		pw, why := positionalSchematicRows(p, w, partTags)
+		w = append(w, pw...)
+		if why != "" {
+			colWhy[p.Number] = why
+		}
 		if au, ok := auditSchematic(p, w); ok {
 			a.TableAudits = append(a.TableAudits, au)
 		}
@@ -862,7 +867,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 				tags = append(tags, c.Tag)
 			}
 		}
-		a.TableAudits = append(a.TableAudits, gaugeLabelAudits(d, a.Wires, tags)...)
+		a.TableAudits = append(a.TableAudits, gaugeLabelAudits(d, a.Wires, tags, colWhy)...)
 	}
 	{
 		byPart := map[int]int{}
