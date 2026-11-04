@@ -82,7 +82,7 @@ func TestReplicaDrawingKnownAnswer(t *testing.T) {
 // A conductor listed for a pin counts whatever its colour word: four-colour
 // cables, no colour at all, unfamiliar colour words, a stray extra pin label.
 func TestReplicaDrawingReadsWiresWithoutRelyingOnColour(t *testing.T) {
-	for _, mode := range []string{"quad", "nocolour", "oddcolour", "ambiguous", "quadnobom"} {
+	for _, mode := range []string{"quad", "nocolour", "oddcolour", "ambiguous", "quadnobom", "nosheet3", "nosheet3nobom"} {
 		d := buildReplicaVariant(mode)
 		x, err := ExtractDocument(d.pdf)
 		if err != nil {
@@ -114,8 +114,8 @@ func TestReplicaDrawingReadsWiresWithoutRelyingOnColour(t *testing.T) {
 func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 	for _, tc := range []struct{ mode, want string }{
 		{"onesided", "wire gauge labels 4,wiring diagram 4"},
-		{"nosheet3", "wire gauge labels 3"},
-		{"nosheet3nobom", "wire gauge labels 3"},
+		{"noheader3", "wire gauge labels 3"},
+		{"noheader3nobom", "wire gauge labels 3"},
 	} {
 		d := buildReplicaVariant(tc.mode)
 		x, err := ExtractDocument(d.pdf)
@@ -148,5 +148,32 @@ func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 		if disagree != 3 {
 			t.Fatalf("%s: conductor and both empty-cavity counts must disagree, got %d", tc.mode, disagree)
 		}
+	}
+}
+
+// A sheet whose designators cannot be read is matched by the part number in
+// its header, and said so; the same part labelled two ways holds both.
+func TestReplicaDrawingConnectorHeaders(t *testing.T) {
+	d := buildReplicaVariant("nosheet3")
+	x, _ := ExtractDocument(d.pdf)
+	v, _ := viewFromExtraction(x)
+	review := false
+	for _, i := range v.Issues {
+		review = review || (i.Code == "CONNECTOR_MATCHED_BY_PART" && len(i.Pages) == 1 && i.Pages[0] == 3)
+	}
+	if len(v.Wires) != len(d.wires) || !review {
+		t.Fatalf("nosheet3: want every wire read and a review note for sheet 3: wires %d, issues %+v", len(v.Wires), v.Issues)
+	}
+	d = buildReplicaVariant("typo3")
+	x, _ = ExtractDocument(d.pdf)
+	v, _ = viewFromExtraction(x)
+	held := false
+	for _, a := range v.TableAudits {
+		if a.Title == "connector header" && a.Status == "INCOMPLETE" && strings.Join(a.Connectors, ",") == "R1G-P5,RIG-P5" {
+			held = true
+		}
+	}
+	if !held {
+		t.Fatalf("typo3: a part labelled with two designators must hold both: %+v", v.TableAudits)
 	}
 }

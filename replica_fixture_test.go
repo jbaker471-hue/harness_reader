@@ -57,7 +57,7 @@ func replicaColor(corrupt string, i int) string {
 	case "oddcolour":
 		return []string{"XQ", "ZRP"}[i%2]
 	}
-	if corrupt == "quad" || strings.HasPrefix(corrupt, "nosheet3") || corrupt == "quadnobom" {
+	if corrupt == "quad" || strings.HasPrefix(corrupt, "nosheet3") || strings.HasPrefix(corrupt, "noheader3") || corrupt == "typo3" || corrupt == "quadnobom" {
 		return []string{"WHT", "BLU", "ORA", "GRN"}[i%4]
 	}
 	return map[bool]string{true: "WHT", false: "BLU"}[i%2 == 0]
@@ -266,17 +266,29 @@ func buildReplicaVariant(corrupt string) replicaDrawing {
 		}
 		lx, rx := 640.0, 1820.0 // connector block inner edges
 		top := 1380.0
-		if !(strings.HasPrefix(corrupt, "nosheet3") && sheet == 3) {
-			text(&b, lx-50, top+40, 8, "RIG-P5")
+		// nosheet3: no designators on sheet 3; noheader3: no designators or part numbers;
+		// typo3: sheet 3 labels the left connector with a different designator.
+		hide3 := sheet == 3 && (strings.HasPrefix(corrupt, "nosheet3") || strings.HasPrefix(corrupt, "noheader3"))
+		noPart3 := sheet == 3 && strings.HasPrefix(corrupt, "noheader3")
+		leftTag := "RIG-P5"
+		if corrupt == "typo3" && sheet == 3 {
+			leftTag = "R1G-P5"
 		}
-		text(&b, lx-50, top+30, 7, "D38999/")
-		text(&b, lx-50, top+20, 7, "26FJ35PA")
+		if !hide3 {
+			text(&b, lx-50, top+40, 8, leftTag)
+		}
+		if !noPart3 {
+			text(&b, lx-50, top+30, 7, "D38999/")
+			text(&b, lx-50, top+20, 7, "26FJ35PA")
+		}
 		text(&b, lx-50, top+10, 7, "BENCH")
-		if !(strings.HasPrefix(corrupt, "nosheet3") && sheet == 3) {
+		if !hide3 {
 			text(&b, rx, top+40, 8, "BOX-P5")
 		}
-		text(&b, rx, top+30, 7, "D38999/")
-		text(&b, rx, top+20, 7, "26FJ35SA")
+		if !noPart3 {
+			text(&b, rx, top+30, 7, "D38999/")
+			text(&b, rx, top+20, 7, "26FJ35SA")
+		}
 		text(&b, rx, top+10, 7, "UNIT")
 		b.WriteString("0.5 w\n")
 		bottom := top - float64(len(ws))*25 - 40

@@ -28,7 +28,7 @@ var (
 // the left connector block and a pin in the column beside the right one. The
 // colour, when printed, is recorded but never decides whether a wire counts.
 // Lines already read by the colour-based reader are skipped.
-func positionalSchematicRows(p Page, rows []WireRow) []WireRow {
+func positionalSchematicRows(p Page, rows []WireRow, partTags map[string]string) []WireRow {
 	if !p.PageAccurate || p.Width <= 0 {
 		return nil
 	}
@@ -103,16 +103,23 @@ func positionalSchematicRows(p Page, rows []WireRow) []WireRow {
 	if left == nil || right == nil || right.x-left.x < p.Width*.15 {
 		return nil
 	}
+	// Which connector each column belongs to is decided once, from the header
+	// above the column: its designator, or else its part number when exactly
+	// one connector of the drawing has that part.
+	from, fromVia := columnConnector(p, left.x, left.lines, partTags)
+	to, toVia := columnConnector(p, right.x, right.lines, partTags)
+	if from == "" || to == "" || from == to {
+		return nil
+	}
+	conf := "DRAFT — READ BY PIN COLUMN POSITION; CHECK SOURCE"
+	if fromVia == "part" || toVia == "part" {
+		conf = "DRAFT — READ BY PIN COLUMN POSITION; CONNECTOR MATCHED BY THE HEADER PART NUMBER (DESIGNATOR NOT READ); CHECK SOURCE"
+	}
 	var out []WireRow
 	for i, l := range lines {
 		lw, okL := left.lines[i]
 		rw, okR := right.lines[i]
 		if !okL || !okR || isRead(l.Y) {
-			continue
-		}
-		em := lineEm(l)
-		from, to := schematicTag(p, lw.X, l.Y, em), schematicTag(p, rw.X, l.Y, em)
-		if from == "" || to == "" || from == to {
 			continue
 		}
 		colour, gauge := "", ""
@@ -132,7 +139,7 @@ func positionalSchematicRows(p Page, rows []WireRow) []WireRow {
 			colour = c
 		}
 		out = append(out, WireRow{Page: p.Number, Connector: from, Cavity: lw.Text, End: to, EndCavity: rw.Text, Color: colour, AWG: gauge, Y: l.Y, Method: "paired-schematic-position",
-			Confidence: "DRAFT — READ BY PIN COLUMN POSITION; CHECK SOURCE"})
+			Confidence: conf})
 	}
 	if len(out)+len(rows) < 3 {
 		return nil
@@ -286,3 +293,88 @@ func seenWireTag(ws []WireRow, tag string) bool {
 
 // reGluedPart matches "part numbers" made of a note number and a word ("7DELETED").
 var reGluedPart = regexp.MustCompile(`^[0-9]{1,3}[A-Z]{4,}$`)
+
+// columnConnector finds the connector a pin column belongs to from the header
+// printed above the column's first pin. via is "designator" or "part".
+func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[string]string) (string, string) {
+	top, size := math.Inf(-1), 6.0
+	for _, w := range rows {
+		if w.Y > top {
+			top, size = w.Y, math.Max(w.Size, 4)
+		}
+	}
+	reach := p.Width * .12
+	best, bestScore, ambiguous := "", math.Inf(1), false
+	for _, w := range p.Words {
+		t := strings.ToUpper(strings.TrimSpace(w.Text))
+		if w.Rotated || reRefDesignator.FindString(t) != t || t == "" {
+			continue
+		}
+		dy, dx := w.Y-top, math.Abs(w.X-colX)
+		if dy <= 0.3*size || dy > 12*size || dx > reach {
+			continue
+		}
+		s := dy + 0.3*dx
+		switch {
+		case s < bestScore-size:
+			best, bestScore, ambiguous = t, s, false
+		case math.Abs(s-bestScore) <= size && t != best:
+			ambiguous = true
+		}
+	}
+	if best != "" && !ambiguous {
+		return best, "designator"
+	}
+	// the part number printed in the same header ("D38999/" over its tail)
+	for _, h := range p.Words {
+		ht := strings.ToUpper(strings.TrimSpace(h.Text))
+		if !reSplitPNHead.MatchString(ht) || h.Y-top <= 0 || h.Y-top > 12*size || math.Abs(h.X-colX) > reach {
+			continue
+		}
+		em := math.Max(h.Size, 4)
+		for _, w := range p.Words {
+			d := h.Y - w.Y
+			tt := strings.ToUpper(strings.TrimSpace(w.Text))
+			if d > 0.3*em && d < 2*em && math.Abs(w.X-h.X) <= 1.5*em && reSplitPNTail.MatchString(tt) {
+				if tag := partTags[ht+tt]; tag != "" {
+					return tag, "part"
+				}
+			}
+		}
+	}
+	return "", ""
+}
+
+// headerPartTags maps a connector part number to the one designator the
+// drawing's headers give it. A part labelled with two different designators
+// maps to none, and is returned as a conflict that holds both connectors.
+func headerPartTags(d PDFData) (map[string]string, []TableAudit) {
+	type seen struct {
+		tag  string
+		page int
+	}
+	first := map[string]seen{}
+	out, bad := map[string]string{}, map[string]bool{}
+	var conflicts []TableAudit
+	for _, p := range d.Pages {
+		for tag, part := range headerPartNumbers(p) {
+			if prev, ok := first[part]; ok && prev.tag != tag {
+				if !bad[part] {
+					conflicts = append(conflicts, TableAudit{Page: p.Number, Title: "connector header", Status: "INCOMPLETE", Connectors: []string{prev.tag, tag},
+						Missed: []MissedRow{{Text: part + " labelled " + tag, Reason: "the same connector part is labelled " + prev.tag + " on sheet " + itoa(prev.page)}},
+						Detail: fmt.Sprintf("connector part %s is labelled %s on sheet %d but %s on sheet %d; resolve which designator is correct", part, prev.tag, prev.page, tag, p.Number)})
+				}
+				bad[part] = true
+				continue
+			}
+			if _, ok := first[part]; !ok {
+				first[part] = seen{tag, p.Number}
+			}
+			out[part] = tag
+		}
+	}
+	for part := range bad {
+		delete(out, part)
+	}
+	return out, conflicts
+}

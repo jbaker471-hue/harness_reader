@@ -515,6 +515,8 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	a.PageSummary = []PageSummary{}
 	a.TableAudits = []TableAudit{}
 	var tables []genericTable
+	partTags, headerConflicts := headerPartTags(d)
+	a.TableAudits = append(a.TableAudits, headerConflicts...)
 	for _, p := range d.Pages {
 		a.Words += len(p.Words)
 		gts := genericTables(p)
@@ -544,7 +546,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			bb = gb
 		}
 		w := pairedSchematicRows(p)
-		w = append(w, positionalSchematicRows(p, w)...)
+		w = append(w, positionalSchematicRows(p, w, partTags)...)
 		if au, ok := auditSchematic(p, w); ok {
 			a.TableAudits = append(a.TableAudits, au)
 		}
@@ -854,6 +856,17 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			}
 		}
 		a.TableAudits = append(a.TableAudits, gaugeLabelAudits(d, a.Wires, tags)...)
+	}
+	{
+		byPart := map[int]int{}
+		for _, w := range a.Wires {
+			if strings.Contains(w.Confidence, "MATCHED BY THE HEADER PART NUMBER") {
+				byPart[w.Page]++
+			}
+		}
+		for pg, n := range byPart {
+			a.Findings = append(a.Findings, Finding{Severity: "REVIEW", Code: "CONNECTOR_MATCHED_BY_PART", Category: CatReview, Pages: []int{pg}, Message: fmt.Sprintf("Sheet %d: the connector designators above the pin columns could not be read, so %d wire(s) were assigned to connectors by the part number printed in each header. Check the sheet.", pg, n)})
+		}
 	}
 	a.Findings = append(a.Findings, flexibleWarnings(d, a)...)
 	for _, t := range a.TableAudits {
