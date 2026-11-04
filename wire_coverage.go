@@ -399,34 +399,33 @@ func normPart(s string) string {
 	return s
 }
 
-// headerPartFinding grades a disagreement between the part printed in a wiring
-// sheet header and the part the connector already has:
-//   - formatting only: nothing to report;
-//   - the header part belongs to another connector in the parts list: the
-//     reader may have paired the part with the wrong designator (REVIEW);
-//   - same insert arrangement and contact type, other letters differ (finish,
-//     series, key): pinning is unaffected (REVIEW);
-//   - different insert or contact type: a real conflict that holds the
-//     connector (ERROR).
+// headerPartFinding compares the part printed in a wiring sheet header with
+// the part the connector already has. Formatting differences (spaces, dashes,
+// M38999 vs D38999, a suffix on one side) are not reported. Any other
+// difference is a drawing conflict (ERROR): a different slash sheet, finish,
+// key or contact type is a different connector to order and build, even when
+// the insert is the same. The message says whether the insert and contact type
+// agree (cavities the same), and whether the header part is another
+// connector's part (the reader may have paired it with the wrong designator).
 func headerPartFinding(conns []Connector, c Connector, header string, page int) (Finding, bool) {
 	if normPart(c.Part) == normPart(header) || strings.HasPrefix(normPart(c.Part), normPart(header)) || strings.HasPrefix(normPart(header), normPart(c.Part)) {
 		return Finding{}, false
 	}
-	f := Finding{Pages: []int{page}, Connector: c.Tag, Part: c.Part, Expected: "Parts list: " + c.Part, Observed: "Wiring sheet header: " + header}
+	f := Finding{Severity: "ERROR", Category: CatConflict, Code: "CONNECTOR_PART_MISMATCH", Pages: []int{page}, Connector: c.Tag, Part: c.Part, Expected: "Parts list: " + c.Part, Observed: "Wiring sheet header: " + header}
+	f.Message = fmt.Sprintf("%s: the wiring sheet header gives %s but the parts list gives %s.", c.Tag, header, c.Part)
+	h, l := reInsertCore.FindStringSubmatch(strings.ToUpper(header)), reInsertCore.FindStringSubmatch(strings.ToUpper(c.Part))
+	switch {
+	case h != nil && l != nil && h[1] == l[1]:
+		f.Message += fmt.Sprintf(" Both have insert %s, so the cavity layout is the same; the connector to order and build is not.", h[1])
+	case h != nil && l != nil:
+		f.Message += fmt.Sprintf(" The inserts differ (%s vs %s), so the cavity layout or contact type is not the same.", h[1], l[1])
+	}
 	for _, o := range conns {
 		if o.Tag != c.Tag && normPart(o.Part) == normPart(header) {
-			f.Severity, f.Category, f.Code = "REVIEW", CatReview, "CONNECTOR_PART_PAIRING_REVIEW"
-			f.Message = fmt.Sprintf("%s: the wiring sheet header part %s is the parts-list part of %s. The reader may have paired the header with the wrong designator; the parts-list part %s is kept.", c.Tag, header, o.Tag, c.Part)
-			return f, true
+			f.Message += fmt.Sprintf(" The header part is also the parts-list part of %s: check that this header belongs to %s.", o.Tag, c.Tag)
+			break
 		}
 	}
-	h, l := reInsertCore.FindStringSubmatch(strings.ToUpper(header)), reInsertCore.FindStringSubmatch(strings.ToUpper(c.Part))
-	if h != nil && l != nil && h[1] == l[1] {
-		f.Severity, f.Category, f.Code = "REVIEW", CatReview, "CONNECTOR_PART_SUFFIX_DIFFERS"
-		f.Message = fmt.Sprintf("%s: the wiring sheet header gives %s and the parts list gives %s. Both have insert %s, so cavities and contacts are the same; the finish, series or key letters differ.", c.Tag, header, c.Part, h[1])
-		return f, true
-	}
-	f.Severity, f.Category, f.Code = "ERROR", CatConflict, "CONNECTOR_PART_MISMATCH"
-	f.Message = fmt.Sprintf("%s: the wiring sheet header gives %s but the parts list gives %s.", c.Tag, header, c.Part)
+	f.Message += " The parts-list part is kept until engineering resolves it."
 	return f, true
 }
