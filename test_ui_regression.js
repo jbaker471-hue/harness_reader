@@ -1054,3 +1054,29 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!/importTextNotes\(\);\s*\$\('bomVerified'\)/.test(src))throw Error('notes must be imported as part of reading the drawing');
  console.log('PASS: numbered notes are added when a drawing is read, once, as review candidates');
 }
+
+// Job summary: the five answers from one drawing reading.
+{
+ const ctx={st:{raw:{wires:[{page:2,connector:'P1',cavity:'1',end:'J1',endCavity:'A',method:'pinout-table',confidence:'DRAFT — HEADER-GROUNDED'}],cavityModels:[{tag:'P1',part:'X',all:['1','2'],allVerified:true,wired:['1'],unused:['2'],unusedStatus:'CANDIDATE',explicitUnused:[],conflicts:[],views:[]}],tableAudits:[{page:2,title:'wire gauge labels',connectors:['P1'],status:'COMPLETE',rowsRead:1,counted:true,ruledRows:1,detail:'every one of the 1 printed wire gauge labels on sheet 2 has a wire read',missed:[]}],fillInstructions:[{policy:'contact+plug',page:1,note:'4',text:'INSTALL CONTACTS AND SEALING PLUGS IN UNUSED CAVITIES',connectors:[]}]},bom:[{item:'7',part:'MS27488-22-2',description:'PLUG, SEALING',qty:'A/R'},{item:'8',part:'600-052',description:'BAND, 14 IN LONG',qty:'2'}],nets:[{id:'N1',wire:'W1',role:'conductor',sheet:'2',endpoints:'P1:1,J1:A',reviewed:false}],connectors:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs};
+ vm.createContext(ctx);vm.runInContext(block('function parseEndpoint(','function validateNets(')+block('const faceSides=','function renderConnectors(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const c={tag:'P1',part:'X',occupied:'1',labels:['1','2'],verified:false};
+ const rates={strip:.1667,crimpClosedHand:.25,insert:2.5333,test:.0781,inspect:.0276,band:5,heatShrinkEnd:3,braidTrimEnd:2};
+ const s=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:ctx.st.bom,rates});
+ const r=s.connectors[0];
+ if(s.cuts.state!=='read'||s.cuts.groups[0].length!=='150.00'||s.cuts.conductors!==1)throw Error('cuts wrong: '+JSON.stringify(s.cuts));
+ if(r.positions!==2||r.wired!==1||r.unused!==1||!r.released||r.state!=='read'||r.plug!=='MS27488-22-2')throw Error('connector answer wrong: '+JSON.stringify(r));
+ if(s.kit.crimpContacts!==1||s.kit.fillerContacts!==1||s.kit.sealingPlugs!==1||s.kit.state!=='read')throw Error('kit wrong: '+JSON.stringify(s.kit));
+ const want=2*.1667+1*.25+2*2.5333+1*.0781+2*.0276+2*5;
+ if(Math.abs(s.time.minutes-want)>1e-6||!s.time.notTimed.some(x=>/sealing plugs/.test(x)))throw Error('time wrong: '+s.time.minutes+' vs '+want+' '+JSON.stringify(s.time.notTimed));
+ // An unread wiring sheet: not used is held, not in the kit, and the answer says where to look.
+ ctx.st.raw.tableAudits=[{page:3,title:'wire gauge labels',connectors:['P1'],status:'INCOMPLETE',rowsRead:0,counted:true,ruledRows:26,detail:'sheet 3 shows 26 printed wire gauge labels but only 0 wire(s) were read on it',missed:[]}];
+ const h=ctx.jobSummary({connectors:[c],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+ const hr=h.connectors[0];
+ if(hr.released||hr.state!=='look'||!/sheet 3/.test(hr.look.join(' '))||h.kit.sealingPlugs!==0||h.kit.heldUnused!==1||h.cuts.state!=='look'||h.time.state!=='look')throw Error('held drawing must say look here: '+JSON.stringify(h));
+ // Answer-key comparison counts only.
+ vm.runInContext(block('function answerKeyCompare(','function answerKeyHtml('),ctx);
+ const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
+ if(!cmp.pass||cmp.found!==1)throw Error('answer key compare wrong: '+JSON.stringify(cmp));
+ if(ctx.answerKeyCompare(s,{conductors:2,connectors:[{tag:'P1',positions:2,wired:2,unused:0}]}).pass)throw Error('a wrong reading must not match the key');
+ console.log('PASS: job summary gives cuts, connectors, positions, used/unused, kit and observed-time build estimate, and holds an unread sheet');
+}

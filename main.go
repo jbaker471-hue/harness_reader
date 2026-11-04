@@ -529,6 +529,45 @@ func run() error {
 		}
 		jsonAnswer(w, map[string]int{"learned": n})
 	})
+	// The right answers for the open drawing, saved on this PC only.
+	mux.HandleFunc("/api/answer-key", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			if !post(w, r) {
+				return
+			}
+			_, x := current.get()
+			if x == nil {
+				http.Error(w, "Open a drawing first", 409)
+				return
+			}
+			var k AnswerKey
+			if e := json.NewDecoder(io.LimitReader(r.Body, 262144)).Decode(&k); e != nil {
+				http.Error(w, "Invalid JSON", 400)
+				return
+			}
+			k.SHA256 = x.SHA256
+			if e := saveAnswerKey(k); e != nil {
+				http.Error(w, "Could not save the answer key: "+e.Error(), 422)
+				return
+			}
+			saved, _ := loadAnswerKey(x.SHA256)
+			jsonAnswer(w, map[string]any{"key": saved})
+			return
+		}
+		if !secure(w, r) {
+			return
+		}
+		_, x := current.get()
+		if x == nil {
+			jsonAnswer(w, map[string]any{"key": nil})
+			return
+		}
+		if k, ok := loadAnswerKey(x.SHA256); ok {
+			jsonAnswer(w, map[string]any{"key": k})
+			return
+		}
+		jsonAnswer(w, map[string]any{"key": nil})
+	})
 	mux.HandleFunc("/api/layouts/forget", func(w http.ResponseWriter, r *http.Request) {
 		if !post(w, r) {
 			return
