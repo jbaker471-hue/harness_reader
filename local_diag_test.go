@@ -117,6 +117,17 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				}
 			}
 			pf("LENGTHS: harness length candidates %d (corroborated %d); with a tolerance %d, cut at the top %d", len(v.HarnessLengths), co, tol, up)
+			// the user's stated value for drawing 1: 216 IN +1, cut at 217 IN
+			if di == 0 {
+				nom, cut := false, false
+				for _, h := range v.HarnessLengths {
+					if h.Text == "216 IN" || h.Text == "216" {
+						nom = true
+						cut = cut || h.Upper == "217 IN"
+					}
+				}
+				pf("LENGTHCHECK: nominal matches the stated value %v, cut at the top of the tolerance matches %v", nom, cut)
+			}
 		}
 		{
 			fe, rg := 0, 0

@@ -414,6 +414,11 @@ const unitless=cutCtx.buildCutList([hNets[0]],{allowance:0,harness:{inches:48,as
 equal(unitless.status,'UNIT ASSUMED');                                          // an unstated unit is still flagged
 const hCable=cutCtx.buildCutList([{id:'A',endpoints:'P1:1, J1:1',awg:'24',color:'WHT'},{id:'B',endpoints:'P1:2, J1:2',awg:'24',color:'BLU'}],{allowance:2,cables:{'24':2},harness:{inches:48,assumed:false,text:'48 IN'}});
 equal([hCable.rows.length,hCable.rows[0].status,hCable.rows[0].cut,hCable.groups[0].inches],[1,'HARNESS LENGTH',50,50]);   // one cable, one 50 in cut
+// The shop cuts at the top of the tolerance: a confirmed 216 IN -0/+1 harness length is cut at 217 with no excess.
+cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'216 IN',tolerance:'-0/+1',upper:'217 IN',corroborated:true}]},harnessLength:null,harnessLengthOff:false,quote:{wireCost:{},bomCost:{}},shieldTerm:{},cableSpec:{}};
+cutCtx.autoHarness();equal(cutCtx.st.harnessLength.text,'217 IN');
+const top=cutCtx.buildCutList([hNets[0]],{allowance:0,harness:{inches:217,assumed:false,text:'217 IN'}}).rows[0];
+equal([top.status,top.cut],['HARNESS LENGTH',217]);
 // candidate selection and stale state
 cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'OVERALL LENGTH',text:'48 IN'}]},harnessLength:null,harnessLengthOff:false,quote:{wireCost:{a:1},bomCost:{b:2}},shieldTerm:{x:1},cableSpec:{'24':'2'}};
 cutCtx.autoHarness();equal(cutCtx.st.harnessLength.text,'48 IN');             // one distinct value on two sheets: pre-selected for confirmation
@@ -422,7 +427,7 @@ cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);                       
 cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);   // a cleared choice is not re-applied
 cutCtx.st.harnessLength={text:'48 IN'};cutCtx.resetCutListState();
 equal([cutCtx.st.harnessLength,cutCtx.st.shieldTerm,cutCtx.st.cableSpec,cutCtx.st.quote.wireCost,cutCtx.st.quote.bomCost],[null,{},{},{},{}]);
-if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="2"'))throw Error('default excess missing');
+if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="0"'))throw Error('default excess must be 0 (cut at the top of the tolerance)');
 console.log('PASS: harness length applies only to conductors without their own length, is flagged, and never carries across drawings');
 
 // With no drawn positions the face view must not draw a shell or a square block of cavities
@@ -1084,6 +1089,8 @@ console.log('PASS: harness length applies only to conductors without their own l
  // Wire ends on a ring terminal are in the kit and the build time.
  const rg=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpOpen:2},wires:[{method:'traced-wire-to-ring'},{method:'paired-schematic'}]});
  if(rg.kit.ringTerminals!==1||!rg.time.lines.some(l=>/ring terminal/.test(l.label)&&l.count===1&&Math.abs(l.minutes-2)<1e-9))throw Error('ring terminals missing from kit or time: '+JSON.stringify(rg.kit)+JSON.stringify(rg.time.lines));
+ // Cuts are made at the top of the tolerance with no extra excess by default (146: 216 +1 is cut at 217).
+ if(!/id="cutAllowance"[^>]*value="0"/.test(html))throw Error('the default excess added to each cut must be 0: the shop cuts at the top of the tolerance');
  // The quote uses the job summary's observed-time estimate when the Labor tab was not used.
  {const i0=src.indexOf('function quoteLaborHours(');const fn=src.slice(i0,src.indexOf('\n',i0));
   const q={st:{raw:{wires:[]},summary:{time:{hours:3.25}},laborUnitHours:null,connectors:[],bom:[]},summaryRates:()=>({}),jobSummary:()=>{throw Error('unused')}};vm.createContext(q);vm.runInContext(fn,q);
