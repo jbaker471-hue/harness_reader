@@ -373,6 +373,62 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 				m.Wired = append(m.Wired, w.EndCavity)
 			}
 		}
+		// NC pins from this connector's pin-number checks are stated unused.
+		checks, allPass := 0, true
+		ncSeen := map[string]bool{}
+		for _, t := range a.TableAudits {
+			if t.Title != "pin numbers "+tag {
+				continue
+			}
+			checks++
+			if t.Status != "COMPLETE" {
+				allPass = false
+			}
+			for _, id := range t.NC {
+				if !ncSeen[id] {
+					ncSeen[id] = true
+					m.ExplicitUnused = append(m.ExplicitUnused, UnusedCavity{Connector: tag, Cavity: id, Page: t.Page, Source: fmt.Sprintf("marked NC (no connect) on sheet %d", t.Page)})
+				}
+			}
+		}
+		// No catalog data and no face view: the drawing itself states the
+		// positions when every pin-number check passes and the wired pins plus
+		// the NC pins run 1..N with no gaps.
+		if len(m.All) == 0 && checks > 0 && allPass && len(ncSeen) > 0 {
+			ids := map[int]bool{}
+			okNum, maxN := true, 0
+			for id := range seen {
+				n, err := strconv.Atoi(id)
+				if err != nil || n < 1 {
+					okNum = false
+					break
+				}
+				ids[n] = true
+				if n > maxN {
+					maxN = n
+				}
+			}
+			for id := range ncSeen {
+				n, err := strconv.Atoi(id)
+				if err != nil || n < 1 {
+					okNum = false
+					break
+				}
+				ids[n] = true
+				if n > maxN {
+					maxN = n
+				}
+			}
+			if okNum && maxN > 0 && len(ids) == maxN {
+				for i := 1; i <= maxN; i++ {
+					m.All = append(m.All, strconv.Itoa(i))
+				}
+				m.AllSource = fmt.Sprintf("from the drawing: %d wired pins plus %d pins marked NC make positions 1-%d with no gaps (no catalog data for this part)", len(seen), len(ncSeen), maxN)
+				m.AllVerified = true
+			} else if okNum && maxN > 0 {
+				m.AllSource = fmt.Sprintf("unknown: the drawing's wired and NC pins leave %d gap(s) in 1-%d, so the positions are not proven", maxN-len(ids), maxN)
+			}
+		}
 		for _, u := range a.Unused {
 			if u.Connector == tag {
 				m.ExplicitUnused = append(m.ExplicitUnused, u)

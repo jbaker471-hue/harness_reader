@@ -38,7 +38,8 @@ type TableAudit struct {
 	RuledRows  int         `json:"ruledRows"` // ruled bands holding text (or printed gauge labels when Counted); 0 when not ruled
 	Counted    bool        `json:"counted"`   // RuledRows is an independent count of printed wire lines
 	Missed     []MissedRow `json:"missed"`
-	Status     string      `json:"status"` // COMPLETE | INCOMPLETE
+	Status     string      `json:"status"`       // COMPLETE | INCOMPLETE
+	NC         []string    `json:"nc,omitempty"` // pin-number checks: pins the drawing marks NC (no connect)
 	Detail     string      `json:"detail"`
 }
 

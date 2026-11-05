@@ -579,6 +579,8 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 				w = append(w, r)
 			}
 		}
+		// connectors whose wires another reader read get a pin column too
+		blocks = append(blocks, rowBlocks(p, w, blocks)...)
 		// shields terminated to a pin use that pin
 		w = append(w, shieldPinRows(p, blocks, w)...)
 		// every pin number printed beside a traced connector needs exactly one wire

@@ -1078,6 +1078,12 @@ func pinNumberAudits(p Page, blocks []tracedBlock, pageRows []WireRow) []TableAu
 		}
 		sort.Slice(missed, func(i, j int) bool { return missed[i].Text < missed[j].Text })
 		a := TableAudit{Page: p.Number, Title: "pin numbers " + tag, Connectors: []string{tag}, RowsRead: len(printed) - countMissing(printed, landed) + countNCUnwired(nc, landed), Counted: true, RuledRows: len(printed), Missed: missed}
+		for id := range nc {
+			if landed[id] == 0 {
+				a.NC = append(a.NC, id)
+			}
+		}
+		sortCavities(a.NC)
 		if len(missed) > 0 {
 			a.Status = "INCOMPLETE"
 			a.Detail = fmt.Sprintf("%s on sheet %d: %d pin number(s) printed beside it, %d with a wire; %d problem(s)", tag, p.Number, len(printed), a.RowsRead, len(missed))
@@ -1269,4 +1275,74 @@ func headerBetweenY(p Page, x, y, top, bot float64) bool {
 		}
 	}
 	return false
+}
+
+// rowBlocks builds pin-number blocks for connectors that have wires on a sheet
+// but were not reached by the tracer (their wires were read by another
+// reader): the pin labels of those wires, in the column nearest the
+// connector's header designator. Without such a block the connector would get
+// no pin-number check.
+func rowBlocks(p Page, rows []WireRow, have []tracedBlock) []tracedBlock {
+	done := map[string]bool{}
+	for _, b := range have {
+		done[strings.ToUpper(b.tag)] = true
+	}
+	var items []Word
+	for _, l := range pageLines(p) {
+		items = append(items, schematicWords(l)...)
+	}
+	byTag := map[string][]WireRow{}
+	order := []string{}
+	add := func(tag string, r WireRow, cav string) {
+		u := strings.ToUpper(tag)
+		if tag == "" || done[u] || cav == "" {
+			return
+		}
+		if _, ok := byTag[u]; !ok {
+			order = append(order, u)
+		}
+		rr := r
+		rr.Cavity = cav
+		byTag[u] = append(byTag[u], rr)
+	}
+	for _, r := range rows {
+		if r.Page != p.Number {
+			continue
+		}
+		add(r.Connector, r, r.Cavity)
+		add(r.End, r, r.EndCavity)
+	}
+	var out []tracedBlock
+	for _, tag := range order {
+		// the connector's header designator on this sheet
+		hx, found := 0.0, false
+		for _, w := range p.Words {
+			if strings.EqualFold(strings.TrimSpace(w.Text), tag) && !w.Rotated {
+				hx, found = w.X, true
+				break
+			}
+		}
+		if !found {
+			continue
+		}
+		var pins []Word
+		for _, r := range byTag[tag] {
+			best, bd := Word{}, math.Inf(1)
+			for _, w := range items {
+				if strings.TrimSpace(w.Text) != r.Cavity || math.Abs(w.Y-r.Y) > 1.5 {
+					continue
+				}
+				if d := math.Abs(w.X - hx); d < bd && d <= p.Width*.12 {
+					best, bd = w, d
+				}
+			}
+			if bd < math.Inf(1) {
+				pins = append(pins, best)
+			}
+		}
+		if len(pins) > 0 {
+			out = append(out, tracedBlock{tag: tag, pins: pins, ceiling: math.Inf(1)})
+		}
+	}
+	return out
 }
