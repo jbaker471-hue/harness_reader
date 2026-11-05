@@ -255,6 +255,70 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 			if labels > 0 && len(colour)+len(pos)+len(tw) < labels {
 				pf("    name check: %s", nameMatchStats(x.Data.Pages, i))
 				pf("    part check: %s", partMatchStats(x.Data, p))
+				_, _, tb := traceSheet(p, nil, nil)
+				for _, blk := range tb {
+					if blk.tag != "" {
+						continue
+					}
+					cx, top, _ := blockSpan(blk)
+					if math.IsNaN(cx) {
+						continue
+					}
+					type it struct {
+						d float64
+						s string
+					}
+					var near []it
+					for _, v := range p.Words {
+						em := 6.0
+						if len(blk.pins) > 0 {
+							em = math.Max(blk.pins[0].Size, 4)
+						}
+						dx, dy := (v.X-cx)/em, (v.Y-top)/em
+						if dy < 0 || dy > 40 || math.Abs(dx) > 30 {
+							continue
+						}
+						rot := ""
+						if v.Rotated {
+							rot = "(rotated)"
+						}
+						near = append(near, it{math.Hypot(dx, dy), fmt.Sprintf("%s%s@%.0f,%.0f", shapeClass(v.Text), rot, dx, dy)})
+					}
+					sort.Slice(near, func(a, b int) bool { return near[a].d < near[b].d })
+					ps := []string{}
+					for k := 0; k < len(near) && k < 8; k++ {
+						ps = append(ps, near[k].s)
+					}
+					pf("    unnamed block at %.2f with %d ends: above it %s", cx/p.Width, len(blk.pins), strings.Join(ps, " "))
+					// the three nearest designator-shaped items anywhere on the sheet
+					var ds []it
+					for _, v := range p.Words {
+						u := strings.ToUpper(strings.TrimSpace(v.Text))
+						if u == "" || (reRefDesignator.FindString(u) != u && !(reBlockName.MatchString(u) && schematicColor(u) == "" && !reSplitPNTail.MatchString(u))) {
+							continue
+						}
+						em := 6.0
+						if len(blk.pins) > 0 {
+							em = math.Max(blk.pins[0].Size, 4)
+						}
+						kind := "DESIGNATOR"
+						if reRefDesignator.FindString(u) != u {
+							kind = "NAME"
+						}
+						rot := ""
+						if v.Rotated {
+							rot = "(rotated)"
+						}
+						dx, dy := (v.X-cx)/em, (v.Y-top)/em
+						ds = append(ds, it{math.Hypot(dx, dy), fmt.Sprintf("%s%s@%.0f,%.0f", kind, rot, dx, dy)})
+					}
+					sort.Slice(ds, func(a, b int) bool { return ds[a].d < ds[b].d })
+					dps := []string{}
+					for k := 0; k < len(ds) && k < 3; k++ {
+						dps = append(dps, ds[k].s)
+					}
+					pf("    unnamed block at %.2f nearest names: %s", cx/p.Width, strings.Join(dps, " "))
+				}
 				for _, d := range nameDebug(p) {
 					pf("    names: %s", d)
 				}

@@ -381,3 +381,27 @@ func TestNoConnectListAndShieldPins(t *testing.T) {
 		t.Fatalf("expandPinList: %s", got)
 	}
 }
+
+// The gauge number of "24 AWG" is never read as a pin, even where a line
+// ends right at its label.
+func TestGaugeNumberIsNeverAPin(t *testing.T) {
+	p := Page{Number: 4, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	add("MID-J2", 395, 960)
+	for i := 0; i < 4; i++ {
+		y := 920 - 20*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("24", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 402, y - 2}) // the line stops under its gauge label
+	}
+	rows, _ := tracedWireRows(p, nil, nil)
+	for _, r := range rows {
+		if r.EndCavity == "24" || r.Cavity == "24" {
+			t.Fatalf("a gauge number was read as a pin: %+v", r)
+		}
+	}
+}

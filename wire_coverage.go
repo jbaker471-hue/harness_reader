@@ -533,7 +533,10 @@ func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[strin
 	if t, v := columnConnectorWithin(p, colX, rows, partTags, ceiling, 12); t != "" {
 		return t, v
 	}
-	return columnConnectorWithin(p, colX, rows, partTags, ceiling, 20)
+	if t, v := columnConnectorWithin(p, colX, rows, partTags, ceiling, 20); t != "" {
+		return t, v
+	}
+	return columnConnectorWithin(p, colX, rows, partTags, ceiling, 30)
 }
 
 func columnConnectorWithin(p Page, colX float64, rows map[int]Word, partTags map[string]string, ceiling, limit float64) (string, string) {

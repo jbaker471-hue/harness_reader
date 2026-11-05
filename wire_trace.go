@@ -389,11 +389,22 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 		items = append(items, schematicWords(l)...)
 	}
 	edge := 0.03 * p.Width
+	// a number directly followed by "AWG" is a wire gauge, never a pin
+	gaugeNum := map[[2]float64]bool{}
+	for _, l := range pageLines(p) {
+		ws := schematicWords(l)
+		for j := 0; j+1 < len(ws); j++ {
+			if strings.EqualFold(ws[j+1].Text, "AWG") {
+				gaugeNum[[2]float64{ws[j].X, ws[j].Y}] = true
+			}
+		}
+	}
+	isGaugeNum := func(w Word) bool { return gaugeNum[[2]float64{w.X, w.Y}] || reGaugeLabel.MatchString(w.Text) }
 	findPin := func(x, y, em float64) (Word, string, bool) {
 		best, bestD, id := Word{}, math.Inf(1), ""
 		for _, w := range items {
-			if w.X < edge || w.X > p.Width-edge {
-				continue // border zone letters and numbers
+			if w.X < edge || w.X > p.Width-edge || isGaugeNum(w) {
+				continue // border zone letters and numbers; wire gauges
 			}
 			pid, ok := pinAtEnd(w.Text)
 			if !ok {
@@ -417,7 +428,7 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 	findPinOutward := func(x, y, dir, em float64) (Word, string, bool) {
 		best, bestD, id := Word{}, math.Inf(1), ""
 		for _, w := range items {
-			if w.X < edge || w.X > p.Width-edge || math.Abs(w.Y-y) > 1.0*em {
+			if w.X < edge || w.X > p.Width-edge || math.Abs(w.Y-y) > 1.0*em || isGaugeNum(w) {
 				continue
 			}
 			pid, ok := pinAtEnd(w.Text)
@@ -567,7 +578,7 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 				if w.X < edge || w.X > p.Width-edge {
 					continue
 				}
-				if _, ok := pinAtEnd(w.Text); ok && math.Abs((w.X+w.right())/2-x) <= 2*lb.em && math.Abs(w.Y-y) <= 1.0*lb.em {
+				if _, ok := pinAtEnd(w.Text); ok && !isGaugeNum(w) && math.Abs((w.X+w.right())/2-x) <= 2*lb.em && math.Abs(w.Y-y) <= 1.0*lb.em {
 					return true
 				}
 			}
@@ -709,7 +720,7 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			for _, i := range part {
 				tagOf[i], viaOf[i] = tag, via
 			}
-			if tag != "" {
+			{ // unnamed blocks are kept too (tag ""), for diagnostics; checks skip them
 				b := tracedBlock{tag: tag, ceiling: ceiling}
 				for _, i := range part {
 					b.pins = append(b.pins, ends[i].pin)
@@ -817,7 +828,45 @@ func blockNameAbove(p Page, x float64, pins map[int]Word, ceiling float64) (stri
 	if t, v := blockNameWithin(p, x, pins, ceiling, 12); t != "" {
 		return t, v
 	}
-	return blockNameWithin(p, x, pins, ceiling, 20)
+	if t, v := blockNameWithin(p, x, pins, ceiling, 20); t != "" {
+		return t, v
+	}
+	if t, v := blockNameWithin(p, x, pins, ceiling, 30); t != "" {
+		return t, v
+	}
+	return blockNameBeside(p, x, pins)
+}
+
+// blockNameBeside names a block from a name printed beside it at the height
+// of its top pin (within 2 em up or down, up to 25 em to either side), when
+// exactly one such name is there.
+func blockNameBeside(p Page, x float64, pins map[int]Word) (string, string) {
+	top, size := math.Inf(-1), 6.0
+	for _, w := range pins {
+		if w.Y > top {
+			top, size = w.Y, math.Max(w.Size, 4)
+		}
+	}
+	found := map[string]bool{}
+	name := ""
+	for _, w := range p.Words {
+		t := strings.ToUpper(strings.TrimSpace(w.Text))
+		if w.Rotated || t == "" || schematicColor(t) != "" || reSplitPNTail.MatchString(t) || strings.HasSuffix(t, "AWG") {
+			continue
+		}
+		if reRefDesignator.FindString(t) != t && !reBlockName.MatchString(t) {
+			continue
+		}
+		if math.Abs(w.Y-top) > 2*size || math.Abs(w.X-x) > 25*size || math.Abs(w.X-x) < 2*size {
+			continue
+		}
+		found[t] = true
+		name = t
+	}
+	if len(found) == 1 {
+		return name, "name"
+	}
+	return "", ""
 }
 
 func blockNameWithin(p Page, x float64, pins map[int]Word, ceiling, limit float64) (string, string) {
@@ -934,6 +983,9 @@ func pinNumberAudits(p Page, blocks []tracedBlock, pageRows []WireRow) []TableAu
 	byTag := map[string][]tracedBlock{}
 	order := []string{}
 	for _, b := range blocks {
+		if b.tag == "" {
+			continue
+		}
 		if _, ok := byTag[b.tag]; !ok {
 			order = append(order, b.tag)
 		}
@@ -1200,6 +1252,9 @@ func shieldPinRows(p Page, blocks []tracedBlock, pageRows []WireRow) []WireRow {
 	}
 	var out []WireRow
 	for _, b := range blocks {
+		if b.tag == "" {
+			continue
+		}
 		cx, top, bot := blockSpan(b)
 		if math.IsNaN(cx) {
 			continue
@@ -1236,6 +1291,9 @@ func nearestBlock(blocks []tracedBlock, w Word) string {
 	best, bestD := "", math.Inf(1)
 	em := math.Max(w.Size, 4)
 	for _, b := range blocks {
+		if b.tag == "" {
+			continue
+		}
 		cx, top, bot := blockSpan(b)
 		if math.IsNaN(cx) || math.Abs(w.right()-cx) > 8*em {
 			continue
@@ -1285,7 +1343,9 @@ func headerBetweenY(p Page, x, y, top, bot float64) bool {
 func rowBlocks(p Page, rows []WireRow, have []tracedBlock) []tracedBlock {
 	done := map[string]bool{}
 	for _, b := range have {
-		done[strings.ToUpper(b.tag)] = true
+		if b.tag != "" {
+			done[strings.ToUpper(b.tag)] = true
+		}
 	}
 	var items []Word
 	for _, l := range pageLines(p) {
