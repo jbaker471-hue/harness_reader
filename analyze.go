@@ -554,10 +554,35 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		w := pairedSchematicRows(p)
 		// Follow the drawn wire lines first: the line decides which pins a wire
 		// joins. The column reader then fills only lines that were not traced.
-		tw, twhy := tracedWireRows(p, w, partTags)
-		w = append(w, tw...)
+		tw, twhy, blocks := traceSheet(p, w, partTags)
+		// A one-ended reading (a number at one end only) is a last resort: it is
+		// added only for lines no reader read with both ends.
+		var oneEnded []WireRow
+		for _, r := range tw {
+			if r.Method == "traced-wire-one-end" {
+				oneEnded = append(oneEnded, r)
+			} else {
+				w = append(w, r)
+			}
+		}
 		pw, why := positionalSchematicRows(p, w, partTags)
 		w = append(w, pw...)
+		for _, r := range oneEnded {
+			taken := false
+			for _, o := range w {
+				if math.Abs(o.Y-r.Y) <= 1.5 || (strings.EqualFold(o.Connector, r.Connector) && o.Cavity == r.Cavity) || (strings.EqualFold(o.End, r.Connector) && o.EndCavity == r.Cavity) {
+					taken = true
+					break
+				}
+			}
+			if !taken {
+				w = append(w, r)
+			}
+		}
+		// shields terminated to a pin use that pin
+		w = append(w, shieldPinRows(p, blocks, w)...)
+		// every pin number printed beside a traced connector needs exactly one wire
+		a.TableAudits = append(a.TableAudits, pinNumberAudits(p, blocks, w)...)
 		switch {
 		case twhy != "" && why != "":
 			colWhy[p.Number] = why + "; " + twhy

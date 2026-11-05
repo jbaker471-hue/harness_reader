@@ -138,6 +138,62 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				}
 			}
 			pf("ASSIGN: wiring sheets with every gauge label read %d of %d", done, total)
+			pc, pa, pmiss, pdup := 0, 0, 0, 0
+			for _, t := range v.TableAudits {
+				if !strings.HasPrefix(t.Title, "pin numbers ") {
+					continue
+				}
+				pc++
+				if t.Status == "COMPLETE" {
+					pa++
+				}
+				for _, m := range t.Missed {
+					if strings.Contains(m.Reason, "no wire") {
+						pmiss++
+					} else {
+						pdup++
+					}
+				}
+			}
+			pf("ASSIGN: pin-number checks %d, agreeing %d; printed pin numbers with no wire %d; pins with two or more wires %d", pc, pa, pmiss, pdup)
+			idx := map[string]int{}
+			for ci, k := range keys {
+				idx[k] = ci + 1
+			}
+			for _, t := range v.TableAudits {
+				if !strings.HasPrefix(t.Title, "pin numbers ") || t.Status == "COMPLETE" {
+					continue
+				}
+				tag := strings.ToUpper(strings.TrimPrefix(t.Title, "pin numbers "))
+				pf("PINCHECK: connector %d on sheet %d: %d pin numbers printed beside it, %d with a wire, %d problem(s)", idx[tag], t.Page, t.RuledRows, t.RowsRead, len(t.Missed))
+				// where each problem number sits relative to the nearest NC word (em), structure only
+				pg := x.Data.Pages[t.Page-1]
+				var its []Word
+				for _, l := range pageLines(pg) {
+					its = append(its, schematicWords(l)...)
+				}
+				for _, m := range t.Missed {
+					pin := m.Text[strings.LastIndex(m.Text, ":")+1:]
+					for _, w := range its {
+						if strings.TrimSpace(w.Text) != pin {
+							continue
+						}
+						best, bdx, bdy := math.Inf(1), 0.0, 0.0
+						for _, n := range its {
+							u := strings.ToUpper(strings.TrimSpace(n.Text))
+							if u != "NC" && u != "N/C" && u != "N.C." && u != "(NC)" {
+								continue
+							}
+							em := math.Max(w.Size, 4)
+							dx, dy := ((n.X+n.right())/2-(w.X+w.right())/2)/em, (n.Y-w.Y)/em
+							if d := math.Hypot(dx, dy); d < best {
+								best, bdx, bdy = d, dx, dy
+							}
+						}
+						pf("PINCHECK: problem number: %s; nearest NC at dx %.1f em, dy %.1f em", m.Reason, bdx, bdy)
+					}
+				}
+			}
 		}
 		pf("RESULT: connectors %d (positions known %d) · wire rows %d (with a length %d) · parts-list rows %d · findings %d", len(v.Connectors), knownPos, len(v.Wires), withLen, len(v.Boms), len(v.Issues))
 		methods := map[string]int{}

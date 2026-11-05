@@ -57,6 +57,22 @@ func TestReplicaDrawingKnownAnswer(t *testing.T) {
 	if len(v.CavityModels) != 2 {
 		t.Fatalf("cavity models: %d", len(v.CavityModels))
 	}
+	// two pin-number checks per wiring sheet (one per connector), all agreeing
+	pinChecks, others := 0, []TableAudit{}
+	for _, a := range v.TableAudits {
+		if strings.HasPrefix(a.Title, "pin numbers ") {
+			pinChecks++
+			if a.Status != "COMPLETE" || a.RuledRows != a.RowsRead {
+				t.Fatalf("pin-number check must agree on the replica: %+v", a)
+			}
+			continue
+		}
+		others = append(others, a)
+	}
+	if pinChecks != 6 {
+		t.Fatalf("want 6 pin-number checks, got %d", pinChecks)
+	}
+	v.TableAudits = others
 	if len(v.TableAudits) != 6 {
 		t.Fatalf("want a line audit and a gauge-label count per wiring sheet, got %+v", v.TableAudits)
 	}
@@ -124,7 +140,13 @@ func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 		}
 		v, _ := viewFromExtraction(x)
 		bad := []string{}
+		pinFlag := false
 		for _, a := range v.TableAudits {
+			if strings.HasPrefix(a.Title, "pin numbers ") {
+				// per-connector check: a printed pin number with no wire flags it
+				pinFlag = pinFlag || (a.Status == "INCOMPLETE" && len(a.Missed) > 0)
+				continue
+			}
 			if a.Status == "INCOMPLETE" {
 				if len(a.Missed) == 0 || len(a.Connectors) != 2 {
 					t.Fatalf("%s: incomplete audit must list the missed lines and both connectors: %+v", tc.mode, a)
@@ -137,6 +159,9 @@ func TestReplicaDrawingCatchesUnreadWireLines(t *testing.T) {
 			}
 		}
 		sort.Strings(bad)
+		if tc.mode == "onesided" && !pinFlag {
+			t.Fatalf("onesided: the pin-number check must flag the pin whose number has no wire")
+		}
 		if strings.Join(bad, ",") != tc.want {
 			t.Fatalf("%s: incomplete audits %v, want %s", tc.mode, bad, tc.want)
 		}

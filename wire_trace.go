@@ -348,8 +348,21 @@ func distToSeg(x, y float64, s Segment) float64 {
 // Wires already read (rows) are kept and not repeated. why explains, by
 // structure only, why some gauge labels gave no wire.
 func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []WireRow, why string) {
+	out, why, _ = traceSheet(p, rows, partTags)
+	return out, why
+}
+
+// tracedBlock is one named block of wire ends: its connector and the pin
+// labels the drawn lines landed on.
+type tracedBlock struct {
+	tag     string
+	pins    []Word
+	ceiling float64 // the lowest pin of the block above in the same column
+}
+
+func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireRow, why string, blocks []tracedBlock) {
 	if !p.PageAccurate || p.Width <= 0 || len(p.Segs) == 0 {
-		return nil, ""
+		return nil, "", nil
 	}
 	type label struct {
 		x, y, em float64
@@ -367,7 +380,7 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 		}
 	}
 	if len(labels) < 3 {
-		return nil, ""
+		return nil, "", nil
 	}
 	g := newSegGraph(p.Segs)
 	// words, split into single items, for pin and colour lookup
@@ -521,6 +534,7 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 		return best
 	}
 	noLine, noPin, noConn, same := 0, 0, 0, 0
+	var bareOf []int // per pair: which end has no number (0 none)
 	var ends []traceEnd
 	pairs := [][2]int{}
 	for li, lb := range labels {
@@ -593,12 +607,61 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 				noteB, okB, pb, leadB = true, true, Word{X: bx, Y: by}, lbl
 			}
 		}
+		// A line with a number at one end only: that pin is used on its
+		// connector; the other end is not a connector pin.
+		bare := 0 // which end has no number: 1 = a, 2 = b
+		if okA && !okB {
+			noteB, okB, pb, bare = true, true, Word{X: bx, Y: by}, 2
+		} else if okB && !okA {
+			noteA, okA, pa, bare = true, true, Word{X: ax, Y: ay}, 1
+		}
 		if !okA || !okB || (pa.X == pb.X && pa.Y == pb.Y) {
 			noPin++
 			continue
 		}
 		ends = append(ends, traceEnd{noteA, leadA, refA, ax, ay, pa, ida, findColour(ax, ay, lb.em), li}, traceEnd{noteB, leadB, refB, bx, by, pb, idb, findColour(bx, by, lb.em), li})
 		pairs = append(pairs, [2]int{len(ends) - 2, len(ends) - 1})
+		bareOf = append(bareOf, bare)
+	}
+	// An end with no number that lands where other wires end WITH numbers (the
+	// same block edge, within 40 em up or down) is in a connector's pin column:
+	// its number was not read. That wire is held, never counted as one-ended.
+	{
+		keepEnds, keepPairs, dropped := []traceEnd{}, [][2]int{}, 0
+		for k, pr := range pairs {
+			bad := false
+			if bareOf[k] != 0 {
+				e := ends[pr[0]]
+				if bareOf[k] == 2 {
+					e = ends[pr[1]]
+				}
+				for _, o := range ends {
+					if o.pinID != "" && math.Abs(o.x-e.x) <= 3 && math.Abs(o.y-e.y) <= 40*labels[e.label].em && !(o.x == e.x && o.y == e.y) {
+						bad = true
+						break
+					}
+				}
+				// an unnumbered end that lands under a connector's header is that
+				// connector's pin whose number was not read, even when no other
+				// numbered wire ends there (a connector with one or two wires)
+				if !bad {
+					at := map[int]Word{0: {X: e.x, Y: e.y, Size: labels[e.label].em}}
+					if t, _ := columnConnector(p, e.x, at, partTags, math.Inf(1)); t != "" {
+						bad = true
+					} else if t, _ := blockNameAbove(p, e.x, at, math.Inf(1)); t != "" {
+						bad = true
+					}
+				}
+			}
+			if bad {
+				dropped++
+				continue
+			}
+			keepEnds = append(keepEnds, ends[pr[0]], ends[pr[1]])
+			keepPairs = append(keepPairs, [2]int{len(keepEnds) - 2, len(keepEnds) - 1})
+		}
+		ends, pairs = keepEnds, keepPairs
+		noPin += dropped
 	}
 	// Connector of each end: ends landing on the same block edge share an x;
 	// a column of ends is split into blocks at headers printed between them.
@@ -646,6 +709,13 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 			for _, i := range part {
 				tagOf[i], viaOf[i] = tag, via
 			}
+			if tag != "" {
+				b := tracedBlock{tag: tag, ceiling: ceiling}
+				for _, i := range part {
+					b.pins = append(b.pins, ends[i].pin)
+				}
+				blocks = append(blocks, b)
+			}
 			ceiling = ends[part[len(part)-1]].y
 			start = end
 		}
@@ -665,7 +735,10 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 		flush(len(col))
 	}
 	pairRead := map[string]bool{}
+	occupied := map[string]bool{} // tag:pin already carrying a wire read by another reader
 	for _, r := range rows {
+		occupied[strings.ToUpper(r.Connector)+":"+r.Cavity] = true
+		occupied[strings.ToUpper(r.End)+":"+r.EndCavity] = true
 		pairRead[r.Connector+":"+r.Cavity+">"+r.End+":"+r.EndCavity] = true
 		pairRead[r.End+":"+r.EndCavity+">"+r.Connector+":"+r.Cavity] = true
 	}
@@ -685,8 +758,18 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 				noConn++
 				continue
 			}
-			out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: "crimp ferrule: " + e.lead, Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: "traced-wire-to-ferrule",
-				Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX WITH A LABEL), NOT A CONNECTOR PIN; CHECK SOURCE"})
+			// a line already read by another reader is not read again as one-ended
+			if occupied[strings.ToUpper(tc)+":"+c.pinID] {
+				continue
+			}
+			occupied[strings.ToUpper(tc)+":"+c.pinID] = true
+			if e.lead != "" {
+				out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: "crimp ferrule: " + e.lead, Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: "traced-wire-to-ferrule",
+					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX WITH A LABEL), NOT A CONNECTOR PIN; CHECK SOURCE"})
+			} else {
+				out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: "no pin number at this end (not a connector pin)", Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: "traced-wire-one-end",
+					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE; ONLY ONE END HAS A PIN NUMBER; CHECK SOURCE"})
+			}
 			continue
 		}
 		switch {
@@ -724,7 +807,7 @@ func tracedWireRows(p Page, rows []WireRow, partTags map[string]string) (out []W
 			why += "; " + strings.Join(parts, "; ")
 		}
 	}
-	return out, why
+	return out, why, blocks
 }
 
 // blockNameAbove names a block from the text printed above it when no
@@ -839,4 +922,351 @@ func nameDebug(p Page) []string {
 		out = append(out, fmt.Sprintf("pin column at %.2f: above it %s", c.x/p.Width, strings.Join(parts, " ")))
 	}
 	return out
+}
+
+// pinNumberAudits checks each traced connector of a wiring sheet two ways: the
+// pin numbers printed beside it, and the wires read on the sheet that land on
+// it. Every printed number must have exactly one wire. A number with no wire
+// (a missed wire) or with two wires (a conflict) holds the connector; when they
+// agree exactly the audit confirms its used pins on that sheet.
+func pinNumberAudits(p Page, blocks []tracedBlock, pageRows []WireRow) []TableAudit {
+	var out []TableAudit
+	byTag := map[string][]tracedBlock{}
+	order := []string{}
+	for _, b := range blocks {
+		if _, ok := byTag[b.tag]; !ok {
+			order = append(order, b.tag)
+		}
+		byTag[b.tag] = append(byTag[b.tag], b)
+	}
+	var items []Word
+	for _, l := range pageLines(p) {
+		items = append(items, schematicWords(l)...)
+	}
+	edge := 0.03 * p.Width
+	isNC := func(t string) bool {
+		u := strings.ToUpper(strings.TrimSpace(t))
+		return u == "NC" || u == "N/C" || u == "N.C." || u == "(NC)"
+	}
+	var ncWords []Word
+	for _, w := range items {
+		if isNC(w.Text) {
+			ncWords = append(ncWords, w)
+		}
+	}
+	for _, tag := range order {
+		printed := map[string]bool{}
+		printedAt := map[string]Word{}
+		pitchOf := map[string]float64{}
+		for _, b := range byTag[tag] {
+			if len(b.pins) == 0 {
+				continue
+			}
+			cx, top, bot, em := 0.0, math.Inf(-1), math.Inf(1), 6.0
+			real := 0
+			for _, w := range b.pins {
+				if w.Text == "" { // an end with no pin label (a ferrule or one-numbered-end line)
+					continue
+				}
+				real++
+				cx += (w.X + w.right()) / 2
+				top, bot = math.Max(top, w.Y), math.Min(bot, w.Y)
+				em = math.Max(w.Size, 4)
+			}
+			if real == 0 {
+				continue
+			}
+			cx /= float64(real)
+			pitch := 1.6 * em
+			if real > 1 {
+				pitch = math.Max((top-bot)/float64(real-1), em)
+			}
+			for _, w := range items {
+				if w.X < edge || w.X > p.Width-edge || math.Abs((w.X+w.right())/2-cx) > 1.2*em {
+					continue
+				}
+				if w.Y > top+0.5*em || w.Y < bot-2.5*pitch || w.Y >= b.ceiling {
+					continue
+				}
+				if id, ok := pinAtEnd(w.Text); ok {
+					printed[id] = true
+					printedAt[id], pitchOf[id] = w, pitch
+				}
+			}
+		}
+		if len(printed) == 0 {
+			continue
+		}
+		landed := map[string]int{}
+		for _, r := range pageRows {
+			if strings.EqualFold(r.Connector, tag) && r.Cavity != "" {
+				landed[r.Cavity]++
+			}
+			if strings.EqualFold(r.End, tag) && r.EndCavity != "" {
+				landed[r.EndCavity]++
+			}
+		}
+		// A printed pin marked NC (no connect) is stated unused by the drawing:
+		// NC printed beside the number, or just below a group of numbers.
+		nc := map[string]bool{}
+		for _, n := range ncWords {
+			ncx, ncem := (n.X+n.right())/2, math.Max(n.Size, 4)
+			// NC printed right beside a number
+			for id, w := range printedAt {
+				if math.Abs((w.X+w.right())/2-ncx) > 10*ncem {
+					continue
+				}
+				dy := w.Y - n.Y
+				if math.Abs(dy) <= 1.0*ncem && math.Abs((w.X+w.right())/2-ncx) > 0.5*ncem {
+					nc[id] = true
+				}
+			}
+		}
+		// A stub line into the block labelled with a pin list ("5,6,16-19")
+		// and NC across the block on the same line: every listed pin is a
+		// stated no-connect of this connector.
+		ncListed := map[string]bool{}
+		for _, b := range byTag[tag] {
+			cx, top, bot := blockSpan(b)
+			if math.IsNaN(cx) {
+				continue
+			}
+			for _, w := range items {
+				ids := expandPinList(w.Text)
+				if ids == nil || w.Y > top+12*math.Max(w.Size, 4) || w.Y < bot-20*math.Max(w.Size, 4) || w.Y >= b.ceiling || math.Abs(w.right()-cx) > 8*math.Max(w.Size, 4) {
+					continue
+				}
+				// each NC list belongs to one connector only: the block it sits in,
+				// or the one nearest to it
+				if owner := nearestBlock(blocks, w); owner != b.tag {
+					continue
+				}
+				// never across another connector's header (the list then belongs
+				// to that connector, even if its block was not named)
+				if headerBetweenY(p, cx, w.Y, top, bot) {
+					continue
+				}
+				for _, n := range ncWords {
+					if math.Abs(n.Y-w.Y) <= 1.5*math.Max(w.Size, 4) && n.X > w.right() && n.X-w.right() <= 20*math.Max(w.Size, 4) {
+						for _, id := range ids {
+							ncListed[id] = true
+						}
+						break
+					}
+				}
+			}
+		}
+		for id := range ncListed {
+			nc[id] = true
+			if landed[id] > 0 {
+				printed[id] = true
+			}
+		}
+		missed := []MissedRow{}
+		for id := range printed {
+			switch {
+			case nc[id] && landed[id] > 0:
+				missed = append(missed, MissedRow{Text: tag + ":" + id, Reason: "pin marked NC (no connect) but a wire was read to it"})
+			case !nc[id] && landed[id] == 0:
+				missed = append(missed, MissedRow{Text: tag + ":" + id, Reason: "pin number printed beside the connector with no wire read to it"})
+			}
+		}
+		for id, n := range landed {
+			if n > 1 {
+				missed = append(missed, MissedRow{Text: tag + ":" + id, Reason: fmt.Sprintf("%d wires read to the same pin", n)})
+			}
+		}
+		sort.Slice(missed, func(i, j int) bool { return missed[i].Text < missed[j].Text })
+		a := TableAudit{Page: p.Number, Title: "pin numbers " + tag, Connectors: []string{tag}, RowsRead: len(printed) - countMissing(printed, landed) + countNCUnwired(nc, landed), Counted: true, RuledRows: len(printed), Missed: missed}
+		if len(missed) > 0 {
+			a.Status = "INCOMPLETE"
+			a.Detail = fmt.Sprintf("%s on sheet %d: %d pin number(s) printed beside it, %d with a wire; %d problem(s)", tag, p.Number, len(printed), a.RowsRead, len(missed))
+		} else {
+			a.Status = "COMPLETE"
+			a.Detail = fmt.Sprintf("%s on sheet %d: every one of the %d pin numbers printed beside it has exactly one wire", tag, p.Number, len(printed)-countIn(nc, printed))
+			if len(nc) > 0 {
+				a.Detail = fmt.Sprintf("%s on sheet %d: every pin number printed beside it has exactly one wire (%d); %d pin(s) are stated NC (no connect)", tag, p.Number, len(printed)-countIn(nc, printed), len(nc))
+			}
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func countMissing(printed map[string]bool, landed map[string]int) int {
+	n := 0
+	for id := range printed {
+		if landed[id] == 0 {
+			n++
+		}
+	}
+	return n
+}
+
+func countNCUnwired(nc map[string]bool, landed map[string]int) int {
+	n := 0
+	for id := range nc {
+		if landed[id] == 0 {
+			n++
+		}
+	}
+	return n
+}
+
+func countIn(set map[string]bool, in map[string]bool) int {
+	n := 0
+	for id := range set {
+		if in[id] {
+			n++
+		}
+	}
+	return n
+}
+
+var rePinList = regexp.MustCompile(`^[0-9]{1,3}(?:-[0-9]{1,3})?(?:,[0-9]{1,3}(?:-[0-9]{1,3})?)*$`)
+
+// expandPinList reads "5,6,16-19" as 5 6 16 17 18 19; nil when the text is
+// not a pin list with at least a comma or a range.
+func expandPinList(t string) []string {
+	t = strings.ReplaceAll(strings.TrimSpace(t), " ", "")
+	if !rePinList.MatchString(t) || !strings.ContainsAny(t, ",-") {
+		return nil
+	}
+	var out []string
+	for _, part := range strings.Split(t, ",") {
+		if k := strings.Index(part, "-"); k > 0 {
+			a, b := atoiSafe(part[:k]), atoiSafe(part[k+1:])
+			if a < 1 || b < a || b-a > 200 {
+				return nil
+			}
+			for n := a; n <= b; n++ {
+				out = append(out, itoa(n))
+			}
+			continue
+		}
+		out = append(out, strings.TrimLeft(part, "0"))
+	}
+	return out
+}
+
+func atoiSafe(s string) int {
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return -1
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n
+}
+
+// blockSpan is the centre x and the top and bottom of a block's numbered pins.
+func blockSpan(b tracedBlock) (cx, top, bot float64) {
+	top, bot = math.Inf(-1), math.Inf(1)
+	n := 0
+	for _, w := range b.pins {
+		if w.Text == "" {
+			continue
+		}
+		n++
+		cx += (w.X + w.right()) / 2
+		top, bot = math.Max(top, w.Y), math.Min(bot, w.Y)
+	}
+	if n == 0 {
+		return math.NaN(), 0, 0
+	}
+	return cx / float64(n), top, bot
+}
+
+// shieldPinRows reads cable shields terminated to a connector pin: "SHIELD"
+// printed right before a pin number in a traced block's pin column. That pin
+// is used (by the shield), though the shield carries no gauge label. A
+// "SHIELD" with no number uses no pin.
+func shieldPinRows(p Page, blocks []tracedBlock, pageRows []WireRow) []WireRow {
+	var items []Word
+	for _, l := range pageLines(p) {
+		items = append(items, schematicWords(l)...)
+	}
+	used := map[string]bool{}
+	for _, r := range pageRows {
+		used[strings.ToUpper(r.Connector)+":"+r.Cavity] = true
+		used[strings.ToUpper(r.End)+":"+r.EndCavity] = true
+	}
+	var out []WireRow
+	for _, b := range blocks {
+		cx, top, bot := blockSpan(b)
+		if math.IsNaN(cx) {
+			continue
+		}
+		for i, w := range items {
+			em := math.Max(w.Size, 4)
+			id, ok := pinAtEnd(w.Text)
+			if !ok || math.Abs((w.X+w.right())/2-cx) > 1.2*em || w.Y > top+12*em || w.Y < bot-20*em || w.Y >= b.ceiling {
+				continue
+			}
+			if i == 0 || !strings.EqualFold(strings.TrimSpace(items[i-1].Text), "SHIELD") || math.Abs(items[i-1].Y-w.Y) > 1.0*em || w.X-items[i-1].right() > 2.5*em {
+				continue
+			}
+			// a shield pin belongs to one connector: the nearest block, never
+			// across another connector's header
+			if nearestBlock(blocks, w) != b.tag || headerBetweenY(p, cx, w.Y, top, bot) {
+				continue
+			}
+			k := strings.ToUpper(b.tag) + ":" + id
+			if used[k] {
+				continue
+			}
+			used[k] = true
+			out = append(out, WireRow{Page: p.Number, Connector: b.tag, Cavity: id, EndSignal: "cable shield terminated to this pin", Y: w.Y, Method: "shield-to-pin", Confidence: "DRAFT — SHIELD TERMINATED TO A PIN (SHIELD + PIN NUMBER AT THE CONNECTOR); CHECK SOURCE"})
+		}
+	}
+	return out
+}
+
+// nearestBlock is the tag of the traced block a printed item belongs to: the
+// block whose pin column it is beside and whose pins span its height, or the
+// one closest to it vertically.
+func nearestBlock(blocks []tracedBlock, w Word) string {
+	best, bestD := "", math.Inf(1)
+	em := math.Max(w.Size, 4)
+	for _, b := range blocks {
+		cx, top, bot := blockSpan(b)
+		if math.IsNaN(cx) || math.Abs(w.right()-cx) > 8*em {
+			continue
+		}
+		d := 0.0
+		switch {
+		case w.Y > top:
+			d = w.Y - top
+		case w.Y < bot:
+			d = bot - w.Y
+		}
+		if d < bestD {
+			best, bestD = b.tag, d
+		}
+	}
+	return best
+}
+
+// headerBetweenY reports whether a connector header (a designator or a split
+// part-number head) is printed, in the column at x, between height y and the
+// block spanning top..bot.
+func headerBetweenY(p Page, x, y, top, bot float64) bool {
+	lo, hi := y, bot
+	if y > top {
+		lo, hi = top, y
+	}
+	if y >= bot && y <= top {
+		return false
+	}
+	for _, w := range p.Words {
+		t := strings.ToUpper(strings.TrimSpace(w.Text))
+		if w.Rotated || w.Y <= lo || w.Y >= hi || math.Abs(w.X-x) > p.Width*.12 {
+			continue
+		}
+		if (t != "" && reRefDesignator.FindString(t) == t) || reSplitPNHead.MatchString(t) {
+			return true
+		}
+	}
+	return false
 }

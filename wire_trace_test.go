@@ -237,8 +237,147 @@ func TestTracedWireEndingAtLabelledLeadWiresItsOwnPin(t *testing.T) {
 	for _, r := range rows {
 		got = append(got, r.Connector+":"+r.Cavity+"/"+r.Method+"/"+r.EndSignal)
 	}
-	want := "NEAR-P1:5/traced-wire-to-ferrule/crimp ferrule: (DEV-27) NEAR-P1:6/traced-wire-to-ferrule/crimp ferrule: (DEV-6-DEV-10) NEAR-P1:7/traced-wire-to-ferrule/crimp ferrule: FAN"
-	if strings.Join(got, " ") != want || !strings.Contains(why, "1 label(s): no pin label at one end") {
+	// under the shop's rule a line numbered at one end only wires that pin;
+	// its other end (a label with no ferrule box) is not a connector pin
+	want := "NEAR-P1:5/traced-wire-to-ferrule/crimp ferrule: (DEV-27) NEAR-P1:6/traced-wire-to-ferrule/crimp ferrule: (DEV-6-DEV-10) NEAR-P1:7/traced-wire-to-ferrule/crimp ferrule: FAN NEAR-P1:8/traced-wire-one-end/no pin number at this end (not a connector pin)"
+	if strings.Join(got, " ") != want || why != "" {
 		t.Fatalf("got %v (%q)", got, why)
+	}
+}
+
+// A line already read by another reader (both ends) is not read again as a
+// one-ended wire on its numbered pin.
+func TestOneEndedWireNeverDuplicatesARead(t *testing.T) {
+	p := tracedPage("") // no far connector header: the far ends are not on a connector
+	// make every far end unnumbered: the near pins would be read as one-ended
+	var words []Word
+	for _, w := range p.Words {
+		if w.X == 866 {
+			continue
+		}
+		words = append(words, w)
+	}
+	p.Words = words
+	read := []WireRow{{Connector: "NEAR-P1", Cavity: "1", End: "OTHER-P2", EndCavity: "9"}}
+	rows, _ := tracedWireRows(p, read, nil)
+	for _, r := range rows {
+		if r.Connector == "NEAR-P1" && r.Cavity == "1" {
+			t.Fatalf("pin already carrying a wire must not get a second, one-ended wire: %+v", r)
+		}
+	}
+	if len(rows) != 7 {
+		t.Fatalf("want the other 7 wires as one-ended, got %d", len(rows))
+	}
+}
+
+// An unnumbered end that lands under a connector's header (here a connector
+// with a single wire) is a pin whose number was not read: the line is held,
+// not read as a one-ended wire.
+func TestBareEndUnderAConnectorHeaderIsHeld(t *testing.T) {
+	p := Page{Number: 3, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	add("SMALL-J7", 880, 960) // the far connector's header, above where the line ends
+	for i := 0; i < 3; i++ {
+		y := 920 - 20*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("24", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 900, y - 2})
+	}
+	rows, _ := tracedWireRows(p, nil, nil)
+	if len(rows) != 0 {
+		t.Fatalf("ends under a connector header with no number must be held, got %+v", rows)
+	}
+}
+
+// NON-CUI copy of the field layout: pins in a column beside a connector block,
+// two cable shields terminated to pins ("SHIELD 9"), and a stub line labelled
+// with a pin list and "NC" across the block for the no-connect pins.
+func TestNoConnectListAndShieldPins(t *testing.T) {
+	p := Page{Number: 3, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	add("FAR-J2", 830, 960)
+	p.Segs = append(p.Segs, Segment{860, 950, 860, 600}, Segment{890, 950, 890, 600}) // the block
+	pins := []string{"8", "7", "3", "4"}
+	for i, pin := range pins {
+		y := 920 - 20*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("24", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 860, y - 2})
+		add("WHT", 830, y)
+		add(pin, 850, y)
+	}
+	add("SHIELD", 822, 840) // shield terminated to pin 9
+	add("9", 850, 840)
+	add("SHIELD", 822, 780) // shield terminated to pin 15
+	add("15", 846, 780)
+	add("5,6,16-19", 820, 820) // the NC stub and its list
+	add("NC", 900, 818)
+	rows, _, blocks := traceSheet(p, nil, nil)
+	rows = append(rows, shieldPinRows(p, blocks, rows)...)
+	used := map[string]bool{}
+	for _, r := range rows {
+		if r.Connector == "FAR-J2" {
+			used[r.Cavity] = true
+		}
+		if r.End == "FAR-J2" {
+			used[r.EndCavity] = true
+		}
+	}
+	for _, pin := range []string{"8", "7", "3", "4", "9", "15"} {
+		if !used[pin] {
+			t.Fatalf("pin %s must be used (shield pins included): %v", pin, used)
+		}
+	}
+	audits := pinNumberAudits(p, blocks, rows)
+	ok := false
+	for _, a := range audits {
+		if a.Title == "pin numbers FAR-J2" {
+			ok = a.Status == "COMPLETE" && strings.Contains(a.Detail, "6 pin(s) are stated NC")
+			if !ok {
+				t.Fatalf("FAR-J2 check: %+v", a)
+			}
+		}
+	}
+	if !ok {
+		t.Fatalf("no pin check for FAR-J2: %+v", audits)
+	}
+	// a wire to a pin the NC list names is a conflict
+	rows = append(rows, WireRow{Connector: "FAR-J2", Cavity: "17", End: "X", EndCavity: "1"})
+	for _, a := range pinNumberAudits(p, blocks, rows) {
+		if a.Title == "pin numbers FAR-J2" && a.Status != "INCOMPLETE" {
+			t.Fatalf("a wire on an NC pin must be flagged: %+v", a)
+		}
+	}
+	// a shield pin above another connector's header is not that connector's
+	r := p
+	r.Words = append(append([]Word{}, p.Words...), Word{Text: "BELOW-P5", X: 830, Y: 700, Size: 6, X1: 860}, Word{Text: "WHT", X: 830, Y: 680, Size: 6, X1: 841}, Word{Text: "1", X: 850, Y: 680, Size: 6, X1: 854})
+	r.Words = append(r.Words, Word{Text: "1", X: 150, Y: 680, Size: 6, X1: 154}, Word{Text: "24", X: 400, Y: 680, Size: 6, X1: 407}, Word{Text: "AWG", X: 412, Y: 680, Size: 6, X1: 423})
+	r.Segs = append(append([]Segment{}, p.Segs...), Segment{160, 678, 860, 678})
+	rows3, _, blocks3 := traceSheet(r, nil, nil)
+	for _, row := range shieldPinRows(r, blocks3, rows3) {
+		if row.Connector == "BELOW-P5" {
+			t.Fatalf("a shield pin above another connector's header must not be given to it: %+v", row)
+		}
+	}
+	// a list below another connector's header belongs to that connector
+	q := p
+	q.Words = append(append([]Word{}, p.Words...), Word{Text: "LOWER-P8", X: 830, Y: 700, Size: 6, X1: 860}, Word{Text: "3-9", X: 840, Y: 660, Size: 6, X1: 851}, Word{Text: "NC", X: 900, Y: 659, Size: 6, X1: 907})
+	rows2, _, blocks2 := traceSheet(q, nil, nil)
+	rows2 = append(rows2, shieldPinRows(q, blocks2, rows2)...)
+	for _, a := range pinNumberAudits(q, blocks2, rows2) {
+		if a.Title == "pin numbers FAR-J2" && a.Status != "COMPLETE" {
+			t.Fatalf("an NC list under another connector's header must not apply here: %+v", a)
+		}
+	}
+	if got := strings.Join(expandPinList("5,6,16-19"), " "); got != "5 6 16 17 18 19" {
+		t.Fatalf("expandPinList: %s", got)
 	}
 }
