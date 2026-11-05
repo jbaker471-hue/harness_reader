@@ -200,6 +200,10 @@ func captureChecks(a *Analysis, callouts []GraphicCallout, lengths []HarnessLeng
 						ok = false
 						break
 					}
+					// the parts-list quantity in feet: by its U/M when printed (feet otherwise)
+					if f := lengthUnitIn(b.Unit); f > 0 {
+						q = q * f / 12
+					}
 					n := q * 12 / L
 					if math.Abs(n-math.Round(n)) > 0.02 || n < 1 {
 						ok = false
@@ -446,6 +450,14 @@ func corroborateLengths(a *Analysis, callouts []GraphicCallout, lengths []Harnes
 			if !qok || q <= 0 {
 				ok = false
 				break
+			}
+			// the parts-list quantity in feet: by its U/M when printed (feet otherwise)
+			if f := lengthUnitIn(items[k].Unit); f > 0 {
+				q = q * f / 12
+			}
+			// the parts-list quantity in feet: by its U/M when printed (feet otherwise)
+			if f := lengthUnitIn(items[k].Unit); f > 0 {
+				q = q * f / 12
 			}
 			n := q * 12 / L
 			if math.Abs(n-math.Round(n)) > 0.02 || math.Round(n) != called[k] {

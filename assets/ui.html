@@ -1200,7 +1200,7 @@ function netChange(i,k,v){const n=st.nets[i];n[k]=v;resetPinoutCoverage();if(k!=
 function netRemove(i){resetPinoutCoverage();st.nets.splice(i,1);renderNets();showReport()}
 function renderNets(){const errs=validateNets();$('netBadge').textContent=st.nets.length+' net(s) · '+(errs.length?'Needs review':'Facts balanced');$('netBadge').className='tag '+(errs.length?'warn':'good');$('netRows').innerHTML=st.nets.map((n,i)=>`<tr><td><input value="${safe(n.id)}" onchange="netChange(${i},'id',this.value.trim().toUpperCase())"></td><td><input value="${safe(n.wire||'')}" onchange="netChange(${i},'wire',this.value.trim().toUpperCase())"></td><td><input value="${safe(n.run||'')}" placeholder="optional for single wire" onchange="netChange(${i},'run',this.value.trim().toUpperCase())"></td><td><input type="number" min="1" step="1" value="${safe(n.runConductors||'')}" onchange="netChange(${i},'runConductors',this.value)" style="width:72px"></td><td><select onchange="netChange(${i},'role',this.value)"><option value="conductor" ${(n.role||'conductor')==='conductor'?'selected':''}>Insulated conductor</option><option value="drain" ${n.role==='drain'?'selected':''}>Drain wire</option><option value="shield" ${n.role==='shield'?'selected':''}>Shield/braid path</option></select></td><td style="min-width:310px"><input value="${safe(n.endpoints)}" onchange="netChange(${i},'endpoints',this.value.trim().toUpperCase())"></td><td><input value="${safe(n.signal||'')}" onchange="netChange(${i},'signal',this.value)"></td><td><input value="${safe(n.color)}" onchange="netChange(${i},'color',this.value)"></td><td><input value="${safe(n.awg)}" onchange="netChange(${i},'awg',this.value)"></td><td><input value="${safe(n.sheet||'')}" onchange="netChange(${i},'sheet',this.value)"></td><td><input value="${safe(n.note)}" onchange="netChange(${i},'note',this.value)"></td><td><input type="checkbox" ${n.reviewed?'checked':''} onchange="netChange(${i},'reviewed',this.checked)"></td><td><button onclick="netRemove(${i})">×</button></td></tr>`).join('')||'<tr><td colspan="13">No nets yet. Add conductor relationships from drawing.</td></tr>';$('netErrors').textContent=errs.length?errs.join(' | '):'Endpoint ownership, drawing callouts, source sheets and cable/run conductor counts balance. Physical routing and electrical test still require inspection.';$('netErrors').className='callout '+(errs.length?'bad':'good');const facts=$('conductorFacts');if(facts)facts.innerHTML=conductorFactsHtml();renderNetworkGraphic()}
 function renderNetworkGraphic(){let nets=st.nets.filter(x=>x.reviewed&&String(x.endpoints).includes(','));if(!nets.length){$('netDrawing').innerHTML='<div class="callout">Review net endpoints to display a logical diagram.</div>';return}const w=1050,rh=85,h=55+rh*nets.length;let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="width:100%;min-width:760px"><rect width="${w}" height="${h}" fill="#fff"/><text x="22" y="27" font-family="Arial" font-size="17" fill="#183652">Trivex | logical harness net reconstruction · DRAFT</text>`;nets.forEach((n,i)=>{let y=70+i*rh,e=n.endpoints.split(',').map(x=>x.trim()).filter(Boolean),span=900/(e.length+1);s+=`<text x="17" y="${y}" font-family="Arial" font-weight="bold" font-size="13" fill="#345" >${safe(n.id)}</text><line x1="130" x2="1000" y1="${y+18}" y2="${y+18}" stroke="#d1dfe8" stroke-width="2"/>`;e.forEach((v,j)=>{let x=130+span*(j+1);s+=`<circle cx="${x}" cy="${y+18}" r="7" fill="#288c9a"/><text text-anchor="middle" x="${x}" y="${y+5}" font-family="Consolas" font-size="13" fill="#183652">${safe(v)}</text>`})});s+='</svg>';$('netDrawing').innerHTML=s}
-function bomObj(x){const raw=String(x.qtyText??x.qty??'').trim().toUpperCase(),ar=raw==='A/R'||raw==='AS REQUIRED';return {item:x.item||'',part:x.part||'',description:x.description||'',reference:x.reference||'',page:x.page||x.Page||0,qty:ar?0:(Number(raw)||0),qtyText:ar?'A/R':raw,kitRequired:'',unit:'EA',source:x.source||'Imported',count:'',trace:'',partReference:String(x.partReference||''),notes:x.partReference?'Secondary part reference: '+x.partReference:'',verified:false}}
+function bomObj(x){const raw=String(x.qtyText??x.qty??'').trim().toUpperCase(),ar=raw==='A/R'||raw==='AS REQUIRED';return {item:x.item||'',part:x.part||'',description:x.description||'',reference:x.reference||'',page:x.page||x.Page||0,qty:ar?0:(Number(raw)||0),qtyText:ar?'A/R':raw,kitRequired:'',unit:String(x.unit||'').trim().toUpperCase()||'EA',source:x.source||'Imported',count:'',trace:'',partReference:String(x.partReference||''),notes:x.partReference?'Secondary part reference: '+x.partReference:'',verified:false}}
 function asRequired(r){return String(r.qtyText||'').toUpperCase()==='A/R'}
 function needsPartSelection(r){let p=String(r.part||'').toUpperCase().trim();return !p||p==='VARIOUS'||p.includes(';')||p.startsWith('UNRESOLVED:')}
 function requiredKitQty(r,q){return asRequired(r)?Number(r.kitRequired)||0:r.qty*q}
@@ -1568,9 +1568,11 @@ function buildCutList(nets,opts){
  // gauge and connector pair in drawing order; the pairing is inferred, so it is flagged.
  const cableN=a=>{const n=Number((o.cables||{})[String(a||'').trim()]);return Number.isInteger(n)&&n>=2?n:1};
  const tagOf=e=>String(e).split(':')[0];
- const items=[],buckets=new Map();let cableNo=0;
+ const items=[],buckets=new Map(),mixBuckets=new Map();let cableNo=0;
  for(const r of conds){
   const n=cableN(r.awg);
+  const mix=(o.cableMix||{})[String(Number(r.awg)||'')];
+  if(n<2&&mix&&mix.length){const bk='MIX|'+[r.awg,tagOf(r.from),tagOf(r.to.split(' / ')[0])].join('|');let b=mixBuckets.get(bk);if(!b){b={sizes:mix,list:[]};mixBuckets.set(bk,b)}b.list.push(r);continue}
   if(n<2){items.push(r);continue}
   const bk=[r.awg,tagOf(r.from),tagOf(r.to.split(' / ')[0])].join('|');
   let b=buckets.get(bk);if(!b){b=[];buckets.set(bk,b)}
@@ -1588,6 +1590,23 @@ function buildCutList(nets,opts){
   items.push(cab);
  }
  for(const [bk,b] of buckets)for(const m of b){m.notes.push('Expected a '+cableN(m.awg)+'-conductor cable but only '+b.length+' matching conductor(s) found; cable incomplete');items.push(m)}
+ // Same gauge, cables of different sizes: in drawing order a new cable starts where a colour repeats. The grouping is
+ // used only when every group is a size the parts list has and every cable of one size has the same colour set.
+ for(const [bk,b] of mixBuckets){
+  const runs=[];let cur=[];
+  for(const m of b.list){const c=m.color;if(!c||cur.some(x=>x.color===c)){if(cur.length)runs.push(cur);cur=[]}cur.push(m)}
+  if(cur.length)runs.push(cur);
+  const setBy={};let ok=b.list.every(m=>m.color);
+  for(const g of runs){if(!b.sizes.includes(g.length)){ok=false;break}const cs=g.map(m=>m.color).sort().join('+');if(setBy[g.length]&&setBy[g.length]!==cs){ok=false;break}setBy[g.length]=cs}
+  if(!ok){for(const m of b.list){m.notes.push('The parts list has '+b.sizes.join('- and ')+'-conductor cables of this gauge; which conductors share a cable could not be told from the colours');items.push(m)}continue}
+  for(const g of runs){
+   if(g.length<2){items.push(g[0]);continue}
+   cableNo++;
+   const cab={key:'C:'+g.map(m=>m.key).join('+'),harness:g.every(m=>m.harness),cable:true,conductors:g.length,members:g,wire:'CABLE '+cableNo,awg:g[0].awg,color:g.map(m=>m.color).join(' + '),signal:'',from:g.map(m=>m.from).join(', '),to:g.map(m=>m.to).join(', '),splice:false,sources:g.reduce((s,m)=>s+m.sources,0),lens:[].concat(...g.map(m=>m.lens)),stated:[].concat(...g.map(m=>m.stated)),invalid:[].concat(...g.map(m=>m.invalid)),assumed:g.some(m=>m.assumed),conflicts:[],nets:[].concat(...g.map(m=>m.nets)),notes:['Grouped as a '+g.length+'-conductor cable by its colour code (the parts list has '+b.sizes.join('- and ')+'-conductor cables of this gauge); confirm']};
+   for(const m of g)for(const nt of m.notes)if(!cab.notes.includes(nt))cab.notes.push(nt);
+   items.push(cab);
+  }
+ }
  for(const A of o.assemblies||[]){
   const mem=asmMembers.get(A.key);if(!mem||!mem.length)continue;
   const r={key:A.key,wire:'CABLE '+A.part+' to '+A.farEnd,awg:'—',color:'—',signal:'',cable:true,purchased:true,conductors:mem.length,part:A.part,item:A.item,from:[...new Set(mem.map(n=>String(n.endpoints||'').split(',')[0].trim().split(':')[0]))].join(', ')+' ('+mem.length+' pins)',to:A.farEnd,splice:false,sources:mem.length,lens:[],stated:[],invalid:[],assumed:false,conflicts:[],nets:mem,
@@ -1631,9 +1650,12 @@ function parseCableLine(b){
 }
 function detectCableSpecs(bom){
  const by=new Map();
- for(const b of bom||[]){const c=parseCableLine(b);if(!c||c.n<2||!c.awg)continue;const k=String(Number(c.awg));const e=by.get(k);if(!e)by.set(k,{awg:k,n:c.n,basis:c.basis,text:c.text,part:String(b.part||'').trim(),description:String(b.description||''),ambiguous:false});else if(e.n!==c.n)e.ambiguous=true}
+ for(const b of bom||[]){const c=parseCableLine(b);if(!c||c.n<2||!c.awg)continue;const k=String(Number(c.awg));const e=by.get(k);if(!e)by.set(k,{awg:k,n:c.n,sizes:[c.n],basis:c.basis,text:c.text,part:String(b.part||'').trim(),description:String(b.description||''),ambiguous:false});else{if(!e.sizes.includes(c.n))e.sizes.push(c.n);if(e.n!==c.n)e.ambiguous=true}}
  return by;
 }
+// Gauges whose parts list has cables of more than one size (for example pairs and quads of the same gauge):
+// the sizes, so the cut list can group those conductors by their colour codes.
+function mixedCableSizes(detected,overrides){const out={};for(const [k,e] of detected){if(e.ambiguous&&!(overrides&&String(overrides[k]??'').trim()!==''))out[k]=e.sizes.slice().sort((a,b)=>a-b)}return out}
 function effectiveCables(detected,overrides){
  const out={};
  for(const [k,e] of detected)if(!e.ambiguous)out[k]=e.n;
@@ -1648,7 +1670,7 @@ function harnessOpt(){
  const L=parseLength(h.text,$('cutUnit')?$('cutUnit').value:'IN');
  return L.inches>0?{inches:L.inches,assumed:L.assumed,text:h.text}:null;
 }
-function cutOpts(){return {defUnit:$('cutUnit')?$('cutUnit').value:'IN',allowance:$('cutAllowance')?$('cutAllowance').value:0,cables:effectiveCables(detectCableSpecs(st.bom),st.cableSpec),harness:harnessOpt(),assemblies:bomCableAssemblies(st.bom,st.nets).assemblies}}
+function cutOpts(){const det=detectCableSpecs(st.bom);return {defUnit:$('cutUnit')?$('cutUnit').value:'IN',allowance:$('cutAllowance')?$('cutAllowance').value:0,cables:effectiveCables(det,st.cableSpec),cableMix:mixedCableSizes(det,st.cableSpec),harness:harnessOpt(),assemblies:bomCableAssemblies(st.bom,st.nets).assemblies}}
 function harnessCandidates(){const seen=new Set(),out=[];for(const h of st.raw?.harnessLengths||[]){const k=h.text;if(!seen.has(k)){seen.add(k);out.push(h)}}return out}
 function autoHarness(){if(st.harnessLength||st.harnessLengthOff)return;const all=harnessCandidates(),conf=all.filter(h=>h.corroborated);if(conf.length===1){st.harnessLength={text:conf[0].upper||conf[0].text,nominal:conf[0].text,tolerance:conf[0].tolerance||'',page:conf[0].page,label:conf[0].label,source:'confirmed',basis:conf[0].basis};return}const c=all.filter(h=>h.label!=='DIMENSION');if(c.length===1)st.harnessLength={text:c[0].upper||c[0].text,nominal:c[0].text,tolerance:c[0].tolerance||'',page:c[0].page,label:c[0].label,source:'detected'}}
 function harnessSet(v){const t=String(v).trim();if(t){st.harnessLength={text:t,page:0,label:'',source:'typed'};st.harnessLengthOff=false}else{st.harnessLength=null;st.harnessLengthOff=true}renderCutList()}
@@ -1801,10 +1823,19 @@ function computeQuote(x){
  const num=v=>{const s=String(v==null?'':v).trim();return s!==''&&Number.isFinite(Number(s))&&Number(s)>=0?Number(s):null};
  const scrap=num(q.scrap)||0,blockers=[];
  const purchasedItems=new Set((cut.assemblyItems||[]).map(String));
- const wireLines=cut.groups.filter(g=>!g.purchased).map(g=>{const perHarnessFt=g.inches/12,buyFt=perHarnessFt*qty*(1+scrap/100),cost=num((q.wireCost||{})[g.label]);return {label:g.label,count:g.count,perHarnessFt,buyFt,cost,amount:cost==null?null:buyFt*cost,unmeasured:g.unmeasured}});
+ // Wire footage: from the cut list when every conductor has a length; otherwise from the parts list's wire and cable
+ // lines when they state a length quantity (U/M FT, IN, M, MM), because that is the footage the drawing says to buy.
+ const ftOf=b=>{const n=num(b.qty),u=String(b.unit||'').toUpperCase();if(n==null||n<=0)return null;return u==='FT'?n:u==='IN'?n/12:u==='M'?n*3.28084:u==='MM'?n/304.8:u==='CM'?n/30.48:null};
+ // a "wire"/"cable" line bought by the piece (ties, markers, clamps) is a part, not footage
+ const byPiece=b=>/^(EA|EACH|PC|PCS|PIECE|PR|PAIR|KIT|SET|BAG|PKG|RL|ROLL)$/.test(String(b.unit||'').trim().toUpperCase());
+ const isWireLine=b=>WIRE_LINE.test(String(b.description||'')+' '+String(b.part||''))&&!purchasedItems.has(String(b.item))&&!byPiece(b);
+ const bomWire=(x.bom||[]).map((b,i)=>({b,i})).filter(({b})=>isWireLine(b));
+ const fromParts=cut.counts.missing>0&&bomWire.length>0&&bomWire.every(({b})=>ftOf(b)!=null);
+ const wireLines=fromParts?bomWire.map(({b,i})=>{const label='Parts list item '+String(b.item||i+1)+(b.part?' · '+b.part:''),perHarnessFt=ftOf(b),buyFt=perHarnessFt*qty*(1+scrap/100),cost=num((q.wireCost||{})[label]);return {label,count:1,perHarnessFt,buyFt,cost,amount:cost==null?null:buyFt*cost,unmeasured:0,fromParts:true}})
+  :cut.groups.filter(g=>!g.purchased).map(g=>{const perHarnessFt=g.inches/12,buyFt=perHarnessFt*qty*(1+scrap/100),cost=num((q.wireCost||{})[g.label]);return {label:g.label,count:g.count,perHarnessFt,buyFt,cost,amount:cost==null?null:buyFt*cost,unmeasured:g.unmeasured}});
  const bomLines=[];let bomSkippedWire=0,nonNumeric=0;
  (x.bom||[]).forEach((b,i)=>{
-  if(WIRE_LINE.test(String(b.description||'')+' '+String(b.part||''))&&!purchasedItems.has(String(b.item))){bomSkippedWire++;return}
+  if(isWireLine(b)){bomSkippedWire++;return}
   const key=String(b.item||'')+'|'+String(b.part||'')+'|'+i,perHarness=num(b.qty),cost=num((q.bomCost||{})[key]);
   if(perHarness==null||perHarness===0)nonNumeric++;
   bomLines.push({key,item:b.item,part:b.part,description:b.description,perHarness,cost,amount:perHarness!=null&&cost!=null?perHarness*qty*cost:null,qtyText:String(b.qty==null?'':b.qty)});
@@ -1813,7 +1844,7 @@ function computeQuote(x){
  const wireTotal=wireLines.reduce((s,l)=>s+(l.amount||0),0),partsTotal=bomLines.reduce((s,l)=>s+(l.amount||0),0);
  const labor=hours!=null&&rate!=null?hours*rate*qty:null,subtotal=wireTotal+partsTotal+(labor||0),total=subtotal*(1+markup/100);
  if(!cut.counts.total)blockers.push('No cut list: no conductors were read or entered.');
- if(cut.counts.missing)blockers.push(cut.counts.missing+' conductor(s) have no length, so wire footage is understated.');
+ if(cut.counts.missing&&!fromParts)blockers.push(cut.counts.missing+' conductor(s) have no length, so wire footage is understated.');
  if(cut.counts.conflict)blockers.push(cut.counts.conflict+' conductor(s) have conflicting lengths.');
  if(cut.counts.invalid)blockers.push(cut.counts.invalid+' conductor(s) have an unreadable length.');
  const unpricedWire=wireLines.filter(l=>l.cost==null).length;if(unpricedWire)blockers.push(unpricedWire+' wire group(s) have no $/ft cost.');
@@ -1824,7 +1855,7 @@ function computeQuote(x){
  if(rate==null)blockers.push('Labor rate not entered.');
  if(x.shieldOpen>0)blockers.push(x.shieldOpen+' shielded cable(s) have no shield termination recorded; shield termination labor and parts are not covered.');
  if(x.drawingErrors)blockers.push(x.drawingErrors+' drawing error(s) are unresolved on the Drawing alerts tab.');
- return {qty,scrap,wireLines,bomLines,bomSkippedWire,hours,rate,markup,wireTotal,partsTotal,labor,subtotal,total,blockers,complete:!blockers.length};
+ return {qty,scrap,wireLines,bomLines,bomSkippedWire,wireFromParts:fromParts,hours,rate,markup,wireTotal,partsTotal,labor,subtotal,total,blockers,complete:!blockers.length};
 }
 function quoteInput(){const errs=(st.raw?.issues||[]).filter(i=>(i.Severity||i.severity)==='ERROR').length;return {shieldOpen:typeof shieldSummary==='function'?shieldSummary().open:0,quote:st.quote,qty:$('buildQty')?$('buildQty').value:1,cut:lastCut,bom:st.bom,laborUnitHours:quoteLaborHours().hours,drawingErrors:errs}}
 // Labor hours for the quote: the Labor tab when it has been used, otherwise the
@@ -1847,7 +1878,7 @@ function renderQuote(){
  for(const [id,k] of [['qLabor','laborHours'],['qRate','rate'],['qScrap','scrap'],['qMarkup','markup']])if($(id))$(id).value=q[k]||'';
  const lh=quoteLaborHours();$('quoteLaborHint').textContent=lh.hours?`${lh.from}: ${Number(lh.hours).toFixed(1)} h per harness${q.laborHours?' (overridden above)':' (used because the field is empty)'}.`:'No labor estimate calculated yet. Use the Labor tab or type hours above.';
  const r=computeQuote(quoteInput());
- $('quoteWireRows').innerHTML=r.wireLines.length?r.wireLines.map(l=>`<tr><td>${safe(l.label)}</td><td>${l.count}${l.unmeasured?` <span class="tag bad">${l.unmeasured} without length</span>`:''}</td><td>${l.perHarnessFt.toFixed(2)}</td><td>${l.buyFt.toFixed(2)}</td><td><input type="number" min="0" step="0.01" value="${safe((q.wireCost||{})[l.label]||'')}" aria-label="Cost per foot for ${safe(l.label)}" onchange="quoteWire(${JSON.stringify(l.label).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join(''):'<tr><td colspan="5">No cut list yet.</td></tr>';
+ $('quoteWireRows').innerHTML=(r.wireFromParts?'<tr><td colspan="5" class="small muted">Wire footage is from the parts list: the cut list does not have a length for every conductor yet (branched harness).</td></tr>':'')+(r.wireLines.length?r.wireLines.map(l=>`<tr><td>${safe(l.label)}${l.fromParts?' <span class="tag warn">parts list</span>':''}</td><td>${l.count}${l.unmeasured?` <span class="tag bad">${l.unmeasured} without length</span>`:''}</td><td>${l.perHarnessFt.toFixed(2)}</td><td>${l.buyFt.toFixed(2)}</td><td><input type="number" min="0" step="0.01" value="${safe((q.wireCost||{})[l.label]||'')}" aria-label="Cost per foot for ${safe(l.label)}" onchange="quoteWire(${JSON.stringify(l.label).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join(''):'<tr><td colspan="5">No cut list yet.</td></tr>');
  $('quoteBomRows').innerHTML=r.bomLines.length?r.bomLines.map(l=>`<tr><td>${safe(l.item)}</td><td>${safe(l.part)}</td><td>${safe(l.description)}</td><td>${safe(l.qtyText)}${l.perHarness==null||l.perHarness===0?' <span class="tag bad">not priced</span>':''}</td><td><input type="number" min="0" step="0.01" value="${safe((q.bomCost||{})[l.key]||'')}" aria-label="Unit cost for ${safe(l.part||l.item)}" onchange="quoteBom(${JSON.stringify(l.key).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join('')+(r.bomSkippedWire?`<tr><td colspan="5" class="small muted">${r.bomSkippedWire} wire/cable BOM line(s) skipped: priced from the cut list.</td></tr>`:''):'<tr><td colspan="5">No BOM yet.</td></tr>';
  let tool='';try{const n=requiredAssemblyRows().length;tool=n?`${n} required tooling operation(s) were identified from this drawing. Review them on the <a href="#" onclick="tab('tooling');return false">Required tooling</a> tab to see what you already own.`:'No tooling requirements identified yet.'}catch(e){tool='Tooling requirements are not available yet.'}
  $('quoteTooling').innerHTML=tool;

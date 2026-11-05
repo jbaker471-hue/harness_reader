@@ -52,6 +52,9 @@ type BOMRow struct {
 	Reference     string `json:"reference"`
 	Page          int    `json:"page"`
 	Status        string `json:"status"`
+	// Unit is the parts list's unit of measure (U/M) for the quantity, as
+	// printed (EA, FT, IN...), empty when the list has no unit column.
+	Unit string `json:"unit,omitempty"`
 }
 type Finding struct {
 	Severity string `json:"severity"`

@@ -253,3 +253,13 @@ func TestPartsListBesideNotesIsRead(t *testing.T) {
 		t.Fatalf("parts list beside notes: %+v", a.BOM)
 	}
 }
+
+// NON-CUI: a tabulated parts list (a quantity column per assembly variant)
+// never joins the two quantities into one number.
+func TestTabulatedQuantitiesAreNotJoined(t *testing.T) {
+	tb := genericTable{Kind: "bom", Rows: []map[string]string{{"item": "5", "qty": "3 12", "um": "FT", "part": "M27500-22SB2T23", "desc": "CABLE"}}}
+	b := tb.bomRows()[0]
+	if b.Qty != "3" || b.Unit != "FT" || !strings.Contains(b.Status, "TABULATED: 2 quantities") {
+		t.Fatalf("tabulated quantity: %+v", b)
+	}
+}

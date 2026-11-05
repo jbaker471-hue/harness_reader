@@ -705,6 +705,22 @@ func (t genericTable) bomRows() []BOMRow {
 		if vendor == "" && r["cage"] != "" {
 			vendor = "CAGE " + r["cage"]
 		}
+		// A tabulated parts list has a quantity column per assembly variant (dash
+		// number): several separate numbers in the quantity cells are never joined.
+		variants := 0
+		if toks := strings.Fields(r["qty"]); len(toks) > 1 {
+			all := true
+			for _, t := range toks {
+				u := strings.ToUpper(t)
+				if _, ok := plainQty(u); !ok && u != "A/R" && u != "AR" && u != "-" {
+					all = false
+				}
+			}
+			if all {
+				variants = len(toks)
+				r["qty"] = toks[0]
+			}
+		}
 		qty := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["qty"]), " ", ""))
 		if qty == "AR" || strings.HasPrefix(qty, "ASREQ") {
 			qty = "A/R"
@@ -712,7 +728,7 @@ func (t genericTable) bomRows() []BOMRow {
 		if qty == "" {
 			qty = "UNRESOLVED"
 		}
-		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE"})
+		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Unit: normUnit(r["um"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE" + variantNote(variants)})
 	}
 	return out
 }
@@ -855,4 +871,25 @@ func (t genericTable) unusedRows() []UnusedCavity {
 		out = append(out, UnusedCavity{Connector: conn, Cavity: pin, Page: t.Page, Source: "pin table row marked " + label + " on sheet " + itoa(t.Page)})
 	}
 	return out
+}
+
+// normUnit writes a parts-list unit of measure one way: FT, IN, EA, M, MM...
+func normUnit(u string) string {
+	u = strings.ToUpper(strings.Trim(strings.TrimSpace(u), ".:"))
+	switch u {
+	case "FEET", "FOOT", "'":
+		return "FT"
+	case "INCH", "INCHES", `"`:
+		return "IN"
+	case "EACH":
+		return "EA"
+	}
+	return u
+}
+
+func variantNote(n int) string {
+	if n < 2 {
+		return ""
+	}
+	return fmt.Sprintf("; TABULATED: %d quantities on this line (one per assembly variant); the first is used, check the dash number being built", n)
 }

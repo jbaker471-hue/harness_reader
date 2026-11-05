@@ -43,6 +43,7 @@ type ViewBOM struct {
 	Vendor        string `json:"vendor"`
 	Reference     string `json:"reference"`
 	Page          int    `json:"Page"`
+	Unit          string `json:"unit,omitempty"`
 }
 type ViewIssue struct {
 	Severity  string
@@ -216,7 +217,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	sort.Strings(v.Branches)
 	for _, bom := range a.BOM {
-		v.Boms = append(v.Boms, ViewBOM{Item: bom.Item, Qty: bom.Qty, Part: bom.Part, Description: bom.Description, Vendor: bom.Vendor, Reference: bom.Reference, Page: bom.Page, PartReference: bom.PartReference})
+		v.Boms = append(v.Boms, ViewBOM{Item: bom.Item, Qty: bom.Qty, Part: bom.Part, Description: bom.Description, Vendor: bom.Vendor, Reference: bom.Reference, Page: bom.Page, PartReference: bom.PartReference, Unit: bom.Unit})
 	}
 	for _, f := range a.Findings {
 		x := ViewIssue{Severity: f.Severity, Category: f.Category, Code: f.Code, Message: f.Message, Pages: f.Pages, Connector: f.Connector, Part: f.Part, Expected: f.Expected, Observed: f.Observed, Action: "Review original source sheet and obtain approved engineering resolution before production release.", Cavities: []string{}}

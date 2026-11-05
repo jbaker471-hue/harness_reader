@@ -117,6 +117,69 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				}
 			}
 			pf("LENGTHS: harness length candidates %d (corroborated %d); with a tolerance %d, cut at the top %d", len(v.HarnessLengths), co, tol, up)
+			// each candidate: its label (fixed vocabulary), whether it has a unit
+			// and a tolerance, and its size relative to the first candidate
+			cin := func(h HarnessLength) float64 {
+				c := lengthCandidatesInches([]HarnessLength{h})
+				if len(c) == 0 {
+					return 0
+				}
+				return c[0]
+			}
+			for k, h := range v.HarnessLengths {
+				fs := strings.Fields(h.Text)
+				unit := "none"
+				if len(fs) > 1 {
+					unit = fs[1]
+				}
+				rel := 0.0
+				if c0 := cin(v.HarnessLengths[0]); c0 > 0 {
+					rel = cin(h) / c0
+				}
+				pf("LENGTHCAND: %d label %s, sheet %d, unit %s, tolerance %v, cut-at-top %v, size vs first %.3f, confirmed %v", k+1, h.Label, h.Page, unit, h.Tolerance != "", h.Upper != "", rel, h.Corroborated)
+			}
+			// cables in the parts list and their callouts on the wiring sheets
+			wp := map[int]bool{}
+			for _, w := range v.Wires {
+				wp[w.Page] = true
+			}
+			for k, b := range v.Boms {
+				br := BOMRow{Item: b.Item, Qty: b.Qty, Description: b.Description, Unit: b.Unit}
+				up := strings.ToUpper(b.Description + " " + b.Part)
+				isCable, isWire := cableConductors(br) > 0, strings.Contains(up, "WIRE") || strings.Contains(up, "M22759") || strings.Contains(up, "M27500") || strings.Contains(up, "CABLE")
+				if !isCable && !isWire {
+					continue
+				}
+				calls, callsW, amb := 0, 0, false
+				for _, c := range v.Callouts {
+					if canonicalFind(c.Reference) != canonicalFind(b.Item) || b.Item == "" {
+						continue
+					}
+					calls++
+					if wp[c.Page] {
+						callsW++
+					}
+					if c.Quantity == "AMBIGUOUS" {
+						amb = true
+					}
+				}
+				q, qok := plainQty(b.Qty)
+				ratios := []string{}
+				for _, h := range v.HarnessLengths {
+					if L := cin(h); L > 0 && qok {
+						qf := q
+						if f := lengthUnitIn(b.Unit); f > 0 {
+							qf = q * f / 12
+						}
+						ratios = append(ratios, fmt.Sprintf("%.2f", qf*12/L))
+					}
+				}
+				u := b.Unit
+				if u == "" {
+					u = "none"
+				}
+				pf("LENGTHBOM: line %d cable %v (conductors %d) wire %v, unit %s, numeric qty %v, callouts %d (on wiring sheets %d, ambiguous %v), qty / candidate length [%s]", k+1, isCable, cableConductors(br), isWire, u, qok, calls, callsW, amb, strings.Join(ratios, " "))
+			}
 			// the user's stated value for drawing 1: 216 IN +1, cut at 217 IN
 			if di == 0 {
 				nom, cut := false, false
@@ -245,6 +308,22 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 			codes[i.Code]++
 		}
 		pf("finding codes: %v", codes)
+		for _, f := range v.Issues {
+			if f.Code != "CONNECTOR_PART_MISMATCH" {
+				continue
+			}
+			cls := "other"
+			switch {
+			case strings.Contains(f.Message, "cavity layout is the same"):
+				cls = "same insert, different part (e.g. shell, finish or key)"
+			case strings.Contains(f.Message, "mating halves"):
+				cls = "mating halves (pin vs socket)"
+			case strings.Contains(f.Message, "inserts differ"):
+				cls = "different inserts"
+			}
+			other := strings.Contains(f.Message, "also the parts-list part of") || strings.Contains(f.Message, "designator was not read")
+			pf("MISMATCH: %s; header part belongs to another parts-list connector %v", cls, other)
+		}
 		for i, p := range x.Data.Pages {
 			pl := x.Layouts[i]
 			single, rot, multi := 0, 0, 0
@@ -975,6 +1054,27 @@ func bomProbe(p Page) []string {
 				}
 				out = append(out, fmt.Sprintf("  near heading: line %+d at %+.1f em: words %d heading %d others [%s]", j-i, (lines[j].Y-lines[i].Y)/em, len(lines[j].Words), hw, strings.Join(other, " ")))
 			}
+		}
+	}
+	for _, t := range genericTables(p) {
+		if t.Kind != "bom" {
+			continue
+		}
+		cs := []string{}
+		for _, c := range t.Cols {
+			r := c.role
+			if r == "" {
+				r = "?"
+			}
+			cs = append(cs, r+"("+abstractPattern(c.label)+")")
+		}
+		out = append(out, "bom columns: "+strings.Join(cs, " "))
+		for k, r := range t.Rows {
+			up := strings.ToUpper(r["desc"] + " " + r["part"])
+			if !strings.Contains(up, "WIRE") && !strings.Contains(up, "CABLE") && !strings.Contains(up, "M22759") && !strings.Contains(up, "M27500") {
+				continue
+			}
+			out = append(out, fmt.Sprintf("bom wire row %d: qty %s, um %s, item %s", k+1, abstractPattern(r["qty"]), abstractPattern(r["um"]), abstractPattern(r["item"])))
 		}
 	}
 	g := 0

@@ -428,6 +428,29 @@ cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHa
 cutCtx.st.harnessLength={text:'48 IN'};cutCtx.resetCutListState();
 equal([cutCtx.st.harnessLength,cutCtx.st.shieldTerm,cutCtx.st.cableSpec,cutCtx.st.quote.wireCost,cutCtx.st.quote.bomCost],[null,{},{},{},{}]);
 if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="0"'))throw Error('default excess must be 0 (cut at the top of the tolerance)');
+// Pairs and quads of the same gauge: grouped by colour code, checked against the parts-list sizes.
+{const bomMix=[{item:'4',part:'M27500-22SB2T23',description:'CABLE, 2 CONDUCTOR, SHIELDED',qty:10,unit:'FT'},{item:'5',part:'M27500-22SB4T23',description:'CABLE, 4 CONDUCTOR, SHIELDED',qty:10,unit:'FT'}];
+ const det=cutCtx.detectCableSpecs(bomMix),cab=cutCtx.effectiveCables(det,{}),mix=cutCtx.mixedCableSizes(det,{});
+ if(cab['22']||String(mix['22'])!=='2,4')throw Error('mixed sizes not detected: '+JSON.stringify([cab,mix]));
+ const cols=['WHT','BLU','WHT','BLU','ORN','GRN','WHT','BLU'];let k=0;
+ const nets=cols.map(c=>({id:'N'+(++k),endpoints:'P1:'+k+', J1:'+k,awg:'22',color:c}));
+ const cl=cutCtx.buildCutList(nets,{allowance:0,cables:cab,cableMix:mix,harness:{inches:100,assumed:false,text:'100 IN'}});
+ const sizes=cl.rows.filter(r=>r.cable).map(r=>r.conductors).sort().join(',');
+ if(cl.rows.length!==3||sizes!=='2,2,4')throw Error('pairs and quads not grouped: '+cl.rows.length+' rows, sizes '+sizes);
+ // a run that matches no parts-list size keeps every conductor single and says why
+ const bad=cutCtx.buildCutList(['WHT','BLU','ORN'].map((c,i)=>({id:'B'+i,endpoints:'P1:'+i+', J1:'+i,awg:'22',color:c})),{allowance:0,cables:cab,cableMix:mix});
+ if(bad.rows.length!==3||bad.rows.some(r=>r.cable)||!bad.rows[0].notes.some(n=>/could not be told/.test(n)))throw Error('an uncertain grouping must stay single and be flagged')}
+// A branched harness with no per-conductor length: the quote prices wire from the parts list's footage, never from nothing.
+{const cutNo={rows:[],groups:[{label:'22 · WHT',count:3,inches:0,unmeasured:3}],counts:{total:3,missing:3,conflict:0,invalid:0}};
+ const bomW=[{item:'7',part:'M22759/16-22-9',description:'WIRE',qty:40,unit:'FT'},{item:'8',part:'M27500-22SB2T23',description:'CABLE',qty:120,unit:'IN'},{item:'1',part:'CONN',description:'CONNECTOR',qty:1,unit:'EA'}];
+ const qp=cutCtx.computeQuote({quote:{scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:bomW,laborUnitHours:2});
+ if(!qp.wireFromParts||qp.wireLines.length!==2||Math.abs(qp.wireLines[0].perHarnessFt-40)>1e-9||Math.abs(qp.wireLines[1].perHarnessFt-10)>1e-9)throw Error('parts-list wire footage not used: '+JSON.stringify(qp.wireLines));
+ if(qp.blockers.some(b=>/have no length/.test(b)))throw Error('lengths-missing must not block when the parts list gives the footage');
+ const qn=cutCtx.computeQuote({quote:{scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:[{item:'7',part:'M22759/16-22-9',description:'WIRE',qty:40,unit:'EA'}],laborUnitHours:2});
+ if(!qn.wireFromParts&&!qn.blockers.some(b=>/have no length/.test(b)))throw Error('lengths-missing must stay a blocker when the parts list gives no footage');
+ // a cable tie or wire marker bought by the piece is priced as a part, never skipped as wire
+ const qt=cutCtx.computeQuote({quote:{scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:[...bomW,{item:'9',part:'T18R',description:'CABLE TIE',qty:20,unit:'EA'}],laborUnitHours:2});
+ if(!qt.wireFromParts||!qt.bomLines.some(l=>l.item==='9')||qt.wireLines.some(l=>/item 9/.test(l.label)))throw Error('piece-priced cable tie mishandled: '+JSON.stringify(qt.bomLines.map(l=>l.item)))}
 console.log('PASS: harness length applies only to conductors without their own length, is flagged, and never carries across drawings');
 
 // With no drawn positions the face view must not draw a shell or a square block of cavities
