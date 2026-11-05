@@ -50,6 +50,10 @@ type traceEnd struct {
 	label int // index of the gauge label this end belongs to
 }
 
+// traceHeldHook, when set (diagnostics only), is told where each held wire
+// end is so its drawn shape can be summarised. Never set in the app.
+var traceHeldHook func(reason string, x, y, dir, em float64, segs []Segment)
+
 // segGraph joins segments that share an end point.
 type segGraph struct {
 	segs []Segment
@@ -488,7 +492,9 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 	// of the line) with a label printed beside it at the same height is
 	// terminated in a ferrule, not in a connector pin. Both the box and the label must be
 	// there. Returns the label.
-	findLead := func(x, y, dir, em float64) (string, bool) {
+	// hasBox: a small square (two short horizontal and two short vertical
+	// strokes) drawn just past the end of a line, as a crimp ferrule is drawn.
+	hasBox := func(x, y, dir, em float64) bool {
 		h, v := 0, 0
 		for _, s := range g.segs {
 			x0, x1 := math.Min(s[0], s[2]), math.Max(s[0], s[2])
@@ -509,7 +515,87 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 				v++
 			}
 		}
-		if h < 2 || v < 2 {
+		return h >= 2 && v >= 2
+	}
+	// hasRing: a small circle drawn at or just past the end of a line, as a
+	// ring terminal is drawn. Curves reach here as short chords, so a ring is
+	// at least six short strokes, most of them slanted, whose extent is
+	// roughly square and between half an em and five em across.
+	hasRing := func(x, y, dir, em float64) bool {
+		// short strokes in a window around the end
+		var cand []Segment
+		for _, s := range g.segs {
+			l := math.Hypot(s[2]-s[0], s[3]-s[1])
+			if l > 2*em || l < 0.05 {
+				continue
+			}
+			if math.Abs((s[0]+s[2])/2-x) > 6*em || math.Abs((s[1]+s[3])/2-y) > 4*em {
+				continue
+			}
+			cand = append(cand, s)
+		}
+		if len(cand) < 6 {
+			return false
+		}
+		// join strokes that share an end point into loops
+		parent := make([]int, len(cand))
+		for i := range parent {
+			parent[i] = i
+		}
+		var find func(int) int
+		find = func(i int) int {
+			for parent[i] != i {
+				parent[i] = parent[parent[i]]
+				i = parent[i]
+			}
+			return i
+		}
+		near := func(ax, ay, bx, by float64) bool { return math.Abs(ax-bx) <= 0.3 && math.Abs(ay-by) <= 0.3 }
+		for i := range cand {
+			for j := i + 1; j < len(cand); j++ {
+				si, sj := cand[i], cand[j]
+				if near(si[0], si[1], sj[0], sj[1]) || near(si[0], si[1], sj[2], sj[3]) || near(si[2], si[3], sj[0], sj[1]) || near(si[2], si[3], sj[2], sj[3]) {
+					parent[find(i)] = find(j)
+				}
+			}
+		}
+		groups := map[int][]Segment{}
+		for i := range cand {
+			groups[find(i)] = append(groups[find(i)], cand[i])
+		}
+		for _, grp := range groups {
+			if len(grp) < 6 {
+				continue
+			}
+			slant := 0
+			bx0, by0, bx1, by1 := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+			touch := math.Inf(1)
+			for _, s := range grp {
+				if math.Abs(s[2]-s[0]) > 0.15*em && math.Abs(s[3]-s[1]) > 0.15*em {
+					slant++
+				}
+				bx0, bx1 = math.Min(bx0, math.Min(s[0], s[2])), math.Max(bx1, math.Max(s[0], s[2]))
+				by0, by1 = math.Min(by0, math.Min(s[1], s[3])), math.Max(by1, math.Max(s[1], s[3]))
+				touch = math.Min(touch, distToSeg(x, y, s))
+			}
+			w, h := bx1-bx0, by1-by0
+			if slant < 4 || w < 0.5*em || w > 5*em || h < 0.5*em || h > 5*em || w > 1.6*h || h > 1.6*w {
+				continue
+			}
+			// the line ends on the ring, or the ring sits just past the end
+			cx := (bx0 + bx1) / 2
+			if touch <= 0.5*em || ((cx-x)*dir > 0 && (cx-x)*dir <= 6*em && y >= by0-0.3*em && y <= by1+0.3*em) {
+				return true
+			}
+		}
+		return false
+	}
+	// A wire that ends at a crimp ferrule (drawn as a small square at the end
+	// of the line) with a label printed beside it at the same height is
+	// terminated in a ferrule, not in a connector pin. Both the box and the label must be
+	// there. Returns the label.
+	findLead := func(x, y, dir, em float64) (string, bool) {
+		if !hasBox(x, y, dir, em) && !hasRing(x, y, dir, em) {
 			return "", false
 		}
 		best, bestD := "", math.Inf(1)
@@ -628,6 +714,10 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 		}
 		if !okA || !okB || (pa.X == pb.X && pa.Y == pb.Y) {
 			noPin++
+			if traceHeldHook != nil {
+				traceHeldHook("no number either end", ax, ay, -1, lb.em, g.segs)
+				traceHeldHook("no number either end", bx, by, 1, lb.em, g.segs)
+			}
 			continue
 		}
 		ends = append(ends, traceEnd{noteA, leadA, refA, ax, ay, pa, ida, findColour(ax, ay, lb.em), li}, traceEnd{noteB, leadB, refB, bx, by, pb, idb, findColour(bx, by, lb.em), li})
@@ -642,12 +732,36 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 		for k, pr := range pairs {
 			bad := false
 			if bareOf[k] != 0 {
-				e := ends[pr[0]]
+				e, edir := ends[pr[0]], -1.0
 				if bareOf[k] == 2 {
-					e = ends[pr[1]]
+					e, edir = ends[pr[1]], 1.0
+				}
+				// an end drawn as a ring terminal or a crimp ferrule is a
+				// termination even when it sits in a column of pin ends
+				// and when no number (nor any text with a digit, or a lone
+				// letter) is printed at the end at all, there is no unread pin
+				// number: the line is numbered at one end only
+				em := labels[e.label].em
+				printed := false
+				for _, w := range items {
+					t := strings.TrimSpace(w.Text)
+					gap := math.Max(w.X-e.x, e.x-w.right()) // 0 or less: over the end
+					onLine := math.Abs(w.Y-e.y) <= 1*em && gap <= 10*em && ((w.X+w.right())/2-e.x)*edir > 0
+					if w.Rotated || t == "" || !onLine && (gap > 3*em || math.Abs(w.Y-e.y) > 1.5*em) {
+						continue
+					}
+					if _, ok := pinAtEnd(t); ok || strings.ContainsAny(t, "0123456789") {
+						printed = true
+						break
+					}
+				}
+				if hasRing(e.x, e.y, edir, em) || hasBox(e.x, e.y, edir, em) {
+					keepEnds = append(keepEnds, ends[pr[0]], ends[pr[1]])
+					keepPairs = append(keepPairs, [2]int{len(keepEnds) - 2, len(keepEnds) - 1})
+					continue
 				}
 				for _, o := range ends {
-					if o.pinID != "" && math.Abs(o.x-e.x) <= 3 && math.Abs(o.y-e.y) <= 40*labels[e.label].em && !(o.x == e.x && o.y == e.y) {
+					if printed && o.pinID != "" && math.Abs(o.x-e.x) <= 3 && math.Abs(o.y-e.y) <= 40*labels[e.label].em && !(o.x == e.x && o.y == e.y) {
 						bad = true
 						break
 					}
@@ -666,6 +780,13 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			}
 			if bad {
 				dropped++
+				if traceHeldHook != nil {
+					e, dir := ends[pr[0]], -1.0
+					if bareOf[k] == 2 {
+						e, dir = ends[pr[1]], 1.0
+					}
+					traceHeldHook("unnumbered end in a pin column", e.x, e.y, dir, labels[e.label].em, g.segs)
+				}
 				continue
 			}
 			keepEnds = append(keepEnds, ends[pr[0]], ends[pr[1]])
@@ -761,9 +882,9 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			// example a shield-float callout): the pin is wired; the far end
 			// is recorded as not on a connector
 			c, e := a, b
-			tc := ta
+			tc, edir := ta, 1.0
 			if a.note {
-				c, e, tc = b, a, tb
+				c, e, tc, edir = b, a, tb, -1.0
 			}
 			if tc == "" {
 				noConn++
@@ -774,7 +895,17 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 				continue
 			}
 			occupied[strings.ToUpper(tc)+":"+c.pinID] = true
-			if e.lead != "" {
+			if ring := hasRing(e.x, e.y, edir, labels[c.label].em); ring || (e.lead == "" && hasBox(e.x, e.y, edir, labels[c.label].em)) {
+				kind, method, conf := "ring terminal", "traced-wire-to-ring", "DRAFT — TRACED ALONG THE DRAWN WIRE TO A RING TERMINAL (DRAWN AS A SMALL CIRCLE), NOT A CONNECTOR PIN; CHECK SOURCE"
+				if !ring {
+					kind, method, conf = "crimp ferrule", "traced-wire-to-ferrule", "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX), NOT A CONNECTOR PIN; CHECK SOURCE"
+				}
+				sig := kind
+				if e.lead != "" {
+					sig += ": " + e.lead
+				}
+				out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: sig, Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: method, Confidence: conf})
+			} else if e.lead != "" {
 				out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: "crimp ferrule: " + e.lead, Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: "traced-wire-to-ferrule",
 					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX WITH A LABEL), NOT A CONNECTOR PIN; CHECK SOURCE"})
 			} else {
@@ -784,7 +915,39 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			continue
 		}
 		switch {
-		case ta == "" || tb == "":
+		case (ta == "") != (tb == ""):
+			// One end on a named connector, the other on a block with no name.
+			// When that end is drawn as a crimp ferrule (small square) or a ring
+			// terminal (small circle), the wire is on the named connector's pin
+			// and that end is the termination, labelled by the text beside it.
+			c, e, tc, dir := a, b, ta, 1.0
+			if ta == "" {
+				c, e, tc, dir = b, a, tb, -1.0
+			}
+			em := labels[c.label].em
+			kind := ""
+			switch {
+			case hasRing(e.x, e.y, dir, em):
+				kind = "ring terminal"
+			case hasBox(e.x, e.y, dir, em):
+				kind = "crimp ferrule"
+			}
+			if kind == "" || occupied[strings.ToUpper(tc)+":"+c.pinID] {
+				noConn++
+				if traceHeldHook != nil && kind == "" {
+					traceHeldHook("unnamed block end", e.x, e.y, dir, em, g.segs)
+				}
+				continue
+			}
+			occupied[strings.ToUpper(tc)+":"+c.pinID] = true
+			lbl := strings.TrimSpace(e.pin.Text)
+			method, conf := "traced-wire-to-ferrule", "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX), NOT A CONNECTOR PIN; CHECK SOURCE"
+			if kind == "ring terminal" {
+				method, conf = "traced-wire-to-ring", "DRAFT — TRACED ALONG THE DRAWN WIRE TO A RING TERMINAL (DRAWN AS A SMALL CIRCLE), NOT A CONNECTOR PIN; CHECK SOURCE"
+			}
+			out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: kind + ": " + lbl, Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: method, Confidence: conf})
+			continue
+		case ta == "" && tb == "":
 			noConn++
 			continue
 		case ta == tb:

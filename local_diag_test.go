@@ -103,6 +103,18 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 		}
 		pf("WIRES: %d gauge labels on the wiring sheets, %d wire rows read", lab, len(v.Wires))
 		{
+			fe, rg := 0, 0
+			for _, w := range v.Wires {
+				switch w.Method {
+				case "traced-wire-to-ferrule":
+					fe++
+				case "traced-wire-to-ring":
+					rg++
+				}
+			}
+			pf("TERMS: %d ferrule ends, %d ring terminal ends", fe, rg)
+		}
+		{
 			got, _ := readAnswers(v)
 			keys := []string{}
 			for k := range got {
@@ -330,6 +342,9 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				}
 				for _, d := range traceDebug(p, 3) {
 					pf("    trace: %s", d)
+				}
+				for _, d := range heldEndShapes(p) {
+					pf("    held end: %s", d)
 				}
 			}
 			pf("    colour reader rows %d · column reader rows %d · traced rows %d · drawn segments %d · column reader says: %q · tracer says: %q", len(colour), len(pos), len(tw), len(p.Segs), why, twhy)
@@ -675,5 +690,81 @@ func endPatterns(p Page) []string {
 			out = append(out, fmt.Sprintf("left end@%.2f [%s] right end@%.2f [%s]", ax/p.Width, side(ax, ay, -1), bx/p.Width, side(bx, by, 1)))
 		}
 	}
+	return out
+}
+
+// heldEndShapes summarises, as counts only, the strokes drawn at each wire
+// end the tracer held: short horizontal, vertical and slanted strokes within
+// 6 em along and 3 em across, their extent in em, and where it sits.
+func heldEndShapes(p Page) []string {
+	cnt := map[string]int{}
+	traceHeldHook = func(reason string, x, y, dir, em float64, segs []Segment) {
+		h, v, sl, long, longH, longV := 0, 0, 0, 0, 0, 0
+		bx0, by0, bx1, by1 := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+		for _, s := range segs {
+			if math.Abs((s[0]+s[2])/2-x) > 6*em || math.Abs((s[1]+s[3])/2-y) > 3*em {
+				continue
+			}
+			lw, lh := math.Abs(s[2]-s[0]), math.Abs(s[3]-s[1])
+			if math.Hypot(lw, lh) > 2*em {
+				long++
+				switch {
+				case lh <= 0.15*em:
+					longH++
+				case lw <= 0.15*em:
+					longV++
+				}
+				continue
+			}
+			switch {
+			case lh <= 0.15*em:
+				h++
+			case lw <= 0.15*em:
+				v++
+			default:
+				sl++
+			}
+			bx0, bx1 = math.Min(bx0, math.Min(s[0], s[2])), math.Max(bx1, math.Max(s[0], s[2]))
+			by0, by1 = math.Min(by0, math.Min(s[1], s[3])), math.Max(by1, math.Max(s[1], s[3]))
+		}
+		ext := "none"
+		if h+v+sl > 0 {
+			ext = fmt.Sprintf("%.0fx%.0f em, centre %+.0f em outward", (bx1-bx0)/em, (by1-by0)/em, ((bx0+bx1)/2-x)*dir/em)
+		}
+		near := "none"
+		bd := math.Inf(1)
+		for _, w := range p.Words {
+			if _, ok := pinAtEnd(w.Text); !ok || w.Rotated {
+				continue
+			}
+			dx, dy := ((w.X+w.right())/2-x)*dir/em, (w.Y-y)/em
+			if math.Abs(dx) > 12 || math.Abs(dy) > 4 {
+				continue
+			}
+			if d := math.Abs(dx) + 2*math.Abs(dy); d < bd {
+				bd, near = d, fmt.Sprintf("dx %+.0f dy %+.0f", dx, dy)
+			}
+		}
+		// the nearest number on the same line, either way, up to 60 em
+		along := "none"
+		ad := math.Inf(1)
+		for _, w := range p.Words {
+			if _, ok := pinAtEnd(w.Text); !ok || w.Rotated || math.Abs(w.Y-y) > 1.2*em {
+				continue
+			}
+			dx := ((w.X+w.right())/2 - x) * dir / em
+			if math.Abs(dx) <= 60 && math.Abs(dx) < ad {
+				ad, along = math.Abs(dx), fmt.Sprintf("%+.0f", dx)
+			}
+		}
+		cnt[fmt.Sprintf("%s: short h%d v%d slant%d, long %d (h%d v%d), extent %s, nearest number %s, on the line %s", reason, h, v, sl, long, longH, longV, ext, near, along)]++
+	}
+	defer func() { traceHeldHook = nil }()
+	traceSheet(p, nil, nil)
+	out := []string{}
+	for k, n := range cnt {
+		out = append(out, fmt.Sprintf("%dx %s", n, k))
+	}
+	sort.Strings(out)
 	return out
 }

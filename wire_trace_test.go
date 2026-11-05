@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sort"
+	"math"
 	"fmt"
 	"strings"
 	"testing"
@@ -403,5 +405,142 @@ func TestGaugeNumberIsNeverAPin(t *testing.T) {
 		if r.EndCavity == "24" || r.Cavity == "24" {
 			t.Fatalf("a gauge number was read as a pin: %+v", r)
 		}
+	}
+}
+
+// ringChords draws a circle of radius r centred at (cx, cy) the way curves
+// reach the reader: as short straight chords.
+func ringChords(cx, cy, r float64) []Segment {
+	var out []Segment
+	n := 12
+	for i := 0; i < n; i++ {
+		a0, a1 := 2*math.Pi*float64(i)/float64(n), 2*math.Pi*float64(i+1)/float64(n)
+		out = append(out, Segment{cx + r*math.Cos(a0), cy + r*math.Sin(a0), cx + r*math.Cos(a1), cy + r*math.Sin(a1)})
+	}
+	return out
+}
+
+// NON-CUI: wires from a named connector end on a block with no name whose
+// ends carry letters. An end drawn as a small circle is a ring terminal, one
+// drawn as a small square is a crimp ferrule; each wires the named
+// connector's pin. An end with neither stays held.
+func TestUnnamedEndsDrawnAsTerminationsWireTheNamedPin(t *testing.T) {
+	p := Page{Number: 5, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	for i, kind := range []string{"ring", "box", "none"} {
+		y := 920 - 20*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("20", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 900, y - 2})
+		switch kind {
+		case "ring":
+			p.Segs = append(p.Segs, ringChords(904.5, y-2, 4.5)...)
+		case "box":
+			p.Segs = append(p.Segs, Segment{900, y - 6.5, 909, y - 6.5}, Segment{900, y + 2.5, 909, y + 2.5}, Segment{900, y - 6.5, 900, y + 2.5}, Segment{909, y - 6.5, 909, y + 2.5})
+		}
+		add(string(rune('A'+i)), 912, y)
+	}
+	rows, _ := tracedWireRows(p, nil, nil)
+	got := []string{}
+	for _, r := range rows {
+		got = append(got, r.Connector+":"+r.Cavity+"/"+r.Method+"/"+r.EndSignal)
+	}
+	want := "NEAR-P1:1/traced-wire-to-ring/ring terminal: A NEAR-P1:2/traced-wire-to-ferrule/crimp ferrule: B"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("got  %v\nwant %s", got, want)
+	}
+}
+
+// NON-CUI: a wire ending at a small circle with a label and no pin number is
+// a ring terminal on its numbered pin.
+func TestLabelledRingEndIsARingTerminal(t *testing.T) {
+	p := Page{Number: 6, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	for i, lbl := range []string{"CHASSIS_GND", "GND_2", "GND_3"} {
+		y := 920 - 20*float64(i)
+		add(fmt.Sprint(i+4), 150, y)
+		add("20", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 900, y - 2})
+		p.Segs = append(p.Segs, ringChords(904.5, y-2, 4.5)...)
+		add(lbl, 930, y)
+	}
+	rows, why := tracedWireRows(p, nil, nil)
+	if len(rows) != 3 || rows[0].Method != "traced-wire-to-ring" || rows[0].EndSignal != "ring terminal: CHASSIS_GND" || rows[0].Cavity != "4" {
+		t.Fatalf("got %+v (%q)", rows, why)
+	}
+}
+
+// NON-CUI: a stack of ring terminals drawn a few em past the line ends, with
+// no labels, beside a numbered connector end in the same column. Each ring
+// end is a termination on its numbered pin, not an unread pin number.
+func TestRingTerminalsInAColumnAreKept(t *testing.T) {
+	p := Page{Number: 7, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	add("FAR-J2", 905, 960)
+	for i := 0; i < 4; i++ {
+		y := 920 - 24*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("20", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 900, y - 2})
+		if i == 3 {
+			add("7", 905, y) // a real pin on the far connector
+			continue
+		}
+		p.Segs = append(p.Segs, ringChords(930, y-2, 6)...)
+	}
+	rows, why := tracedWireRows(p, nil, nil)
+	got := []string{}
+	for _, r := range rows {
+		got = append(got, r.Connector+":"+r.Cavity+"/"+r.Method+"/"+r.End+":"+r.EndCavity)
+	}
+	want := "NEAR-P1:1/traced-wire-to-ring/: NEAR-P1:2/traced-wire-to-ring/: NEAR-P1:3/traced-wire-to-ring/: NEAR-P1:4/traced-wire/FAR-J2:7"
+	sort.Strings(got)
+	if strings.Join(got, " ") != want {
+		t.Fatalf("got  %v (%q)\nwant %s", got, why, want)
+	}
+}
+
+// NON-CUI: lines numbered at one end only, whose other ends sit in the same
+// column as numbered ends of other wires but with nothing printed at them,
+// are one-ended wires: there is no unread number to wait for.
+func TestUnprintedEndsInAPinColumnAreOneEnded(t *testing.T) {
+	p := Page{Number: 8, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(t string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: t, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(t))})
+	}
+	add("NEAR-P1", 120, 960)
+	add("FAR-J2", 905, 960)
+	for i := 0; i < 4; i++ {
+		y := 920 - 24*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("20", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 900, y - 2})
+		if i == 3 {
+			add("7", 905, y)
+		}
+	}
+	rows, _ := tracedWireRows(p, nil, nil)
+	got := []string{}
+	for _, r := range rows {
+		got = append(got, r.Cavity+"/"+r.Method)
+	}
+	sort.Strings(got)
+	// the three unprinted ends lie under FAR-J2's header, so they are held as
+	// its pins with unread numbers; only the numbered wire is read
+	if strings.Join(got, " ") != "4/traced-wire" {
+		t.Fatalf("got %v", got)
 	}
 }
