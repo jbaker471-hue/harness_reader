@@ -87,7 +87,7 @@ func TestCutLengthStatedInAnAssemblyStep(t *testing.T) {
 		usedPage(6, "STEP 1 - CUT 5.0FT (+- 2IN) OF CABLE (FIND 7)"), // the same statement on another sheet is one value
 	}
 	got := harnessLengths(pages)
-	if len(got) != 1 || got[0].Label != "CUT" || got[0].Text != "5.0 FT" || got[0].Tolerance != "±2" {
+	if len(got) != 1 || got[0].Label != "CUT" || got[0].Text != "5.0 FT" || got[0].Tolerance != "±2 IN" || withUpperLengths(got)[0].Upper != "62 IN" {
 		t.Fatalf("%+v", got)
 	}
 	for _, s := range []string{"CUT 2 IN OF SLEEVING", "CUT TIE ENDS FLUSH", "DO NOT CUT 5 OF THE WIRES", "CUT 4 IN"} {

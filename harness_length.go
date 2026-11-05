@@ -35,7 +35,8 @@ var (
 	reLengthLead    = regexp.MustCompile(`^(?:[\s:=\-()]|\.{2,})*(?:(?:REF|APPROX|MIN|MAX|NOM)\.?(?:[\s:=\-()]|\.{2,})*)?`)
 	// "CUT 5.0FT (+- 2IN) OF CABLE": an assembly step that states the cut length of the cable or wire without the word LENGTH.
 	reCutOf     = regexp.MustCompile(`\bCUT\s+(\d+(?:\.\d+)?\s*(?:FT|FEET|'|IN(?:CH(?:ES)?)?|")?)(?:\s*\([^)]{0,24}\))?\s*OF\s+(?:CABLE|WIRE|HARNESS|ASSEMBLY)\b`)
-	reLengthTol = regexp.MustCompile(`(?:\+\s*/\s*-|\+-|±)\s*(\d+(?:\.\d+)?)`)
+	// a tolerance after a length, with its unit when printed: ±2, +/-0.5 IN, +2/-0, -0/+1.0
+	reLengthTol = regexp.MustCompile(`(?:(?:\+\s*/\s*-|\+-|±)\s*(?:\d+(?:\.\d+)?|\.\d+)|[-−]\s*(?:\d+(?:\.\d+)?|\.\d+)\s*/\s*\+\s*(?:\d+(?:\.\d+)?|\.\d+)|\+\s*(?:\d+(?:\.\d+)?|\.\d+)\s*(?:/\s*[-−]\s*(?:\d+(?:\.\d+)?|\.\d+))?)(?:\s*(?:IN(?:CH(?:ES)?)?|"|FT|FEET|'|MM|CM)\b)?`)
 )
 
 func normalizeLengthMatch(m []string) string {
@@ -105,7 +106,7 @@ func harnessLengths(pages []Page) []HarnessLength {
 			}
 			tol := ""
 			if tm := reLengthTol.FindStringSubmatch(rest); tm != nil {
-				tol = "±" + tm[1]
+				tol = normTolerance(tm[0])
 			}
 			add(p.Number, label, normalizeLengthMatch(m), tol)
 		}
@@ -126,7 +127,7 @@ func harnessLengths(pages []Page) []HarnessLength {
 			text := normalizeLengthMatch(v)
 			tol := ""
 			if tm := reLengthTol.FindStringSubmatch(t[m[3]:]); tm != nil {
-				tol = "±" + tm[1]
+				tol = normTolerance(tm[0])
 			}
 			if text == "" || seenCut[text+"|"+tol] {
 				continue
@@ -137,4 +138,24 @@ func harnessLengths(pages []Page) []HarnessLength {
 	}
 	out = append(out, harnessDimensions(pages)...)
 	return out
+}
+
+var reTolUnit = regexp.MustCompile(`(IN(?:CH(?:ES)?)?|"|FT|FEET|'|MM|CM)$`)
+
+// normTolerance writes a printed tolerance one way: "+/- 1" and "+- 1" are
+// "±1", and a printed unit is kept after a space ("±2 IN").
+func normTolerance(t string) string {
+	t = strings.ToUpper(strings.Join(strings.Fields(t), ""))
+	t = strings.NewReplacer("+/-", "±", "+-", "±", "−", "-").Replace(t)
+	if m := reTolUnit.FindStringIndex(t); m != nil && m[0] > 0 {
+		u := t[m[0]:]
+		switch u {
+		case `"`, "INCH", "INCHES":
+			u = "IN"
+		case "'", "FEET":
+			u = "FT"
+		}
+		t = t[:m[0]] + " " + u
+	}
+	return t
 }

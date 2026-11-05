@@ -224,3 +224,32 @@ func TestDescribedPartFallbackDoesNotDuplicateRecognizedPart(t *testing.T) {
 		t.Fatalf("fallback added %d duplicate connector(s): %#v", len(extra), extra)
 	}
 }
+
+// NON-CUI: a bottom-up parts list printed to the right of the drawing notes.
+// Its two-line heading (ITEM over NO, the rest on one line, MANUFACTURE P/N
+// run together) shares its baselines with note text on the left. The note
+// text must not stop the heading from being read.
+func TestPartsListBesideNotesIsRead(t *testing.T) {
+	text := func(x, y int, s string) string {
+		return fmt.Sprintf("BT /F1 7 Tf 1 0 0 1 %d %d Tm (%s) Tj ET\n", x, y, s)
+	}
+	c := text(40, 256, "3. UNLESS OTHERWISE SPECIFIED ALL WIRE IS EXAMPLE SPEC") + text(420, 256, "ITEM")
+	c += text(460, 250, "QTY") + text(490, 250, "UNIT") + text(530, 250, "DESCRIPTION") + text(640, 250, "REF DES") +
+		text(700, 250, "SPECIFICATION/MANUFACTURE") + text(830, 250, "MANUFACTUREP/N") + text(920, 250, "EXAMPLECO P/N")
+	c += text(40, 245, "4. MARK EACH WIRE PER EXAMPLE SPEC, LETTERS 2 MM") + text(420, 245, "NO")
+	c += text(420, 280, "1") + text(460, 280, "1") + text(490, 280, "EA") + text(530, 280, "CONNECTOR PLUG") + text(640, 280, "P1") +
+		text(700, 280, "ACME") + text(830, 280, "D38999/26FJ35SN") + text(920, 280, "LOCAL-101")
+	c += text(420, 300, "2") + text(460, 300, "1") + text(490, 300, "EA") + text(530, 300, "CONNECTOR RCPT") + text(640, 300, "J2") +
+		text(700, 300, "ACME") + text(830, 300, "D38999/26FA35PN") + text(920, 300, "LOCAL-202")
+	a, err := AnalyzeDocument(onePagePDF(c, "[0 0 1000 700]"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	byItem := map[string]BOMRow{}
+	for _, row := range a.BOM {
+		byItem[row.Item] = row
+	}
+	if len(a.BOM) != 2 || byItem["1"].Part != "D38999/26FJ35SN" || byItem["2"].Part != "D38999/26FA35PN" {
+		t.Fatalf("parts list beside notes: %+v", a.BOM)
+	}
+}

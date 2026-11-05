@@ -1084,5 +1084,11 @@ console.log('PASS: harness length applies only to conductors without their own l
  // Wire ends on a ring terminal are in the kit and the build time.
  const rg=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpOpen:2},wires:[{method:'traced-wire-to-ring'},{method:'paired-schematic'}]});
  if(rg.kit.ringTerminals!==1||!rg.time.lines.some(l=>/ring terminal/.test(l.label)&&l.count===1&&Math.abs(l.minutes-2)<1e-9))throw Error('ring terminals missing from kit or time: '+JSON.stringify(rg.kit)+JSON.stringify(rg.time.lines));
+ // The quote uses the job summary's observed-time estimate when the Labor tab was not used.
+ {const i0=src.indexOf('function quoteLaborHours(');const fn=src.slice(i0,src.indexOf('\n',i0));
+  const q={st:{raw:{wires:[]},summary:{time:{hours:3.25}},laborUnitHours:null,connectors:[],bom:[]},summaryRates:()=>({}),jobSummary:()=>{throw Error('unused')}};vm.createContext(q);vm.runInContext(fn,q);
+  const lh=q.quoteLaborHours();if(Math.abs(lh.hours-3.25)>1e-9||!/observed/.test(lh.from))throw Error('quote does not use the observed-time estimate: '+JSON.stringify(lh));
+  q.st.laborUnitHours=5;if(q.quoteLaborHours().hours!==5)throw Error('Labor tab estimate must win');
+  q.st.laborUnitHours=null;q.st.raw=null;if(q.quoteLaborHours().hours!==null)throw Error('no drawing: no estimate')}
  console.log('PASS: job summary gives cuts, connectors, positions, used/unused, kit and observed-time build estimate, and holds an unread sheet');
 }

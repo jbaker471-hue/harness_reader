@@ -466,48 +466,86 @@ func corroborateLengths(a *Analysis, callouts []GraphicCallout, lengths []Harnes
 }
 
 var (
-	reTolSym  = regexp.MustCompile(`^[±]\s*(\d+(?:\.\d+)?)$|^\+/-\s*(\d+(?:\.\d+)?)$|^\+-\s*(\d+(?:\.\d+)?)$`)
-	reTolPair = regexp.MustCompile(`^(?:[-−]\s*\d+(?:\.\d+)?\s*/\s*\+\s*(\d+(?:\.\d+)?)|\+\s*(\d+(?:\.\d+)?)\s*/\s*[-−]\s*\d+(?:\.\d+)?)$`)
+	reTolSym  = regexp.MustCompile(`^(?:±|\+/-|\+-|\+/−)\s*(\d+(?:\.\d+)?|\.\d+)\s*(IN(?:CH(?:ES)?)?|"|FT|FEET|'|MM|CM)?\.?$`)
+	reTolPair = regexp.MustCompile(`^(?:[-−]\s*(?:\d+(?:\.\d+)?|\.\d+)\s*(?:IN|"|FT|'|MM|CM)?\s*/?\s*\+\s*(\d+(?:\.\d+)?|\.\d+)|\+\s*(\d+(?:\.\d+)?|\.\d+)\s*(?:IN|"|FT|'|MM|CM)?\s*/?\s*(?:[-−]\s*(?:\d+(?:\.\d+)?|\.\d+))?)\s*(IN(?:CH(?:ES)?)?|"|FT|FEET|'|MM|CM)?\.?$`)
 )
 
-// withUpperLengths adds the length to cut when the drawing prints a tolerance: the nominal plus the plus side
-// ("216 -0.0/+1.0" is cut at 217). It only applies when the length is in inches or has no unit, because the
-// tolerance on a dimension is in the dimension's own unit; a tolerance printed beside a length in another unit
-// is left alone.
+// fmtUp writes a cut length rounded UP to the next tenth, never below the
+// top of the tolerance.
+func fmtUp(v float64) string {
+	return fmtNum(math.Ceil(v*10-1e-9) / 10)
+}
+
+// lengthUnitIn converts one unit of u to inches (0 when u is not a length unit).
+func lengthUnitIn(u string) float64 {
+	switch strings.ToUpper(strings.TrimSpace(u)) {
+	case "IN", "INCH", "INCHES", `"`:
+		return 1
+	case "FT", "FEET", "'":
+		return 12
+	case "MM":
+		return 1 / 25.4
+	case "CM":
+		return 1 / 2.54
+	case "M":
+		return 1 / 0.0254
+	}
+	return 0
+}
+
+// withUpperLengths adds the length to cut when the drawing prints a
+// tolerance: the shop always cuts to the top of the tolerance, the nominal
+// plus the plus side ("216 -0.0/+1.0" is cut at 217; "5.0 FT ±2 IN" at 62 IN).
+// A tolerance with its own unit is converted to the length's unit (to inches
+// when the units differ). A tolerance with no unit is in the length's unit,
+// except beside a length in feet, where a bare number is read as inches (a
+// tolerance of whole feet on a harness is not plausible) and that is noted.
 func withUpperLengths(ls []HarnessLength) []HarnessLength {
 	out := make([]HarnessLength, len(ls))
 	copy(out, ls)
 	for i, h := range out {
-		tol := strings.TrimSpace(h.Tolerance)
+		tol := strings.ToUpper(strings.Join(strings.Fields(h.Tolerance), " "))
 		if tol == "" {
 			continue
 		}
 		fields := strings.Fields(h.Text)
+		if len(fields) == 0 {
+			continue
+		}
 		unit := "IN"
 		if len(fields) > 1 {
 			unit = strings.ToUpper(fields[1])
 		}
-		// A tolerance printed on a dimension is in the dimension's own unit. A tolerance beside a labelled length
-		// (CUT 5.0 FT ±2) is only added when that length is in inches.
-		unitsOK := unit == "IN" || (h.Label == "DIMENSION" && (unit == "MM" || unit == "CM" || unit == "M" || unit == "FT"))
-		if len(fields) == 0 || !unitsOK {
+		if lengthUnitIn(unit) == 0 {
 			continue
 		}
 		nominal, err := strconv.ParseFloat(fields[0], 64)
 		if err != nil || nominal <= 0 {
 			continue
 		}
-		plus := ""
+		plus, tunit := "", ""
 		if m := reTolSym.FindStringSubmatch(tol); m != nil {
-			plus = m[1] + m[2] + m[3]
+			plus, tunit = m[1], m[2]
 		} else if m := reTolPair.FindStringSubmatch(tol); m != nil {
-			plus = m[1] + m[2]
+			plus, tunit = m[1]+m[2], m[3]
 		}
 		p, err := strconv.ParseFloat(plus, 64)
 		if plus == "" || err != nil {
 			continue
 		}
-		out[i].Upper = fmtNum(nominal+p) + " " + unit
+		if tunit == "" {
+			tunit = unit
+			if lengthUnitIn(unit) == 12 && h.Label != "DIMENSION" {
+				tunit = "IN"
+				out[i].UnitNote = strings.TrimSpace(out[i].UnitNote + " tolerance unit not printed; read as inches")
+			}
+		}
+		if lengthUnitIn(tunit) == lengthUnitIn(unit) {
+			out[i].Upper = fmtUp(nominal+p) + " " + unit
+			continue
+		}
+		// different units: cut length in inches
+		out[i].Upper = fmtUp(nominal*lengthUnitIn(unit)+p*lengthUnitIn(tunit)) + " IN"
 	}
 	return out
 }

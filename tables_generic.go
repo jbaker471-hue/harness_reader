@@ -64,9 +64,14 @@ var headerVocab = map[string]string{
 
 var groupWords = map[string]string{"FROM": "from", "TO": "to", "SOURCE": "from", "DESTINATION": "to", "END A": "from", "END B": "to", "ORIGIN": "from"}
 
+// reGluedPN finds a P/N run onto the word before it ("MANUFACTUREP/N"), as
+// some drawings' text comes out when the space is drawn as a gap, not a space.
+var reGluedPN = regexp.MustCompile(`([A-Z]{2,})(P/N|P/NO)$`)
+
 func normHead(s string) string {
 	s = strings.ToUpper(strings.TrimSpace(s))
 	s = strings.NewReplacer(".", "", ":", "", "_", " ", "(", "", ")", "").Replace(s)
+	s = reGluedPN.ReplaceAllString(s, "$1 $2")
 	return strings.Join(strings.Fields(s), " ")
 }
 
@@ -144,26 +149,52 @@ func buildHeader(lines []evidenceLine, i int) ([]tColumn, []int, bool) {
 		return nil, nil, false
 	}
 	band := []int{i}
+	// Only words across the heading's own width belong to the table: a
+	// parts list printed beside the drawing notes shares its heading
+	// baselines with note text to one side.
+	spanL, spanR := math.Inf(1), math.Inf(-1)
+	for _, w := range base.Words {
+		if !w.Rotated && headerish(w.Text) {
+			spanL, spanR = math.Min(spanL, w.X), math.Max(spanR, w.right())
+		}
+	}
+	spanL, spanR = spanL-4*em, spanR+4*em
+	bandWords := map[int][]Word{i: base.Words}
 	// Stacked heading lines above/below (a single-line heading can sit
 	// vertically between the two halves of two-line headings).
 	for _, j := range []int{i - 2, i - 1, i + 1, i + 2} {
 		if j < 0 || j >= len(lines) || math.Abs(lines[j].Y-base.Y) > 2.4*em {
 			continue
 		}
-		ok := len(lines[j].Words) > 0
+		allHead := func(ws []Word) bool {
+			for _, w := range ws {
+				if !headerish(w.Text) {
+					return false
+				}
+			}
+			return len(ws) > 0
+		}
+		if allHead(lines[j].Words) {
+			band = append(band, j)
+			bandWords[j] = lines[j].Words
+			continue
+		}
+		// otherwise only the words across the heading's width
+		var in []Word
 		for _, w := range lines[j].Words {
-			if !headerish(w.Text) {
-				ok = false
+			if w.right() >= spanL && w.X <= spanR {
+				in = append(in, w)
 			}
 		}
-		if ok {
+		if len(in) < len(lines[j].Words) && allHead(in) {
 			band = append(band, j)
+			bandWords[j] = in
 		}
 	}
 	// Columns from the band line with the most fragments.
 	baseIdx := i
 	for _, j := range band {
-		if len(lines[j].Words) > len(lines[baseIdx].Words) {
+		if len(bandWords[j]) > len(bandWords[baseIdx]) {
 			baseIdx = j
 		}
 	}
@@ -172,7 +203,7 @@ func buildHeader(lines []evidenceLine, i int) ([]tColumn, []int, bool) {
 		parts []Word
 	}
 	accs := []acc{}
-	for _, w := range lines[baseIdx].Words {
+	for _, w := range bandWords[baseIdx] {
 		cols = append(cols, tColumn{x0: w.X, x1: w.right()})
 		accs = append(accs, acc{parts: []Word{w}})
 	}
@@ -181,7 +212,7 @@ func buildHeader(lines []evidenceLine, i int) ([]tColumn, []int, bool) {
 		if j == baseIdx {
 			continue
 		}
-		for _, w := range lines[j].Words {
+		for _, w := range bandWords[j] {
 			cx := (w.X + w.right()) / 2
 			best, bd := -1, math.Inf(1)
 			for k, c := range cols {

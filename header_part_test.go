@@ -46,3 +46,19 @@ func TestHeaderPartDisagreementIsGraded(t *testing.T) {
 		t.Errorf("mating-half message wrong: %+v", f)
 	}
 }
+
+// A parts-list heading whose P/N is run onto the word before it, as the text
+// of some drawings comes out, is still the part-number column.
+func TestGluedPartNumberHeadingIsThePartColumn(t *testing.T) {
+	for _, h := range []string{"MANUFACTUREP/N", "MANUFACTURERP/N", "Manufacture P/N"} {
+		if r := headerRole(h); r != "part" {
+			t.Fatalf("%s: got role %q, want part", h, r)
+		}
+	}
+	if r := headerRole("ACMEP/N"); r != "partref" {
+		t.Fatalf("an organisation P/N stays a reference column, got %q", r)
+	}
+	if r := headerRole("P/N"); r != "part" {
+		t.Fatalf("P/N alone: got %q", r)
+	}
+}

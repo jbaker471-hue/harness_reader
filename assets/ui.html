@@ -1826,7 +1826,10 @@ function computeQuote(x){
  if(x.drawingErrors)blockers.push(x.drawingErrors+' drawing error(s) are unresolved on the Drawing alerts tab.');
  return {qty,scrap,wireLines,bomLines,bomSkippedWire,hours,rate,markup,wireTotal,partsTotal,labor,subtotal,total,blockers,complete:!blockers.length};
 }
-function quoteInput(){const errs=(st.raw?.issues||[]).filter(i=>(i.Severity||i.severity)==='ERROR').length;return {shieldOpen:typeof shieldSummary==='function'?shieldSummary().open:0,quote:st.quote,qty:$('buildQty')?$('buildQty').value:1,cut:lastCut,bom:st.bom,laborUnitHours:st.laborUnitHours,drawingErrors:errs}}
+function quoteInput(){const errs=(st.raw?.issues||[]).filter(i=>(i.Severity||i.severity)==='ERROR').length;return {shieldOpen:typeof shieldSummary==='function'?shieldSummary().open:0,quote:st.quote,qty:$('buildQty')?$('buildQty').value:1,cut:lastCut,bom:st.bom,laborUnitHours:quoteLaborHours().hours,drawingErrors:errs}}
+// Labor hours for the quote: the Labor tab when it has been used, otherwise the
+// job summary's estimate from the shop's observed times.
+function quoteLaborHours(){if(st.laborUnitHours)return {hours:st.laborUnitHours,from:'Labor tab estimate'};try{const s=st.raw?(st.summary||jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[]})):null;if(s&&s.time&&s.time.hours>0)return {hours:s.time.hours,from:'Build time from your observed times (job summary)'}}catch(e){}return {hours:null,from:''}}
 const money=v=>v==null?'—':v.toLocaleString('en-US',{style:'currency',currency:'USD'});
 function quoteSet(k,v){st.quote[k]=String(v).trim();updateQuoteTotals()}
 function quoteWire(label,v){st.quote.wireCost[label]=String(v).trim();updateQuoteTotals()}
@@ -1842,7 +1845,7 @@ function renderQuote(){
  const q=st.quote;
  $('quoteQty').textContent=Math.max(1,Math.floor(Number($('buildQty')?.value))||1);
  for(const [id,k] of [['qLabor','laborHours'],['qRate','rate'],['qScrap','scrap'],['qMarkup','markup']])if($(id))$(id).value=q[k]||'';
- $('quoteLaborHint').textContent=st.laborUnitHours?`Labor tab estimate: ${Number(st.laborUnitHours).toFixed(1)} h per harness${q.laborHours?' (overridden above)':' (used because the field is empty)'}.`:'No labor estimate calculated yet. Use the Labor tab or type hours above.';
+ const lh=quoteLaborHours();$('quoteLaborHint').textContent=lh.hours?`${lh.from}: ${Number(lh.hours).toFixed(1)} h per harness${q.laborHours?' (overridden above)':' (used because the field is empty)'}.`:'No labor estimate calculated yet. Use the Labor tab or type hours above.';
  const r=computeQuote(quoteInput());
  $('quoteWireRows').innerHTML=r.wireLines.length?r.wireLines.map(l=>`<tr><td>${safe(l.label)}</td><td>${l.count}${l.unmeasured?` <span class="tag bad">${l.unmeasured} without length</span>`:''}</td><td>${l.perHarnessFt.toFixed(2)}</td><td>${l.buyFt.toFixed(2)}</td><td><input type="number" min="0" step="0.01" value="${safe((q.wireCost||{})[l.label]||'')}" aria-label="Cost per foot for ${safe(l.label)}" onchange="quoteWire(${JSON.stringify(l.label).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join(''):'<tr><td colspan="5">No cut list yet.</td></tr>';
  $('quoteBomRows').innerHTML=r.bomLines.length?r.bomLines.map(l=>`<tr><td>${safe(l.item)}</td><td>${safe(l.part)}</td><td>${safe(l.description)}</td><td>${safe(l.qtyText)}${l.perHarness==null||l.perHarness===0?' <span class="tag bad">not priced</span>':''}</td><td><input type="number" min="0" step="0.01" value="${safe((q.bomCost||{})[l.key]||'')}" aria-label="Unit cost for ${safe(l.part||l.item)}" onchange="quoteBom(${JSON.stringify(l.key).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join('')+(r.bomSkippedWire?`<tr><td colspan="5" class="small muted">${r.bomSkippedWire} wire/cable BOM line(s) skipped: priced from the cut list.</td></tr>`:''):'<tr><td colspan="5">No BOM yet.</td></tr>';

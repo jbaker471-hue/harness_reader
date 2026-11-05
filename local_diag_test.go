@@ -8,6 +8,7 @@ package main
 // The user reviews the report on the PC before anyone else reads it.
 
 import (
+	"regexp"
 	"fmt"
 	"io/fs"
 	"math"
@@ -102,6 +103,21 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 			}
 		}
 		pf("WIRES: %d gauge labels on the wiring sheets, %d wire rows read", lab, len(v.Wires))
+		{
+			co, tol, up := 0, 0, 0
+			for _, h := range v.HarnessLengths {
+				if h.Corroborated {
+					co++
+				}
+				if h.Tolerance != "" {
+					tol++
+				}
+				if h.Upper != "" {
+					up++
+				}
+			}
+			pf("LENGTHS: harness length candidates %d (corroborated %d); with a tolerance %d, cut at the top %d", len(v.HarnessLengths), co, tol, up)
+		}
 		{
 			fe, rg := 0, 0
 			for _, w := range v.Wires {
@@ -242,6 +258,12 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				return 100 * float64(n) / float64(len(p.Words))
 			}
 			pf("\n  sheet %d: %.0fx%.0f rot=%d accurate=%v · fragments %d (single-char %.0f%%, multi-word %.0f%%, rotated %.0f%%) · font sizes %v · horizontal rules %d", p.Number, p.Width, p.Height, pl.Rotation, p.PageAccurate, len(p.Words), pct(single), pct(multi), pct(rot), sizes, len(p.HRules))
+			for _, d := range bomProbe(p) {
+				pf("    bom probe: %s", d)
+			}
+			for _, d := range lengthProbe(p) {
+				pf("    length probe: %s", d)
+			}
 			shapes := map[string]int{}
 			for _, w := range p.Words {
 				for _, f := range strings.Fields(w.Text) {
@@ -767,4 +789,214 @@ func heldEndShapes(p Page) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// bomProbe reports, as role names and counts only, the parts-list evidence on
+// a sheet: heading words by role (flat and rotated), parts-list title words,
+// heading words grouped by printed line, and what each BOM reader returned.
+func bomProbe(p Page) []string {
+	out := []string{}
+	flat, rot := map[string]int{}, map[string]int{}
+	title, titleRot := 0, 0
+	for _, w := range p.Words {
+		if reBOMWord.MatchString(w.Text) {
+			if w.Rotated {
+				titleRot++
+			} else {
+				title++
+			}
+		}
+		r := headerRole(w.Text)
+		if r == "" {
+			continue
+		}
+		if w.Rotated {
+			rot[r]++
+		} else {
+			flat[r]++
+		}
+	}
+	roles := func(m map[string]int) string {
+		ks := []string{}
+		for k, n := range m {
+			ks = append(ks, fmt.Sprintf("%s=%d", k, n))
+		}
+		sort.Strings(ks)
+		return strings.Join(ks, ",")
+	}
+	out = append(out, fmt.Sprintf("title words %d (rotated %d); heading words flat [%s] rotated [%s]", title, titleRot, roles(flat), roles(rot)))
+	// printed lines holding two or more parts-list heading roles
+	for _, l := range pageLines(p) {
+		rs := map[string]bool{}
+		for i := range l.Words {
+			for step := 1; step <= 4 && i+step <= len(l.Words); step++ {
+				ss := []string{}
+				for _, x := range l.Words[i : i+step] {
+					ss = append(ss, x.Text)
+				}
+				switch r := headerRole(strings.Join(ss, " ")); r {
+				case "item", "qty", "part", "partref", "desc", "cage", "vendor", "um", "note":
+					rs[r] = true
+				}
+			}
+		}
+		if len(rs) >= 2 {
+			ks := []string{}
+			for k := range rs {
+				ks = append(ks, k)
+			}
+			sort.Strings(ks)
+			// each word of the heading line in order: its role, or its abstract shape
+			seq := []string{}
+			for _, w := range l.Words {
+				// cells below this heading word, within its span: how many look
+				// like part numbers (letters and digits, 6+ characters)
+				pn, cells := 0, 0
+				for _, v := range p.Words {
+					if v.Rotated || v.Y >= l.Y || v.Y < l.Y-60*math.Max(w.Size, 4) || v.right() < w.X-2*w.Size || v.X > w.right()+2*w.Size {
+						continue
+					}
+					cells++
+					t := strings.TrimSpace(v.Text)
+					if len(t) >= 6 && strings.ContainsAny(t, "0123456789") && strings.ContainsAny(strings.ToUpper(t), "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+						pn++
+					}
+				}
+				runs := []string{}
+				n := 0
+				for _, r := range w.Text {
+					if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' {
+						n++
+						continue
+					}
+					if n > 0 {
+						runs = append(runs, fmt.Sprint(n))
+						n = 0
+					}
+					runs = append(runs, "/")
+				}
+				if n > 0 {
+					runs = append(runs, fmt.Sprint(n))
+				}
+				shape := strings.Join(runs, "")
+				if r := headerRole(w.Text); r != "" {
+					shape = r
+				}
+				seq = append(seq, fmt.Sprintf("%s(cells %d, pn-like %d)", shape, cells, pn))
+			}
+			out = append(out, fmt.Sprintf("heading line at %.2f,%.2f words %d roles [%s] sequence [%s]", l.Words[0].X/p.Width, l.Y/p.Height, len(l.Words), strings.Join(ks, ","), strings.Join(seq, " | ")))
+		}
+	}
+	// every heading the table reader tries: its columns' roles, how the
+	// columns split, each part's kind and the rows read below and above
+	if p.PageAccurate {
+		lines := pageLines(p)
+		for i := range lines {
+			cols, band, ok := buildHeader(lines, i)
+			if !ok {
+				continue
+			}
+			rs := []string{}
+			for _, c := range cols {
+				r := c.role
+				if r == "" {
+					r = "?"
+				}
+				rs = append(rs, r)
+			}
+			hasPart := false
+			for _, c := range cols {
+				if c.role == "part" {
+					hasPart = true
+				}
+			}
+			if !hasPart {
+				continue
+			}
+			bandSet := map[int]bool{}
+			minI, maxI := len(lines), -1
+			for _, j := range band {
+				bandSet[j] = true
+				if j < minI {
+					minI = j
+				}
+				if j > maxI {
+					maxI = j
+				}
+			}
+			em := lineEm(lines[i])
+			segs := []string{}
+			for _, seg := range splitColumns(cols, em) {
+				kind := tableKind(seg)
+				d, u := 0, 0
+				if kind != "" {
+					dr, _ := readRows(lines, maxI+1, 1, bandSet, kind, seg, em, lines[maxI].Y)
+					ur, _ := readRows(lines, minI-1, -1, bandSet, kind, seg, em, lines[minI].Y)
+					d, u = len(dr), len(ur)
+				}
+				sr := []string{}
+				for _, c := range seg {
+					r := c.role
+					if r == "" {
+						r = "?"
+					}
+					sr = append(sr, r)
+				}
+				segs = append(segs, fmt.Sprintf("{%s kind=%s down=%d up=%d}", strings.Join(sr, " "), kind, d, u))
+			}
+			out = append(out, fmt.Sprintf("table try at %.2f band %d cols [%s] parts %s", lines[i].Y/p.Height, len(band), strings.Join(rs, " "), strings.Join(segs, " ")))
+			// the lines just above and below the heading: how many words, how
+			// many are heading words, and the shapes of the others
+			for _, j := range []int{i - 3, i - 2, i - 1, i + 1, i + 2, i + 3} {
+				if j < 0 || j >= len(lines) {
+					continue
+				}
+				hw, other := 0, []string{}
+				for _, w := range lines[j].Words {
+					if headerish(w.Text) {
+						hw++
+					} else {
+						other = append(other, abstractPattern(w.Text))
+					}
+				}
+				if len(other) > 6 {
+					other = append(other[:6], "...")
+				}
+				out = append(out, fmt.Sprintf("  near heading: line %+d at %+.1f em: words %d heading %d others [%s]", j-i, (lines[j].Y-lines[i].Y)/em, len(lines[j].Words), hw, strings.Join(other, " ")))
+			}
+		}
+	}
+	g := 0
+	for _, t := range genericTables(p) {
+		if t.Kind == "bom" {
+			g += len(t.Rows)
+		}
+	}
+	out = append(out, fmt.Sprintf("readers: fixed %d, flexible %d, text %d, table %d", len(bomRows(p)), len(flexibleBOMRows(p)), len(findTextBOMRows(p)), g))
+	return out
+}
+
+// lengthProbe counts, per sheet, the things a wire length could come from:
+// lines with a length label word, numbers carrying a length unit, bare
+// decimal numbers, and long horizontal/vertical strokes with short ticks at
+// both ends (dimension lines). Counts only.
+func lengthProbe(p Page) []string {
+	label, unit, dec := 0, 0, 0
+	reUnit := regexp.MustCompile(`^\d+(\.\d+)?\s*(IN|INCH|INCHES|"|FT|'|MM|CM)$`)
+	reDec := regexp.MustCompile(`^\d+\.\d+$`)
+	for _, l := range pageLines(p) {
+		if reLengthLabel.MatchString(strings.ToUpper(l.Text)) {
+			label++
+		}
+	}
+	for _, w := range p.Words {
+		t := strings.ToUpper(strings.TrimSpace(w.Text))
+		switch {
+		case reUnit.MatchString(t):
+			unit++
+		case reDec.MatchString(t):
+			dec++
+		}
+	}
+	return []string{fmt.Sprintf("length-label lines %d, numbers with a unit %d, bare decimals %d", label, unit, dec)}
 }

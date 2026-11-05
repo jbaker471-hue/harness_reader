@@ -255,9 +255,23 @@ func TestLengthIsConfirmedOnlyWhenBOMQuantityAndCalloutsAgree(t *testing.T) {
 }
 
 func TestUpperLengthIsNominalPlusThePlusTolerance(t *testing.T) {
-	// a tolerance beside a labelled length in feet has no known unit, so nothing is added
-	if u := withUpperLengths([]HarnessLength{{Label: "CUT", Text: "5.0 FT", Tolerance: "±2"}})[0].Upper; u != "" {
-		t.Fatalf("labelled CUT length got %q", u)
+	// the shop always cuts to the top of the tolerance. A bare tolerance
+	// beside a labelled length in feet is read as inches, and noted.
+	if h := withUpperLengths([]HarnessLength{{Label: "CUT", Text: "5.0 FT", Tolerance: "±2"}})[0]; h.Upper != "62 IN" || h.UnitNote == "" {
+		t.Fatalf("labelled CUT length got %q (%q)", h.Upper, h.UnitNote)
+	}
+	for _, c := range []struct{ label, text, tol, want string }{
+		{"CUT", "5.0 FT", "±2 IN", "62 IN"},
+		{"HARNESS LENGTH", "48 IN", "+2/-0", "50 IN"},
+		{"HARNESS LENGTH", "48 IN", "+2 -0", "50 IN"},
+		{"HARNESS LENGTH", "48 IN", "+.5", "48.5 IN"},
+		{"HARNESS LENGTH", "1200 MM", "±10", "1210 MM"},
+		{"HARNESS LENGTH", "1200 MM", "±0.5 IN", "47.8 IN"},
+		{"HARNESS LENGTH", "4 FT", "±1 FT", "5 FT"},
+	} {
+		if got := withUpperLengths([]HarnessLength{{Label: c.label, Text: c.text, Tolerance: c.tol}})[0].Upper; got != c.want {
+			t.Fatalf("%s %q %q: upper %q, want %q", c.label, c.text, c.tol, got, c.want)
+		}
 	}
 	for _, c := range []struct{ text, tol, want string }{
 		{"216", "-0.0/+1.0", "217 IN"},
