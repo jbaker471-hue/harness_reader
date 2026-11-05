@@ -529,6 +529,14 @@ var reGluedPart = regexp.MustCompile(`^[0-9]{1,3}[A-Z]{4,}$`)
 // Text at or above ceiling (the lowest pin of the block above in the same
 // column) belongs to that block and is not considered.
 func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[string]string, ceiling float64) (string, string) {
+	// the header close above the column first; further up only when none is there
+	if t, v := columnConnectorWithin(p, colX, rows, partTags, ceiling, 12); t != "" {
+		return t, v
+	}
+	return columnConnectorWithin(p, colX, rows, partTags, ceiling, 20)
+}
+
+func columnConnectorWithin(p Page, colX float64, rows map[int]Word, partTags map[string]string, ceiling, limit float64) (string, string) {
 	top, size := math.Inf(-1), 6.0
 	for _, w := range rows {
 		if w.Y > top {
@@ -543,7 +551,7 @@ func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[strin
 			continue
 		}
 		dy, dx := w.Y-top, math.Abs(w.X-colX)
-		if dy <= 0.3*size || dy > 12*size || dx > reach {
+		if dy <= 0.3*size || dy > limit*size || dx > reach {
 			continue
 		}
 		s := dy + 0.3*dx
@@ -560,7 +568,7 @@ func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[strin
 	// the part number printed in the same header ("D38999/" over its tail)
 	for _, h := range p.Words {
 		ht := strings.ToUpper(strings.TrimSpace(h.Text))
-		if !reSplitPNHead.MatchString(ht) || h.Y-top <= 0 || h.Y-top > 12*size || math.Abs(h.X-colX) > reach || h.Y >= ceiling {
+		if !reSplitPNHead.MatchString(ht) || h.Y-top <= 0 || h.Y-top > limit*size || math.Abs(h.X-colX) > reach || h.Y >= ceiling {
 			continue
 		}
 		em := math.Max(h.Size, 4)
@@ -571,6 +579,35 @@ func columnConnector(p Page, colX float64, rows map[int]Word, partTags map[strin
 				if tag := partTags[ht+tt]; tag != "" {
 					return tag, "part"
 				}
+			}
+		}
+	}
+	// only the tail of the part number ("26FJ35PN") above the column: it names
+	// the connector when it ends exactly one part the drawing's headers name
+	for _, h := range p.Words {
+		ht := strings.ToUpper(strings.TrimSpace(h.Text))
+		if !reSplitPNTail.MatchString(ht) || h.Y-top <= 0 || h.Y-top > limit*size || math.Abs(h.X-colX) > reach || h.Y >= ceiling || h.Rotated {
+			continue
+		}
+		match, n := "", 0
+		for part, tag := range partTags {
+			if strings.HasSuffix(normPart(part), normPart(ht)) && tag != match {
+				match, n = tag, n+1
+			}
+		}
+		if n == 1 {
+			return match, "part"
+		}
+	}
+	// the part number printed in one piece ("D38999/26FJ35PN") above the column
+	for _, h := range p.Words {
+		ht := strings.ToUpper(strings.TrimSpace(h.Text))
+		if !strings.Contains(ht, "/") || h.Y-top <= 0 || h.Y-top > limit*size || math.Abs(h.X-colX) > reach || h.Y >= ceiling || h.Rotated {
+			continue
+		}
+		for part, tag := range partTags {
+			if normPart(ht) == normPart(part) {
+				return tag, "part"
 			}
 		}
 	}

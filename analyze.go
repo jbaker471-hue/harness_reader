@@ -552,9 +552,18 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			bb = gb
 		}
 		w := pairedSchematicRows(p)
+		// Follow the drawn wire lines first: the line decides which pins a wire
+		// joins. The column reader then fills only lines that were not traced.
+		tw, twhy := tracedWireRows(p, w, partTags)
+		w = append(w, tw...)
 		pw, why := positionalSchematicRows(p, w, partTags)
 		w = append(w, pw...)
-		if why != "" {
+		switch {
+		case twhy != "" && why != "":
+			colWhy[p.Number] = why + "; " + twhy
+		case twhy != "":
+			colWhy[p.Number] = twhy
+		case why != "" && len(tw) == 0:
 			colWhy[p.Number] = why
 		}
 		if au, ok := auditSchematic(p, w); ok {

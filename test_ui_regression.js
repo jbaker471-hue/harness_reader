@@ -1078,5 +1078,8 @@ console.log('PASS: harness length applies only to conductors without their own l
  const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
  if(!cmp.pass||cmp.found!==1)throw Error('answer key compare wrong: '+JSON.stringify(cmp));
  if(ctx.answerKeyCompare(s,{conductors:2,connectors:[{tag:'P1',positions:2,wired:2,unused:0}]}).pass)throw Error('a wrong reading must not match the key');
+ // Wire ends crimped into a ferrule are in the kit and the build time.
+ const f=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpFerrule:1.5},wires:[{method:'traced-wire-to-ferrule'},{method:'traced-wire-to-ferrule'},{method:'paired-schematic'}]});
+ if(f.kit.ferrules!==2||!f.time.lines.some(l=>/ferrule/.test(l.label)&&l.count===2&&Math.abs(l.minutes-3)<1e-9))throw Error('ferrules missing from kit or time: '+JSON.stringify(f.kit)+JSON.stringify(f.time.lines));
  console.log('PASS: job summary gives cuts, connectors, positions, used/unused, kit and observed-time build estimate, and holds an unread sheet');
 }

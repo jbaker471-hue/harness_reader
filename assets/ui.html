@@ -795,6 +795,8 @@ function fillPhrase(c){const f=fillFor(c);return f.policy?FILL_LABEL[f.policy]+(
 // where to look). cut = the cut list, rates = minutes per operation.
 function jobSummary(x){
  const conns=x.connectors||[],cut=x.cut||{rows:[],counts:{total:0,ok:0}},rates=x.rates||{},bom=x.bom||[];
+ // wire ends crimped into a ferrule rather than a connector contact
+ const ferrules=(x.wires||[]).filter(w=>w.method==='traced-wire-to-ferrule').length;
  // 1. wire cuts, grouped by gauge and cut length
  const groups=new Map();let conductors=0,cables=0;
  for(const r of cut.rows||[]){
@@ -825,7 +827,7 @@ function jobSummary(x){
   return {tag:c.tag,part:c.part||'',positions:total,wired,unused,released,fill:f.policy?FILL_LABEL[f.policy]:'',plug:f.plug||'',filler,plugs,state:look.length?'look':'read',look};
  });
  // 4. kit
- const kit={crimpContacts:wiredTotal,fillerContacts:fillerTotal,sealingPlugs:plugTotal,plugParts:[...plugParts],heldUnused,state:heldUnused||rows.some(r=>r.released&&r.unused&&!r.fill)?'look':'read'};
+ const kit={crimpContacts:wiredTotal,ferrules,fillerContacts:fillerTotal,sealingPlugs:plugTotal,plugParts:[...plugParts],heldUnused,state:heldUnused||rows.some(r=>r.released&&r.unused&&!r.fill)?'look':'read'};
  // 5. build time from the shop's observed times
  const m=k=>Number(rates[k]);
  let bands=null;for(const b of bom){if(/\bBANDS?\b/i.test(String(b.description||''))&&!/BANDING\s+BACKSHELL/i.test(String(b.description||''))){const q=Number(b.qty);if(Number.isFinite(q)&&q>0)bands=(bands||0)+q}}
@@ -834,6 +836,7 @@ function jobSummary(x){
  add('Strip conductor ends',ends,'end','strip');
  add('Crimp contacts (closed barrel, hand tool)',wiredTotal,'contact','crimpClosedHand');
  add('Identify cavity, verify and insert contact',wiredTotal+fillerTotal,'contact','insert');
+ if(ferrules){add('Crimp ferrule (starting estimate, not your observed time)',ferrules,'ferrule','crimpFerrule')}
  add('Continuity test (ring-out)',conductors,'circuit','test');
  add('Inspect contact positions',positions,'position','inspect');
  add('Heat shrink',cables*2,'cable end','heatShrinkEnd');
@@ -1849,7 +1852,7 @@ function summaryRates(){const o={};for(const [k,,,base] of laborOps){const e=doc
 function renderJobSummary(){
  const el=$('jobSummary');if(!el)return;
  if(!st.raw){el.innerHTML='<p class="muted">Read a drawing to see its wire cuts, connectors, used and unused pins, kit and build time here.</p>';return}
- const s=jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates()});
+ const s=jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[]});
  st.summary=s;
  const badge=v=>v==='read'?'<span class="tag good">read</span>':'<span class="tag warn">look here</span>';
  const go=(t,l)=>` <a href="#" onclick="tab('${t}');return false">${safe(l)}</a>`;
@@ -1857,7 +1860,7 @@ function renderJobSummary(){
  const cutsHtml=`<h3>1. Wire cuts ${badge(c.state)}</h3><p>${c.total} cut${c.total===1?'':'s'}${c.cables?' ('+c.cables+' multi-conductor cable'+(c.cables===1?'':'s')+', '+c.conductors+' conductors)':''}${c.look?' · <b>'+safe(c.look)+'</b>'+go('cutlist','Open cut list'):''}</p>`+(c.groups.length?'<div class="tablebox"><table><thead><tr><th>Gauge</th><th>Cut length (in)</th><th>Cuts</th></tr></thead><tbody>'+c.groups.map(g=>`<tr><td>${safe(g.awg)} AWG${g.cable?' cable':''}</td><td>${g.length||'<span class="tag bad">no length</span>'}</td><td>${g.count}</td></tr>`).join('')+'</tbody></table></div>':'');
  const conHtml=`<h3>2–3. Connectors, positions, used and unused ${badge(s.connectors.length&&s.connectors.every(r=>r.state==='read')?'read':'look')}</h3>`+(s.connectors.length?'<div class="tablebox"><table><thead><tr><th>Connector</th><th>Part</th><th>Positions</th><th>Wired</th><th>Not used</th><th>Unused cavities get</th><th></th></tr></thead><tbody>'+s.connectors.map(r=>`<tr><td><b>${safe(r.tag)}</b></td><td>${safe(r.part||'—')}</td><td>${r.positions||'?'}</td><td>${r.wired}</td><td>${r.unused==null?'?':r.released?r.unused:'<span class="tag warn">'+r.unused+' held</span>'}</td><td>${safe(r.fill||'—')}${r.plug&&r.plugs?' ('+safe(r.plug)+')':''}</td><td>${r.state==='read'?badge('read'):badge('look')+'<div class="small">'+r.look.map(safe).join('<br>')+'</div>'}</td></tr>`).join('')+'</tbody></table></div><p class="small muted">Not used = positions minus wired cavities. It is released for pre-population only when a second count on the drawing confirms every wire was read; otherwise it shows as held.'+go('connectors','Open connectors')+'</p>':'<p><b>No connectors were recognized.</b>'+go('alerts','See drawing alerts')+'</p>');
  const k=s.kit;
- const kitHtml=`<h3>4. Kit ${badge(k.state)}</h3><ul><li>${k.crimpContacts} crimp contact${k.crimpContacts===1?'':'s'} for wired cavities</li><li>${k.fillerContacts} filler contact${k.fillerContacts===1?'':'s'} and ${k.sealingPlugs} sealing plug${k.sealingPlugs===1?'':'s'}${k.plugParts.length?' ('+k.plugParts.map(safe).join(', ')+')':''} for unused cavities</li>${k.heldUnused?'<li><b>'+k.heldUnused+' unused cavit'+(k.heldUnused===1?'y is':'ies are')+' held</b> and not in the kit until confirmed</li>':''}</ul><p class="small muted">Contact part numbers, plugs by size and the crimp tooling are on the build plan.${go('buildplan','Open build plan')}</p>`;
+ const kitHtml=`<h3>4. Kit ${badge(k.state)}</h3><ul><li>${k.crimpContacts} crimp contact${k.crimpContacts===1?'':'s'} for wired cavities</li>${k.ferrules?'<li>'+k.ferrules+' crimp ferrule'+(k.ferrules===1?'':'s')+' at wire ends that do not go into a connector</li>':''}<li>${k.fillerContacts} filler contact${k.fillerContacts===1?'':'s'} and ${k.sealingPlugs} sealing plug${k.sealingPlugs===1?'':'s'}${k.plugParts.length?' ('+k.plugParts.map(safe).join(', ')+')':''} for unused cavities</li>${k.heldUnused?'<li><b>'+k.heldUnused+' unused cavit'+(k.heldUnused===1?'y is':'ies are')+' held</b> and not in the kit until confirmed</li>':''}</ul><p class="small muted">Contact part numbers, plugs by size and the crimp tooling are on the build plan.${go('buildplan','Open build plan')}</p>`;
  const t=s.time;
  const timeHtml=`<h3>5. Build time ${badge(t.state)}</h3><p><b>About ${t.hours.toFixed(1)} h per harness</b> from your observed times${t.look?' · '+safe(t.look):''}.</p>`+(t.lines.length?'<div class="tablebox"><table><thead><tr><th>Operation</th><th>Count</th><th>Minutes</th></tr></thead><tbody>'+t.lines.map(l=>`<tr><td>${safe(l.label)}</td><td>${l.count} ${safe(l.unit)}${l.count===1?'':'s'}</td><td>${l.minutes.toFixed(1)}</td></tr>`).join('')+'</tbody></table></div>':'')+(t.notTimed.length?'<p class="small muted">Not timed: '+t.notTimed.map(safe).join('; ')+'. Change the minutes on the Labor tab.'+go('labor','Open labor')+'</p>':'');
  el.innerHTML=cutsHtml+conHtml+kitHtml+timeHtml+answerKeyHtml(s);

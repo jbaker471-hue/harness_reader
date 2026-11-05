@@ -1050,6 +1050,9 @@ func legacyPage(pl PageLayout) Page {
 	for _, s := range pl.Segments {
 		x0, y0 := conv(s[0], s[1])
 		x1, y1 := conv(s[2], s[3])
+		if math.Hypot(x1-x0, y1-y0) >= 0.5 {
+			p.Segs = append(p.Segs, Segment{x0, fh - y0, x1, fh - y1})
+		}
 		if math.Abs(y0-y1) > 0.6 || math.Abs(x1-x0) < 8 {
 			continue
 		}
