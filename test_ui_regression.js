@@ -307,15 +307,15 @@ const clash=cutCtx.buildCutList([{endpoints:'A:1, B:1',wire:'W1',awg:'22',color:
 if(!clash.notes.some(n=>/awg/.test(n)))throw Error('AWG disagreement between merged sources was not flagged');
 // quote
 const cutOK=cutCtx.buildCutList([{endpoints:'P1:1, J2:1',wire:'W1',awg:'22',color:'RED',length:'120 IN'}],{});
-const quoteBase={quote:Object.assign(cutCtx.freshQuote(),{rate:'50',laborHours:'2',scrap:'10',markup:'20',wireCost:{'22 · RED':'0.5'},bomCost:{'1|M39029/58-360|0':'0.4'}}),qty:3,cut:cutOK,
+const quoteBase={quote:Object.assign(cutCtx.freshQuote(),{laborOnly:false,rate:'50',laborHours:'2',scrap:'10',markup:'20',wireCost:{'22 · RED':'0.5'},bomCost:{'1|M39029/58-360|0':'0.4'}}),qty:3,cut:cutOK,
  bom:[{item:'1',part:'M39029/58-360',description:'CONTACT',qty:'2'},{item:'2',part:'M22759/16-22-9',description:'WIRE, 22 AWG',qty:'A/R'}],laborUnitHours:null,drawingErrors:0};
 let qr=cutCtx.computeQuote(quoteBase);
 near(qr.wireLines[0].buyFt,10*3*1.1,'wire feet incl scrap');near(qr.wireTotal,33*0.5,'wire cost');near(qr.partsTotal,2*3*0.4,'parts cost');near(qr.labor,2*50*3,'labor');
 near(qr.total,(16.5+2.4+300)*1.2,'total with markup');equal(qr.blockers,[]);equal(qr.bomSkippedWire,1);
-const miss=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:cutCtx.freshQuote(),drawingErrors:2,cut:cl}));
+const miss=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{laborOnly:false}),drawingErrors:2,cut:cl}));
 for(const re of [/no length/,/conflicting/,/unreadable/,/\$\/ft/,/unit cost/,/Labor hours/,/Labor rate/,/2 drawing error/])if(!miss.blockers.some(b=>re.test(b)))throw Error('missing quote blocker '+re);
 if(miss.complete)throw Error('quote with blockers must not be complete');
-const usesLabor=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'10',wireCost:{'22 · RED':'1'},bomCost:{'1|M39029/58-360|0':'1'}}),laborUnitHours:1.5}));
+const usesLabor=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{laborOnly:false,rate:'10',wireCost:{'22 · RED':'1'},bomCost:{'1|M39029/58-360|0':'1'}}),laborUnitHours:1.5}));
 near(usesLabor.hours,1.5,'labor tab hours used when field blank');
 const nonNum=cutCtx.computeQuote(Object.assign({},quoteBase,{bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
 if(!nonNum.blockers.some(b=>/not a plain number/.test(b)))throw Error('A/R BOM quantity must be a blocker, not priced');
@@ -394,6 +394,17 @@ if(cutCtx.shieldNoteCandidate(noteRow,'a',[...noteSet,{id:'10',text:'GROUND SHIE
 const consHtml=cutCtx.constructionHtml({signalConductors:2,twist:{value:'',status:'NOT STATED'},groups:{value:'1 pair',status:'STATED IN BOM TEXT'},shieldPresent:'yes',overallShield:{value:'Single silver-coated copper braid',status:'DECODED FROM PART NUMBER'},individualShields:{value:'',status:'NOT STATED'},drain:{value:'',status:'NOT STATED'},notes:['CONFLICT: pair count <x> mismatch','The shield is not a signal conductor.']});
 if((consHtml.match(/NOT STATED/g)||[]).length!==3)throw Error('unstated attributes must read NOT STATED, not default');
 if(!consHtml.includes('CONFLICT</span>')||consHtml.includes('<x>'))throw Error('conflict not surfaced or text not escaped');
+// Labor only with shields under a banded backshell: braid trim + heat shrink + band are the termination, so open shield records do not hold the quote.
+{const i0=src.indexOf('function quoteInput(');const fn=src.slice(i0,src.indexOf('\n',i0));
+ const qc={st:{raw:{issues:[]},quote:{laborOnly:true},summary:{time:{lines:[{unit:'band',count:2}]}},laborUnitHours:3,bom:[]},quoteLaborOnly:q=>!q||q.laborOnly!==false,shieldSummary:()=>({open:5}),quoteLaborHours:()=>({hours:3}),lastCut:{},$:()=>null};vm.createContext(qc);vm.runInContext(fn,qc);
+ const qi=qc.quoteInput();if(qi.shieldOpen!==0||qi.shieldsUnderBand!==5)throw Error('shields under a band must not block a labor quote: '+JSON.stringify(qi));
+ qc.st.summary.time.lines=[];const q2=qc.quoteInput();if(q2.shieldOpen!==5)throw Error('with no band, open shields still hold the quote')}
+// The shop quotes labor only (the default): hours x rate; wire, parts and lengths neither count nor block.
+{const lo=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60'}),laborUnitHours:2.5,cut:{rows:[],groups:[{label:'22 · RED',count:2,inches:0,unmeasured:2}],counts:{total:2,missing:2,conflict:0,invalid:0}},bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
+ if(!lo.laborOnly||lo.wireTotal!==0||lo.partsTotal!==0||Math.abs(lo.labor-2.5*60*3)>1e-9||lo.blockers.length)throw Error('labor-only quote wrong: '+JSON.stringify({labor:lo.labor,blockers:lo.blockers}));
+ if(!cutCtx.quoteLaborOnly(cutCtx.freshQuote())||cutCtx.quoteLaborOnly({laborOnly:false}))throw Error('labor only must be the default');
+ const lo2=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60'}),laborUnitHours:2.5,shieldOpen:3}));
+ if(!lo2.blockers.some(b=>/shield termination labor is not covered/.test(b)))throw Error('open shields must still hold a labor quote')}
 const shieldBlock=cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:2}));
 if(!shieldBlock.blockers.some(b=>/2 shielded cable\(s\) have no shield termination/.test(b)))throw Error('open shield terminations must block the quote');
 if(cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:0})).blockers.some(b=>/shield/.test(b)))throw Error('no shield blocker expected when all are recorded');
@@ -443,13 +454,13 @@ if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="0"
 // A branched harness with no per-conductor length: the quote prices wire from the parts list's footage, never from nothing.
 {const cutNo={rows:[],groups:[{label:'22 · WHT',count:3,inches:0,unmeasured:3}],counts:{total:3,missing:3,conflict:0,invalid:0}};
  const bomW=[{item:'7',part:'M22759/16-22-9',description:'WIRE',qty:40,unit:'FT'},{item:'8',part:'M27500-22SB2T23',description:'CABLE',qty:120,unit:'IN'},{item:'1',part:'CONN',description:'CONNECTOR',qty:1,unit:'EA'}];
- const qp=cutCtx.computeQuote({quote:{scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:bomW,laborUnitHours:2});
+ const qp=cutCtx.computeQuote({quote:{laborOnly:false,scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:bomW,laborUnitHours:2});
  if(!qp.wireFromParts||qp.wireLines.length!==2||Math.abs(qp.wireLines[0].perHarnessFt-40)>1e-9||Math.abs(qp.wireLines[1].perHarnessFt-10)>1e-9)throw Error('parts-list wire footage not used: '+JSON.stringify(qp.wireLines));
  if(qp.blockers.some(b=>/have no length/.test(b)))throw Error('lengths-missing must not block when the parts list gives the footage');
- const qn=cutCtx.computeQuote({quote:{scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:[{item:'7',part:'M22759/16-22-9',description:'WIRE',qty:40,unit:'EA'}],laborUnitHours:2});
+ const qn=cutCtx.computeQuote({quote:{laborOnly:false,scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:[{item:'7',part:'M22759/16-22-9',description:'WIRE',qty:40,unit:'EA'}],laborUnitHours:2});
  if(!qn.wireFromParts&&!qn.blockers.some(b=>/have no length/.test(b)))throw Error('lengths-missing must stay a blocker when the parts list gives no footage');
  // a cable tie or wire marker bought by the piece is priced as a part, never skipped as wire
- const qt=cutCtx.computeQuote({quote:{scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:[...bomW,{item:'9',part:'T18R',description:'CABLE TIE',qty:20,unit:'EA'}],laborUnitHours:2});
+ const qt=cutCtx.computeQuote({quote:{laborOnly:false,scrap:'0',wireCost:{},bomCost:{}},qty:1,cut:cutNo,bom:[...bomW,{item:'9',part:'T18R',description:'CABLE TIE',qty:20,unit:'EA'}],laborUnitHours:2});
  if(!qt.wireFromParts||!qt.bomLines.some(l=>l.item==='9')||qt.wireLines.some(l=>/item 9/.test(l.label)))throw Error('piece-priced cable tie mishandled: '+JSON.stringify(qt.bomLines.map(l=>l.item)))}
 console.log('PASS: harness length applies only to conductors without their own length, is flagged, and never carries across drawings');
 
@@ -886,7 +897,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!cab.find(r=>r.part==='CSMUAX-3M'&&r.conductors===2))throw Error('conductor count missing');
  eq(cut.assemblyItems.sort(),['5','7','7'].sort(),'items used');
  // the quote: no $/ft for purchased cables, the cable BOM lines are priced as parts, the loose wire still needs a cost
- const q=cutCtx.computeQuote({quote:{},qty:1,cut,bom:bom.map(b=>({...b,qty:b.qty})),laborUnitHours:1});
+ const q=cutCtx.computeQuote({quote:{laborOnly:false},qty:1,cut,bom:bom.map(b=>({...b,qty:b.qty})),laborUnitHours:1});
  if(q.wireLines.some(l=>l.label.includes('purchased cable')))throw Error('purchased cables must not need a $/ft cost');
  if(q.wireLines.length!==1)throw Error('the loose wire group is still priced per foot');
  if(!q.bomLines.some(l=>l.part==='CSMUAX-3M')||!q.bomLines.some(l=>l.part==='TRD695ABL-10'))throw Error('purchased cables are priced as BOM parts');

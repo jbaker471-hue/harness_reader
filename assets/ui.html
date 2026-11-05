@@ -83,7 +83,7 @@ P1&#9;54&#9;VBUS&#9;USB_DN1&#9;1"></textarea></div><div class="callout" id="past
 <div id="cutUnitNote"></div><div id="cutHarness"></div><div id="cutAssemblies"></div><details class="techdetails"><summary><b>Cable details and shield notes</b> <span class="small muted">conductors per cable, part number decode, shield termination notes</span></summary><div id="cutCables"></div><div id="cutDecode"></div><div id="cutShieldNotes"></div></details><div id="cutStatus" class="callout"></div><div id="cutSummary"></div>
 <div class="tablebox"><table><thead><tr><th>Wire / cable</th><th>AWG · colour</th><th>From → To</th><th>Length (editable)</th><th>Cut (in)</th><th>Status</th></tr></thead><tbody id="cutRows"><tr><td colspan="6">No conductors yet. Read a drawing or add nets.</td></tr></tbody></table></div></div></section>
 <section class="tab" id="tab-quote"><div class="panel"><h2>Quote summary</h2><p class="help">A draft estimate that combines cut-list wire, BOM parts and labor. It is not a binding quote. Anything that cannot be priced from your inputs is listed as a blocker instead of being assumed.</p><div id="quoteStatus"></div><div id="quoteTotals"></div></div>
-<div class="panel"><h3 style="margin-top:0">Your prices</h3><h4 class="subhead">Rates</h4><div class="row"><label>Harnesses to build <b id="quoteQty">1</b> <span class="small muted">(set on the Kitting tab)</span></label><label>Labor hours per harness <input id="qLabor" type="number" min="0" step="0.1" onchange="quoteSet('laborHours',this.value)" style="width:100px"></label><label>Labor rate ($/hour) <input id="qRate" type="number" min="0" step="0.5" onchange="quoteSet('rate',this.value)" style="width:100px"></label><label>Wire scrap allowance (%) <input id="qScrap" type="number" min="0" step="1" onchange="quoteSet('scrap',this.value)" style="width:90px"></label><label>Markup / overhead (%) <input id="qMarkup" type="number" min="0" step="1" onchange="quoteSet('markup',this.value)" style="width:90px"></label></div><p class="small muted" id="quoteLaborHint"></p><h4 class="subhead">Wire from the cut list</h4><div class="tablebox"><table><thead><tr><th>Wire or cable</th><th>Cuts</th><th>Feet per harness</th><th>Feet to buy (incl. scrap)</th><th>Your cost ($/ft)</th></tr></thead><tbody id="quoteWireRows"><tr><td colspan="5">No cut list yet.</td></tr></tbody></table></div><h4 class="subhead">Parts from the BOM</h4><p class="help">Quantities are per harness. Wire and cable lines are priced from the cut list above and are skipped here.</p><div class="tablebox"><table><thead><tr><th>Item</th><th>Part</th><th>Description</th><th>Qty / harness</th><th>Your unit cost ($)</th></tr></thead><tbody id="quoteBomRows"><tr><td colspan="5">No BOM yet.</td></tr></tbody></table></div><h4 class="subhead">Tooling</h4><div id="quoteTooling"></div></div></section>
+<div class="panel"><h3 style="margin-top:0">Your prices</h3><h4 class="subhead">Rates</h4><div class="row"><label>Harnesses to build <b id="quoteQty">1</b> <span class="small muted">(set on the Kitting tab)</span></label><label>Labor hours per harness <input id="qLabor" type="number" min="0" step="0.1" onchange="quoteSet('laborHours',this.value)" style="width:100px"></label><label>Labor rate ($/hour) <input id="qRate" type="number" min="0" step="0.5" onchange="quoteSet('rate',this.value)" style="width:100px"></label><label>Wire scrap allowance (%) <input id="qScrap" type="number" min="0" step="1" onchange="quoteSet('scrap',this.value)" style="width:90px"></label><label>Markup / overhead (%) <input id="qMarkup" type="number" min="0" step="1" onchange="quoteSet('markup',this.value)" style="width:90px"></label></div><p class="small muted" id="quoteLaborHint"></p><label class="small"><input type="checkbox" id="qLaborOnly" checked onchange="st.quote.laborOnly=this.checked;renderQuote()"> Labor only (do not quote wire or parts)</label><div id="quoteMaterials"><h4 class="subhead">Wire from the cut list</h4><div class="tablebox"><table><thead><tr><th>Wire or cable</th><th>Cuts</th><th>Feet per harness</th><th>Feet to buy (incl. scrap)</th><th>Your cost ($/ft)</th></tr></thead><tbody id="quoteWireRows"><tr><td colspan="5">No cut list yet.</td></tr></tbody></table></div><h4 class="subhead">Parts from the BOM</h4><p class="help">Quantities are per harness. Wire and cable lines are priced from the cut list above and are skipped here.</p><div class="tablebox"><table><thead><tr><th>Item</th><th>Part</th><th>Description</th><th>Qty / harness</th><th>Your unit cost ($)</th></tr></thead><tbody id="quoteBomRows"><tr><td colspan="5">No BOM yet.</td></tr></tbody></table></div></div><h4 class="subhead">Tooling</h4><div id="quoteTooling"></div></div></section>
 <section class="tab" id="tab-kit"><div class="panel"><h2>Physical kitting checklist</h2><div class="split"><div class="field"><label>Work order / assembly</label><input id="workorder" oninput="showReport()"></div><div class="field"><label>Number of harnesses being built</label><input id="buildQty" type="number" min="1" value="1" onchange="kitReset()"></div><div class="field"><label>Kitted by</label><input id="kitter" oninput="showReport()"></div><div class="field"><label>Independently checked by</label><input id="checker" oninput="showReport()"></div></div><div id="kitSummary" class="callout">No kit verified.</div><div class="tablebox"><table><thead><tr><th>Checked</th><th>Part number</th><th>Qty needed</th><th>Qty pulled</th><th>Lot / serial / trace</th><th>Notes</th></tr></thead><tbody id="kitRows"></tbody></table></div></div></section>
 <section class="tab" id="tab-tooling">
 <div class="panel tool-start">
@@ -807,8 +807,9 @@ function jobSummary(x){
   const k=(r.cable?'cable ':'')+(r.awg||'?')+'|'+len;
   const g=groups.get(k)||{awg:r.awg||'?',cable:!!r.cable,length:len,count:0};g.count++;groups.set(k,g);
  }
+ const ungrouped=(cut.rows||[]).filter(r=>!r.cable&&(r.notes||[]).some(n=>/could not be told from the colours|missing or repeated|cable incomplete/.test(n))).length;
  const cc=cut.counts||{total:0,ok:0};
- const cuts={total:cc.total||0,withLength:cc.ok||0,conductors,cables,groups:[...groups.values()].sort((a,b)=>String(a.awg).localeCompare(String(b.awg))||Number(b.length||0)-Number(a.length||0)),
+ const cuts={ungrouped,total:cc.total||0,withLength:cc.ok||0,conductors,cables,groups:[...groups.values()].sort((a,b)=>String(a.awg).localeCompare(String(b.awg))||Number(b.length||0)-Number(a.length||0)),
   state:cc.total&&cc.ok===cc.total?'read':'look',
   look:!cc.total?'no conductors were read: see Drawing alerts for the sheets that were not read':cc.ok<cc.total?(cc.total-cc.ok)+' of '+cc.total+' cuts have no usable length: see the Cut list':''};
  // 2.-3. connectors, positions, used and unused
@@ -846,6 +847,7 @@ function jobSummary(x){
  add('Braid trim',cables*2,'cable end','braidTrimEnd');
  if(bands!=null)add('Install bands',bands,'band','band');else notTimed.push('bands (count not found in the parts list)');
  if(plugTotal)notTimed.push('sealing plugs (no observed time entered)');
+ if(cuts.ungrouped)notTimed.push('heat shrink and braid trim for '+cuts.ungrouped+' conductor(s) that belong to shielded cables the cut list could not group (see the cut list)');
  const minutes=lines.reduce((s,l)=>s+l.minutes,0);
  const time={minutes,hours:minutes/60,lines,notTimed,state:cuts.state==='read'&&rows.length&&rows.every(r=>r.state==='read')?'read':'look',
   look:cuts.state!=='read'||rows.some(r=>r.state!=='read')?'rough: it rises as the missing wires and pins above are read':''};
@@ -1816,7 +1818,9 @@ function renderAssemblies(){
 }
 function cutEdit(i,v){const r=lastCut.rows[i];if(!r)return;for(const n of r.nets)n.length=String(v).trim();renderCutList();showReport()}
 function exportCutCSV(){csv('Trivex_Cut_List_DRAFT.csv',[['Wire / cable','Conductors','AWG','Color','From','To','Length on drawing','Cut length (in) incl. allowance','Status','Notes'],...lastCut.rows.map(r=>[r.wire,r.cable?r.conductors:1,r.awg,r.color,r.from,r.to,r.stated[0]||'',r.cut!=null?r.cut:'',r.status,r.notes.join('; ')])])}
-function freshQuote(){return {laborHours:'',rate:'',markup:'',scrap:'10',wireCost:{},bomCost:{}}}
+function freshQuote(){return {laborOnly:true,laborHours:'',rate:'',markup:'',scrap:'10',wireCost:{},bomCost:{}}}
+// The shop quotes labor only unless the quote is switched to include wire and parts.
+function quoteLaborOnly(q){return !q||q.laborOnly!==false}
 const WIRE_LINE=/\b(?:WIRE|CABLE)\b|M22759|M27500|M81044|M5086|MIL-W-/i;
 function computeQuote(x){
  const q=x.quote||{},qty=Math.max(1,Math.floor(Number(x.qty))||1),cut=x.cut||{rows:[],groups:[],counts:{total:0,missing:0,conflict:0,invalid:0}};
@@ -1841,23 +1845,26 @@ function computeQuote(x){
   bomLines.push({key,item:b.item,part:b.part,description:b.description,perHarness,cost,amount:perHarness!=null&&cost!=null?perHarness*qty*cost:null,qtyText:String(b.qty==null?'':b.qty)});
  });
  const hours=num(q.laborHours)!=null?num(q.laborHours):num(x.laborUnitHours),rate=num(q.rate),markup=num(q.markup)||0;
- const wireTotal=wireLines.reduce((s,l)=>s+(l.amount||0),0),partsTotal=bomLines.reduce((s,l)=>s+(l.amount||0),0);
+ const laborOnly=quoteLaborOnly(q);
+ const wireTotal=laborOnly?0:wireLines.reduce((s,l)=>s+(l.amount||0),0),partsTotal=laborOnly?0:bomLines.reduce((s,l)=>s+(l.amount||0),0);
  const labor=hours!=null&&rate!=null?hours*rate*qty:null,subtotal=wireTotal+partsTotal+(labor||0),total=subtotal*(1+markup/100);
  if(!cut.counts.total)blockers.push('No cut list: no conductors were read or entered.');
- if(cut.counts.missing&&!fromParts)blockers.push(cut.counts.missing+' conductor(s) have no length, so wire footage is understated.');
- if(cut.counts.conflict)blockers.push(cut.counts.conflict+' conductor(s) have conflicting lengths.');
- if(cut.counts.invalid)blockers.push(cut.counts.invalid+' conductor(s) have an unreadable length.');
- const unpricedWire=wireLines.filter(l=>l.cost==null).length;if(unpricedWire)blockers.push(unpricedWire+' wire group(s) have no $/ft cost.');
- if(!(x.bom||[]).length)blockers.push('No BOM lines: parts are not included.');
- const unpricedParts=bomLines.filter(l=>l.perHarness!=null&&l.perHarness>0&&l.cost==null).length;if(unpricedParts)blockers.push(unpricedParts+' BOM line(s) have no unit cost.');
- if(nonNumeric)blockers.push(nonNumeric+' BOM line(s) have a quantity that is not a plain number (for example A/R); they are not priced.');
+ if(!laborOnly){
+  if(cut.counts.missing&&!fromParts)blockers.push(cut.counts.missing+' conductor(s) have no length, so wire footage is understated.');
+  if(cut.counts.conflict)blockers.push(cut.counts.conflict+' conductor(s) have conflicting lengths.');
+  if(cut.counts.invalid)blockers.push(cut.counts.invalid+' conductor(s) have an unreadable length.');
+  const unpricedWire=wireLines.filter(l=>l.cost==null).length;if(unpricedWire)blockers.push(unpricedWire+' wire group(s) have no $/ft cost.');
+  if(!(x.bom||[]).length)blockers.push('No BOM lines: parts are not included.');
+  const unpricedParts=bomLines.filter(l=>l.perHarness!=null&&l.perHarness>0&&l.cost==null).length;if(unpricedParts)blockers.push(unpricedParts+' BOM line(s) have no unit cost.');
+  if(nonNumeric)blockers.push(nonNumeric+' BOM line(s) have a quantity that is not a plain number (for example A/R); they are not priced.');
+ }
  if(hours==null)blockers.push('Labor hours per harness not entered (use the Labor tab or type them above).');
  if(rate==null)blockers.push('Labor rate not entered.');
- if(x.shieldOpen>0)blockers.push(x.shieldOpen+' shielded cable(s) have no shield termination recorded; shield termination labor and parts are not covered.');
+ if(x.shieldOpen>0)blockers.push(x.shieldOpen+' shielded cable(s) have no shield termination recorded; shield termination labor'+(laborOnly?' is':' and parts are')+' not covered.');
  if(x.drawingErrors)blockers.push(x.drawingErrors+' drawing error(s) are unresolved on the Drawing alerts tab.');
- return {qty,scrap,wireLines,bomLines,bomSkippedWire,wireFromParts:fromParts,hours,rate,markup,wireTotal,partsTotal,labor,subtotal,total,blockers,complete:!blockers.length};
+ return {laborOnly,qty,scrap,wireLines,bomLines,bomSkippedWire,wireFromParts:fromParts,hours,rate,markup,wireTotal,partsTotal,labor,subtotal,total,blockers,complete:!blockers.length};
 }
-function quoteInput(){const errs=(st.raw?.issues||[]).filter(i=>(i.Severity||i.severity)==='ERROR').length;return {shieldOpen:typeof shieldSummary==='function'?shieldSummary().open:0,quote:st.quote,qty:$('buildQty')?$('buildQty').value:1,cut:lastCut,bom:st.bom,laborUnitHours:quoteLaborHours().hours,drawingErrors:errs}}
+function quoteInput(){const errs=(st.raw?.issues||[]).filter(i=>(i.Severity||i.severity)==='ERROR').length;const banded=!!(st.summary&&st.summary.time&&st.summary.time.lines.some(l=>l.unit==='band'&&l.count>0));const open=typeof shieldSummary==='function'?shieldSummary().open:0;return {shieldOpen:quoteLaborOnly(st.quote)&&banded?0:open,shieldsUnderBand:quoteLaborOnly(st.quote)&&banded?open:0,quote:st.quote,qty:$('buildQty')?$('buildQty').value:1,cut:lastCut,bom:st.bom,laborUnitHours:quoteLaborHours().hours,drawingErrors:errs}}
 // Labor hours for the quote: the Labor tab when it has been used, otherwise the
 // job summary's estimate from the shop's observed times.
 function quoteLaborHours(){if(st.laborUnitHours)return {hours:st.laborUnitHours,from:'Labor tab estimate'};try{const s=st.raw?(st.summary||jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[]})):null;if(s&&s.time&&s.time.hours>0)return {hours:s.time.hours,from:'Build time from your observed times (job summary)'}}catch(e){}return {hours:null,from:''}}
@@ -1868,15 +1875,16 @@ function quoteBom(key,v){st.quote.bomCost[key]=String(v).trim();updateQuoteTotal
 function updateQuoteTotals(){
  const el=$('quoteTotals');if(!el)return;const r=computeQuote(quoteInput());
  $('quoteStatus').innerHTML=`<div class="callout ${r.complete?'good':'bad'}"><b>${r.complete?'DRAFT ESTIMATE: every input is filled':'INCOMPLETE: '+r.blockers.length+' open item(s); the total below understates the job'}</b>${r.blockers.length?'<ul>'+r.blockers.map(b=>'<li>'+safe(b)+'</li>').join('')+'</ul>':''}</div>`;
- el.innerHTML=`<div class="tablebox"><table><tbody><tr><td>Wire (${r.qty} harness${r.qty>1?'es':''}, ${r.scrap}% scrap)</td><td>${money(r.wireTotal)}</td></tr><tr><td>Parts</td><td>${money(r.partsTotal)}</td></tr><tr><td>Labor (${r.hours==null?'hours not entered':r.hours+' h × '+r.qty}${r.rate==null?', rate not entered':' @ '+money(r.rate)+'/h'})</td><td>${money(r.labor)}</td></tr><tr><td>Subtotal</td><td>${money(r.subtotal)}</td></tr><tr><td>Markup / overhead (${r.markup}%)</td><td>${money(r.subtotal*r.markup/100)}</td></tr><tr><td><b>Total (${r.complete?'draft':'incomplete'})</b></td><td><b>${money(r.total)}</b></td></tr></tbody></table></div><p class="small muted">Tooling and fixtures are not priced here. Shipping, test, documentation, NRE and taxes are not included.</p>`;
+ el.innerHTML=`<div class="tablebox"><table><tbody>${r.laborOnly?'':`<tr><td>Wire (${r.qty} harness${r.qty>1?'es':''}, ${r.scrap}% scrap)</td><td>${money(r.wireTotal)}</td></tr><tr><td>Parts</td><td>${money(r.partsTotal)}</td></tr>`}<tr><td>Labor (${r.hours==null?'hours not entered':r.hours+' h × '+r.qty}${r.rate==null?', rate not entered':' @ '+money(r.rate)+'/h'})</td><td>${money(r.labor)}</td></tr><tr><td>Subtotal</td><td>${money(r.subtotal)}</td></tr><tr><td>Markup / overhead (${r.markup}%)</td><td>${money(r.subtotal*r.markup/100)}</td></tr><tr><td><b>Total (${r.complete?'draft':'incomplete'})</b></td><td><b>${money(r.total)}</b></td></tr></tbody></table></div><p class="small muted">${r.laborOnly?'Labor only: wire, parts, tooling and fixtures are not in this quote.':'Tooling and fixtures are not priced here.'} Shipping, test, documentation, NRE and taxes are not included.</p>`;
 }
 function renderQuote(){
  if(!$('quoteTotals'))return;
  if(!st.quote)st.quote=freshQuote();
  const q=st.quote;
  $('quoteQty').textContent=Math.max(1,Math.floor(Number($('buildQty')?.value))||1);
+ if($('qLaborOnly'))$('qLaborOnly').checked=quoteLaborOnly(q);if($('quoteMaterials'))$('quoteMaterials').hidden=quoteLaborOnly(q);
  for(const [id,k] of [['qLabor','laborHours'],['qRate','rate'],['qScrap','scrap'],['qMarkup','markup']])if($(id))$(id).value=q[k]||'';
- const lh=quoteLaborHours();$('quoteLaborHint').textContent=lh.hours?`${lh.from}: ${Number(lh.hours).toFixed(1)} h per harness${q.laborHours?' (overridden above)':' (used because the field is empty)'}.`:'No labor estimate calculated yet. Use the Labor tab or type hours above.';
+ const lh=quoteLaborHours(),sm=st.summary&&st.summary.time,gap=lh.hours&&!st.laborUnitHours&&sm?((sm.notTimed||[]).length?' Not in it yet: '+sm.notTimed.join('; ')+'.':'')+(sm.state!=='read'?' Rough: '+(sm.look||'some wires or pins are not read yet')+'.':'')+(quoteInput().shieldsUnderBand?' Shields go under the backshell band: braid trim, heat shrink and the band are their termination time.':'')+' Measuring and cutting, routing, labels and backshell assembly have no observed time yet, so they are not included.':'';$('quoteLaborHint').textContent=lh.hours?`${lh.from}: ${Number(lh.hours).toFixed(1)} h per harness${q.laborHours?' (overridden above)':' (used because the field is empty)'}.${gap}`:'No labor estimate calculated yet. Use the Labor tab or type hours above.';
  const r=computeQuote(quoteInput());
  $('quoteWireRows').innerHTML=(r.wireFromParts?'<tr><td colspan="5" class="small muted">Wire footage is from the parts list: the cut list does not have a length for every conductor yet (branched harness).</td></tr>':'')+(r.wireLines.length?r.wireLines.map(l=>`<tr><td>${safe(l.label)}${l.fromParts?' <span class="tag warn">parts list</span>':''}</td><td>${l.count}${l.unmeasured?` <span class="tag bad">${l.unmeasured} without length</span>`:''}</td><td>${l.perHarnessFt.toFixed(2)}</td><td>${l.buyFt.toFixed(2)}</td><td><input type="number" min="0" step="0.01" value="${safe((q.wireCost||{})[l.label]||'')}" aria-label="Cost per foot for ${safe(l.label)}" onchange="quoteWire(${JSON.stringify(l.label).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join(''):'<tr><td colspan="5">No cut list yet.</td></tr>');
  $('quoteBomRows').innerHTML=r.bomLines.length?r.bomLines.map(l=>`<tr><td>${safe(l.item)}</td><td>${safe(l.part)}</td><td>${safe(l.description)}</td><td>${safe(l.qtyText)}${l.perHarness==null||l.perHarness===0?' <span class="tag bad">not priced</span>':''}</td><td><input type="number" min="0" step="0.01" value="${safe((q.bomCost||{})[l.key]||'')}" aria-label="Unit cost for ${safe(l.part||l.item)}" onchange="quoteBom(${JSON.stringify(l.key).replace(/"/g,'&quot;')},this.value)" style="width:100px"></td></tr>`).join('')+(r.bomSkippedWire?`<tr><td colspan="5" class="small muted">${r.bomSkippedWire} wire/cable BOM line(s) skipped: priced from the cut list.</td></tr>`:''):'<tr><td colspan="5">No BOM yet.</td></tr>';
