@@ -838,16 +838,23 @@ function jobSummary(x){
  const add=(label,count,unit,key)=>{if(!count)return;const r=m(key);if(!Number.isFinite(r)){notTimed.push(label);return}lines.push({label,count,unit,minutes:count*r})};
  add('Strip conductor ends',ends,'end','strip');
  add('Crimp contacts (closed barrel, hand tool)',wiredTotal,'contact','crimpClosedHand');
- add('Identify cavity, verify and insert contact',wiredTotal+fillerTotal,'contact','insert');
+ // 2:32 is per wire: identify, verify and insert at both of its cavities (1:16 per cavity, fillers included).
+ // Calibrated against the shop's own estimates for 146, 147 and 148 (11.5, 9.5 and 10 h).
+ add('Identify cavities, verify and insert contacts (2:32 per wire = 2 cavities)',(wiredTotal+fillerTotal)/2,'wire (2 cavities)','insert');
  if(ferrules){add('Crimp ferrule (starting estimate, not your observed time)',ferrules,'ferrule','crimpFerrule')}
  if(rings){add('Crimp ring terminal (starting estimate, not your observed time)',rings,'ring terminal','crimpOpen')}
  add('Continuity test (ring-out)',conductors,'circuit','test');
  add('Inspect contact positions',positions,'position','inspect');
- add('Heat shrink',cables*2,'cable end','heatShrinkEnd');
- add('Braid trim',cables*2,'cable end','braidTrimEnd');
+ // Shielded cables: heat shrink 3 min and braid trim 2 min once per cable (calibrated to 146-148). Conductors of a
+ // cable the cut list could not group are counted as cables of the parts list's size for their gauge.
+ let estCables=0;
+ if(cuts.ungrouped){const sizes=[];try{if(typeof detectCableSpecs==='function')for(const [,e] of detectCableSpecs(bom))sizes.push(...(e.sizes||[e.n]))}catch(e){}
+  const avg=sizes.length?sizes.reduce((a,b)=>a+b,0)/sizes.length:2;estCables=Math.round(cuts.ungrouped/avg)}
+ add('Heat shrink',cables+estCables,'shielded cable','heatShrinkEnd');
+ add('Braid trim',cables+estCables,'shielded cable','braidTrimEnd');
  if(bands!=null)add('Install bands',bands,'band','band');else notTimed.push('bands (count not found in the parts list)');
  if(plugTotal)notTimed.push('sealing plugs (no observed time entered)');
- if(cuts.ungrouped)notTimed.push('heat shrink and braid trim for '+cuts.ungrouped+' conductor(s) that belong to shielded cables the cut list could not group (see the cut list)');
+ if(cuts.ungrouped)notTimed.push('cable count estimated: '+cuts.ungrouped+' conductor(s) of shielded cables the cut list could not group were counted as about '+estCables+' cable(s)');
  const minutes=lines.reduce((s,l)=>s+l.minutes,0);
  const time={minutes,hours:minutes/60,lines,notTimed,state:cuts.state==='read'&&rows.length&&rows.every(r=>r.state==='read')?'read':'look',
   look:cuts.state!=='read'||rows.some(r=>r.state!=='read')?'rough: it rises as the missing wires and pins above are read':''};

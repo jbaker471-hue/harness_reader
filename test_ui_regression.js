@@ -1105,7 +1105,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(s.cuts.state!=='read'||s.cuts.groups[0].length!=='150.00'||s.cuts.conductors!==1)throw Error('cuts wrong: '+JSON.stringify(s.cuts));
  if(r.positions!==2||r.wired!==1||r.unused!==1||!r.released||r.state!=='read'||r.plug!=='MS27488-22-2')throw Error('connector answer wrong: '+JSON.stringify(r));
  if(s.kit.crimpContacts!==1||s.kit.fillerContacts!==1||s.kit.sealingPlugs!==1||s.kit.state!=='read')throw Error('kit wrong: '+JSON.stringify(s.kit));
- const want=2*.1667+1*.25+2*2.5333+1*.0781+2*.0276+2*5;
+ const want=2*.1667+1*.25+(2/2)*2.5333+1*.0781+2*.0276+2*5; // insert 2:32 per wire = 2 cavities
  if(Math.abs(s.time.minutes-want)>1e-6||!s.time.notTimed.some(x=>/sealing plugs/.test(x)))throw Error('time wrong: '+s.time.minutes+' vs '+want+' '+JSON.stringify(s.time.notTimed));
  // An unread wiring sheet: not used is held, not in the kit, and the answer says where to look.
  ctx.st.raw.tableAudits=[{page:3,title:'wire gauge labels',connectors:['P1'],status:'INCOMPLETE',rowsRead:0,counted:true,ruledRows:26,detail:'sheet 3 shows 26 printed wire gauge labels but only 0 wire(s) were read on it',missed:[]}];
