@@ -2,6 +2,15 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: unread wires (fix order item 2)
+
+Measured by counts only with the local structure diagnostic on the 11-drawing set (drawing 6 is 151, drawing 7 is 152, drawing 5 is 150, drawing 10 is 155).
+
+- Cause found for 151 and 152: a drawn wire from a named connector's pin to a block of pin numbers that carries no printed name was dropped unless that end was drawn as a ferrule or ring terminal. Unread wires equalled held unnamed-block ends exactly (6 and 12).
+- Done: such a wire now gives the named connector's pin a one-ended row (method traced-wire-unnamed-block, far end left unresolved). 151 reads 80 of 80 gauge labels (was 74) and 152 reads 80 of 80 (was 68); their printed-pin checks now all pass (printed pins with no wire 6 to 0 and 12 to 0). No drawing's wire rows or any connector's wired or position count went down.
+- Built-exe end-to-end (headless Edge, counts only): app build hours 151 6.2 to 6.56, 152 3.99 to 4.71 (your estimates 7 and 10); every other drawing equal or slightly up, none down.
+- Not fixed: 150 still reads 46 of 48 (one line ends at an unnumbered position in a pin column, and 34 pin problems are pins with two wires read to them), and 155 still reads 43 of 44 (two lines with a gauge label and no pin number at either end) with 8 printed pin numbers at one lettered connector that have no wire read. These are different causes and need their own diagnosis.
+
 ## 2026-11-13 update: connectors with no position count (fix order item 1)
 
 Measured by counts only with the local structure diagnostic on the 11-drawing set. 25 connectors had a printed wire list and no position count.

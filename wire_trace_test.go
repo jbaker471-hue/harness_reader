@@ -66,10 +66,17 @@ func TestTracedWiresFollowTheDrawnLine(t *testing.T) {
 	}
 }
 
-func TestTracedWiresHoldUnnamedBlock(t *testing.T) {
+// A far block with no printed name no longer holds its wires: the line is still drawn from the named
+// connector's pin, so each pin gets a one-ended row and the far end stays unresolved.
+func TestTracedWiresToUnnamedBlockWireTheNamedPins(t *testing.T) {
 	rows, why := tracedWireRows(tracedPage(""), nil, nil)
-	if len(rows) != 0 || !strings.Contains(why, "8 label(s): an end whose connector block could not be named") {
-		t.Fatalf("an unnamed far block must hold its wires and say why: %d %q", len(rows), why)
+	if len(rows) != 8 || why != "" {
+		t.Fatalf("an unnamed far block still wires the named pins: %d %q", len(rows), why)
+	}
+	for _, r := range rows {
+		if r.Connector != "NEAR-P1" || r.End != "" || r.Method != "traced-wire-unnamed-block" || !strings.Contains(r.EndSignal, "no printed name") {
+			t.Fatalf("one-ended row expected: %+v", r)
+		}
 	}
 }
 
@@ -423,7 +430,7 @@ func ringChords(cx, cy, r float64) []Segment {
 // NON-CUI: wires from a named connector end on a block with no name whose
 // ends carry letters. An end drawn as a small circle is a ring terminal, one
 // drawn as a small square is a crimp ferrule; each wires the named
-// connector's pin. An end with neither stays held.
+// connector's pin. An end with neither is a block with no printed name: the pin is wired, the far end unresolved.
 func TestUnnamedEndsDrawnAsTerminationsWireTheNamedPin(t *testing.T) {
 	p := Page{Number: 5, Width: 1200, Height: 1000, PageAccurate: true}
 	add := func(t string, x, y float64) {
@@ -449,7 +456,7 @@ func TestUnnamedEndsDrawnAsTerminationsWireTheNamedPin(t *testing.T) {
 	for _, r := range rows {
 		got = append(got, r.Connector+":"+r.Cavity+"/"+r.Method+"/"+r.EndSignal)
 	}
-	want := "NEAR-P1:1/traced-wire-to-ring/ring terminal: A NEAR-P1:2/traced-wire-to-ferrule/crimp ferrule: B"
+	want := "NEAR-P1:1/traced-wire-to-ring/ring terminal: A NEAR-P1:2/traced-wire-to-ferrule/crimp ferrule: B NEAR-P1:3/traced-wire-unnamed-block/connector block with no printed name: pin C"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("got  %v\nwant %s", got, want)
 	}

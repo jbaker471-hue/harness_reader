@@ -932,7 +932,7 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			case hasBox(e.x, e.y, dir, em):
 				kind = "crimp ferrule"
 			}
-			if kind == "" || occupied[strings.ToUpper(tc)+":"+c.pinID] {
+			if occupied[strings.ToUpper(tc)+":"+c.pinID] {
 				noConn++
 				if traceHeldHook != nil && kind == "" {
 					traceHeldHook("unnamed block end", e.x, e.y, dir, em, g.segs)
@@ -940,6 +940,13 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 				continue
 			}
 			occupied[strings.ToUpper(tc)+":"+c.pinID] = true
+			if kind == "" {
+				// The far end is a block of pin numbers that carries no printed name. The line is still drawn from
+				// this connector's pin, so the pin is wired; the far end stays unresolved.
+				out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: "connector block with no printed name: pin " + strings.TrimSpace(e.pin.Text), Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: "traced-wire-unnamed-block",
+					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE; THE FAR END IS A BLOCK OF PIN NUMBERS WITH NO PRINTED NAME; CHECK SOURCE"})
+				continue
+			}
 			lbl := strings.TrimSpace(e.pin.Text)
 			method, conf := "traced-wire-to-ferrule", "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX), NOT A CONNECTOR PIN; CHECK SOURCE"
 			if kind == "ring terminal" {
