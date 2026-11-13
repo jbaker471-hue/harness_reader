@@ -316,6 +316,15 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 		}
 	}
 	sort.Strings(tags)
+	lettered := map[string]bool{}
+	for _, w := range a.Wires {
+		if _, err := strconv.Atoi(w.Cavity); err != nil && w.Cavity != "" {
+			lettered[w.Connector] = true
+		}
+		if _, err := strconv.Atoi(w.EndCavity); err != nil && w.EndCavity != "" {
+			lettered[w.End] = true
+		}
+	}
 	for _, tag := range tags {
 		m := CavityModel{Tag: tag, Part: parts[tag], All: []string{}, Wired: []string{}, ExplicitUnused: []UnusedCavity{}, Unused: []string{}, SolidMarked: []string{}, OpenMarked: []string{}, Views: []FaceView{}, Conflicts: []string{}, UnusedProvisional: []string{}}
 		for _, d := range diagrams {
@@ -356,6 +365,9 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 			m.All = append([]string{}, guide.IDs...)
 			m.AllSource = guide.Source
 			m.AllVerified = true
+		} else if counts[tag] > 0 && lettered[tag] {
+			// the parts list gives the count but the pins are lettered: numbering 1..N would be invented
+			m.AllSource = fmt.Sprintf("%d positions stated for %s; the wired pins are lettered, so no cavity list is assumed", counts[tag], parts[tag])
 		} else if counts[tag] > 0 {
 			for i := 1; i <= counts[tag]; i++ {
 				m.All = append(m.All, strconv.Itoa(i))
@@ -413,8 +425,9 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 		// No catalog data and no face view: the drawing itself states the
 		// positions when every pin-number check passes and the wired pins plus
 		// the NC pins run 1..N with no gaps.
-		// With no NC list the same rule holds when the wired pins alone run 1..N: the drawing prints a line for
-		// every pin and marks every unused pin NC, so a connector with neither has none unused.
+		// With no NC list a run of wired pins 1..N is only a lower bound. Measured on the owner's drawings: a part
+		// whose parts list says 25 positions has pins 1-18 wired and no NC word printed anywhere on its sheets, so
+		// "no NC list" does not mean "none unused".
 		if len(m.All) == 0 && checks > 0 && allPass && (len(ncSeen) > 0 || len(seen) > 0) {
 			ids := map[int]bool{}
 			okNum, maxN := true, 0
@@ -441,15 +454,14 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 				okNum = false
 			}
 			isLetter := lettered > 0
-			if okNum && maxN > 0 && len(ids) == maxN {
+			if okNum && maxN > 0 && len(ids) == maxN && len(ncSeen) == 0 {
+				m.AllSource = fmt.Sprintf("unknown: pins 1-%d are all wired and none is marked NC, but the drawing does not state how many positions the connector has; at least %d positions", maxN, maxN)
+				m.AtLeast = maxN
+			} else if okNum && maxN > 0 && len(ids) == maxN {
 				for i := 1; i <= maxN; i++ {
 					m.All = append(m.All, pinLabel(i, isLetter))
 				}
-				if len(ncSeen) > 0 {
-					m.AllSource = fmt.Sprintf("from the drawing: %d wired pins plus %d pins marked NC make positions 1-%d with no gaps (no catalog data for this part)", len(seen), len(ncSeen), maxN)
-				} else {
-					m.AllSource = fmt.Sprintf("from the drawing: pins 1-%d are all wired and the drawing marks no pin NC, so there are %d positions and none unused (no catalog data for this part)", maxN, maxN)
-				}
+				m.AllSource = fmt.Sprintf("from the drawing: %d wired pins plus %d pins marked NC make positions 1-%d with no gaps (no catalog data for this part)", len(seen), len(ncSeen), maxN)
 				m.AllVerified = true
 			} else if okNum && maxN > 0 {
 				m.AllSource = fmt.Sprintf("unknown: the drawing's wired and NC pins leave %d gap(s) in 1-%d, so the positions are not proven; at least %d positions", maxN-len(ids), maxN, maxN)

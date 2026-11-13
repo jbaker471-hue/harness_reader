@@ -230,6 +230,73 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					}
 				}
 				pf("ASSIGN: connector %d: positions %d, wired %d, not used %d, pins with 2+ wires %d", ci+1, a.Positions, a.Wired, a.Unused, double)
+				{
+					// Where each connector's position count came from, and whether the parts list agrees. Counts and one-word classes only.
+					class := "none"
+					for _, m := range v.CavityModels {
+						if strings.EqualFold(m.Tag, k) {
+							src := m.AllSource
+							switch {
+							case strings.HasPrefix(src, "from the drawing: pins") && strings.Contains(src, "marks no pin NC"):
+								class = "wired-pins-no-NC"
+							case strings.HasPrefix(src, "from the drawing"):
+								class = "wired-plus-NC"
+							case strings.HasPrefix(src, "face view"):
+								class = "face-view"
+							case strings.HasPrefix(src, "catalog position count"):
+								class = "stated-count"
+							case m.AllVerified:
+								class = "guide-inventory"
+							}
+						}
+					}
+					stated := map[int]bool{}
+					part := ""
+					for _, c := range v.Connectors {
+						if strings.EqualFold(c.Name, k) {
+							part = strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(c.Part), " ", ""))
+						}
+					}
+					if part != "" {
+						for _, bm := range v.Boms {
+							if strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(bm.Part), " ", "")) == part {
+								if n, ok := positionsFromDescription(bm.Description); ok {
+									stated[n] = true
+								}
+							}
+						}
+					}
+					statedText := "none"
+					for n := range stated {
+						statedText = fmt.Sprintf("%d", n)
+					}
+					{
+						// Is an NC list printed on the sheets where this connector's wires are, even though none was read for it? Counts only.
+						wirePages := map[int]bool{}
+						for _, w := range v.Wires {
+							if strings.EqualFold(w.Connector, k) || strings.EqualFold(w.End, k) {
+								wirePages[w.Page] = true
+							}
+						}
+						ncw, lists := 0, 0
+						for _, pg := range x.Data.Pages {
+							if !wirePages[pg.Number] {
+								continue
+							}
+							for _, w := range pg.Words {
+								tx := strings.TrimSpace(w.Text)
+								if u := strings.ToUpper(tx); u == "NC" || u == "N/C" || u == "N.C." || u == "(NC)" {
+									ncw++
+								}
+								if expandPinList(tx) != nil {
+									lists++
+								}
+							}
+						}
+						pf("NCSEEN: connector %d: sheets with its wires %d, NC words on them %d, pin-list words on them %d", ci+1, len(wirePages), ncw, lists)
+					}
+					pf("POSCHK: connector %d: positions %d, source %s, parts-list count %s", ci+1, a.Positions, class, statedText)
+				}
 				if a.Positions == 0 {
 					// Why no position count: counts and yes/no only, never a designator or a part number.
 					checks, pass, nc := 0, 0, 0
@@ -298,6 +365,90 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					for _, m := range v.CavityModels {
 						if strings.EqualFold(m.Tag, k) && m.AtLeast > 0 {
 							pf("NOPOSL: connector %d: at least %d positions", ci+1, m.AtLeast)
+						}
+					}
+					// Does the drawing state a position count anywhere for this connector? Numbers and a fixed unit word only.
+					{
+						reCount := regexp.MustCompile(`(?i)\b(\d{1,3})\s*-?\s*(POSITIONS?|POS|PINS?|WAYS?|WAY|CAVITIES|CAVITY|CKTS?|CIRCUITS?|CONTACTS?|PIN|P|C)\b`)
+						rePerSize := regexp.MustCompile(`(?i)\b(\d{1,3})\s*#\s*\d{1,2}[A-Z]?\b`)
+						unitWord := func(s string) string {
+							s = strings.ToUpper(s)
+							switch {
+							case strings.HasPrefix(s, "POS"):
+								return "POS"
+							case strings.HasPrefix(s, "PIN"):
+								return "PIN"
+							case strings.HasPrefix(s, "WAY"):
+								return "WAY"
+							case strings.HasPrefix(s, "CAV"):
+								return "CAV"
+							case strings.HasPrefix(s, "CK"), strings.HasPrefix(s, "CIR"):
+								return "CKT"
+							case strings.HasPrefix(s, "CON"):
+								return "CONTACT"
+							}
+							return "P"
+						}
+						part := ""
+						for _, c := range v.Connectors {
+							if strings.EqualFold(c.Name, k) {
+								part = strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(c.Part), " ", ""))
+							}
+						}
+						found := map[string]bool{}
+						if part != "" {
+							for _, bm := range v.Boms {
+								if strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(bm.Part), " ", "")) == part {
+									for _, m := range reCount.FindAllStringSubmatch(bm.Description, -1) {
+										found["parts-list description: "+m[1]+" "+unitWord(m[2])] = true
+									}
+									for _, m := range rePerSize.FindAllStringSubmatch(bm.Description, -1) {
+										found["parts-list description: "+m[1]+" per-size"] = true
+									}
+								}
+							}
+						}
+						// the same wording printed within reach of the connector's own name on a sheet
+						for _, pg := range x.Data.Pages {
+							var tagWords []Word
+							for _, w := range pg.Words {
+								if strings.EqualFold(strings.TrimSpace(w.Text), k) {
+									tagWords = append(tagWords, w)
+								}
+							}
+							for _, ln := range pageLines(pg) {
+								for _, tw := range tagWords {
+									if math.Abs(ln.Y-tw.Y) > 70 {
+										continue
+									}
+									near := false
+									for _, w := range ln.Words {
+										if math.Abs(w.X-tw.X) < 260 {
+											near = true
+										}
+									}
+									if !near {
+										continue
+									}
+									for _, m := range reCount.FindAllStringSubmatch(ln.Text, -1) {
+										found["printed near the connector: "+m[1]+" "+unitWord(m[2])] = true
+									}
+									for _, m := range rePerSize.FindAllStringSubmatch(ln.Text, -1) {
+										found["printed near the connector: "+m[1]+" per-size"] = true
+									}
+								}
+							}
+						}
+						keys := make([]string, 0, len(found))
+						for s := range found {
+							keys = append(keys, s)
+						}
+						sort.Strings(keys)
+						if len(keys) == 0 {
+							pf("NOPOSC: connector %d: no position count stated", ci+1)
+						}
+						for _, s := range keys {
+							pf("NOPOSC: connector %d: %s", ci+1, s)
 						}
 					}
 					pf("NOPOSX: connector %d: part shape [%s], decoder shape [%s], wired pin shapes [%s]", ci+1, partShape, famShape, strings.Join(shapeList, "; "))

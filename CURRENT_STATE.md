@@ -4,10 +4,14 @@ Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), syn
 
 ## 2026-11-13 update: connectors with no position count (fix order item 1)
 
-- Local diagnostic on the 11-drawing set (counts only): 25 connectors had a printed wire list but no position count. Classes: numbered pins with no gaps and no NC list (5), a part number the decoder does not know (14, mostly manufacturer-style codes), lettered pins (several 2-position connectors and two circular connectors with 31 to 43 lettered contacts), and connectors with no wires read (2).
-- Done: when every pin-number check passes and the wired pins alone run 1-N (or A-C) with no gaps, the drawing's own positions are used and none are unused, because the shop rule prints every unused pin as NC. Six connectors on the set now have a count; no drawing's wire or connector count went down.
-- Done: when pins have gaps and no NC list, the positions stay unproven but the card says "at least N positions" from the highest printed pin (11 connectors on the set). No unused count is given from a lower bound.
-- Still open: part-number decode for manufacturer-style codes and MS-style circular inserts needs arrangement tables that are not in the repository; lettered circular contacts (lower case and doubled letters) are not read as a sequence.
+Measured by counts only with the local structure diagnostic on the 11-drawing set. 25 connectors had a printed wire list and no position count.
+
+- Where a position count really comes from, in order of strength: a catalog or guide inventory for the part; the connector's own face view; wired pins plus a printed NC list that run 1-N with no gaps; and now the count the parts-list description states for that part ("37 POS", "15 P"). The last settled 11 connectors: every stated count was at least the highest wired pin, and none disagreed with the wiring.
+- A run of wired pins 1-N with no NC list is only a lower bound. Counter-example measured on the set: a part whose parts list says 25 positions has pins 1-18 wired and no NC word printed anywhere on its sheets. Of the 29 connectors with unused pins, 19 have no NC word on their sheets, so "no NC list" cannot mean "none unused". The card says "at least N positions" and gives no unused count from it.
+- Lettered pins are never numbered 1..N. A stated count is kept on the connector, but no cavity list is invented.
+- Result on the local set: 16 connectors gained a position count, 9 have none (6 of them carry an "at least N" lower bound), and no wire-row total or connector count went down.
+- To check: one connector decodes to 128 positions from its part number while its own parts-list description says 61. One of the two is wrong; compare it against the sheet.
+- Still open: part-number decode for manufacturer-style codes and MS-style circular inserts needs arrangement tables that are not in the repository.
 
 ## 2026-11-04 update (Claude)
 

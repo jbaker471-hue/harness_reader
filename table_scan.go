@@ -197,6 +197,9 @@ func connectorsFromDescribedParts(boms []BOMRow, already []Connector) []Connecto
 		n, s := getLayout(part)
 		if n == 0 {
 			s = "CONNECTOR DESCRIPTION IDENTIFIED; INSERT/CONTACT TOOLING UNRESOLVED"
+			if dn, ok := positionsFromDescription(b.Description); ok {
+				n, s = dn, descCountLayout(dn)
+			}
 		}
 		out = append(out, Connector{Tag: tag, Part: part, CavityCount: n, Family: "MANUFACTURER CONNECTOR — REVIEW", Pages: []int{b.Page}, LayoutStatus: s})
 	}

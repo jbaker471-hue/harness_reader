@@ -54,9 +54,11 @@ func TestPositionsFromWiredPinsWithNoNCList(t *testing.T) {
 		t.Fatal("no model")
 		return CavityModel{}
 	}
+	// Measured on real drawings: a part whose parts list says 25 positions can have pins 1-18 wired and no NC
+	// printed at all, so wired pins 1-4 with no NC list are a lower bound, never the whole connector.
 	m := mk([]string{"1", "2", "3", "4"}, "COMPLETE")
-	if !m.AllVerified || strings.Join(m.All, ",") != "1,2,3,4" || len(m.Unused) != 0 || !strings.Contains(m.AllSource, "none unused") {
-		t.Fatalf("pins 1-4 all wired, no NC: want 4 positions and none unused: %+v", m)
+	if m.AllVerified || len(m.All) != 0 || m.AtLeast != 4 || len(m.Unused) != 0 || !strings.Contains(m.AllSource, "at least 4") {
+		t.Fatalf("pins 1-4 all wired, no NC: want a lower bound of 4 and no unused claim: %+v", m)
 	}
 	// a gap: not proven, but the lowest possible count is kept and said
 	m = mk([]string{"1", "2", "3", "5"}, "COMPLETE")
@@ -70,8 +72,8 @@ func TestPositionsFromWiredPinsWithNoNCList(t *testing.T) {
 	}
 	// upper-case letters A, B, C count the same way
 	m = mk([]string{"A", "B", "C"}, "COMPLETE")
-	if !m.AllVerified || strings.Join(m.All, ",") != "A,B,C" {
-		t.Fatalf("pins A-C all wired: want 3 positions: %+v", m)
+	if m.AllVerified || len(m.All) != 0 || m.AtLeast != 3 {
+		t.Fatalf("pins A-C all wired, no NC: want a lower bound of 3: %+v", m)
 	}
 	m = mk([]string{"A", "B", "D"}, "COMPLETE")
 	if m.AllVerified || len(m.All) != 0 || m.AtLeast != 4 {
