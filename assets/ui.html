@@ -173,7 +173,9 @@ const laborOps=[
  ['solder','Solder termination',2,5,12,'termination'],
  ['insert','Identify cavity, verify and insert contact — local observed time (2:32)',2.5333,2.5333,2.5333,'contact'],
  ['sealPlug','Insert sealing plug — local estimate (15 to 20 s; 17.5 s used)',.25,.2917,.3333,'plug'],
- ['jointShrink','Slide and shrink clear tubing over a solder joint — starting estimate',.5,1,2,'joint'],
+ ['jointShrink','Cut, slide and shrink clear tubing over a solder joint — shop estimate (up to 1 min)',.5,1,1,'joint'],
+ ['sensorSolder','Solder sensor lead to wire — shop estimate (1 to 2 min; 1.5 used)',1,1.5,2,'joint'],
+ ['solderSetup','Set up soldering iron, once per harness — shop estimate (a few minutes; 3 used)',2,3,5,'harness'],
  ['route','Route conductor on board/in bundle',.5,1.2,3,'conductor'],
  ['jacketPrep','Remove/trim outer jacket and prepare cable end',2,5,12,'cable end'],
  ['twistedPrep','Trim, untwist and dress pair/triad/quad',2,5,12,'cable end'],
@@ -185,7 +187,7 @@ const laborOps=[
  ['crimpRing','Install backshell crimp ring',3,7,15,'ring'],
  ['clamp','Assemble clamp-style backshell/strain relief',2,5,12,'backshell'],
  ['shield','Shield termination — disposition not yet classified',4,10,20,'shield end'],
- ['shieldFloat','Trim/cut back, insulate and float shield end',2,5,10,'shield end'],
+ ['shieldFloat','Trim/cut back, insulate and float shield end — shop estimate (1 to 2 min; 1.5 used)',1,1.5,2,'shield end'],
  ['shieldStandalone','Pull conductors through and form standalone shield lead',4,10,20,'shield end'],
  ['shieldPinSolder','Terminate shield to pin/contact with solder sleeve',5,12,25,'shield end'],
  ['shieldPinOther','Terminate shield to pin/contact by other specified method',5,12,25,'shield end'],
@@ -852,7 +854,7 @@ function jobSummary(x){
  const feats=new Set(x.features||[]);
  const leadEnds=(x.wires||[]).filter(w=>w.method==='traced-wire-one-end').length;
  const sensorJoints=feats.has('SENSOR_LEADS')&&feats.has('SOLDERING')?leadEnds:0;
- if(sensorJoints){add('Solder sensor lead to wire (starting estimate, not your observed time)',sensorJoints,'joint','solder');add('Clear heat shrink over each solder joint (starting estimate, not your observed time)',sensorJoints,'joint','jointShrink')}
+ if(sensorJoints){add('Set up soldering iron (once per harness; 3 min used)',1,'harness','solderSetup');add('Solder sensor lead to wire (1 to 2 min each; 1.5 used)',sensorJoints,'joint','sensorSolder');add('Clear heat shrink over each solder joint (up to 1 min each)',sensorJoints,'joint','jointShrink')}
  else if(feats.has('SENSOR_LEADS')&&!leadEnds)notTimed.push('sensor lead solder joints (the notes mention sensor leads but no wire was read ending at one)');
  add('Continuity test (ring-out)',conductors,'circuit','test');
  add('Inspect contact positions',positions,'position','inspect');
@@ -863,7 +865,7 @@ function jobSummary(x){
   const avg=sizes.length?sizes.reduce((a,b)=>a+b,0)/sizes.length:2;estCables=Math.round(cuts.ungrouped/avg)}
  add('Heat shrink',cables+estCables,'shielded cable','heatShrinkEnd');
  add('Braid trim',cables+estCables,'shielded cable','braidTrimEnd');
- if(feats.has('SHIELD_FLOAT'))add('Float shield: cut back and insulate (starting estimate, not your observed time)',cables+estCables,'shielded cable','shieldFloat');
+ if(feats.has('SHIELD_FLOAT'))add('Float shield: cut back and insulate (1 to 2 min each; 1.5 used)',cables+estCables,'shielded cable','shieldFloat');
  if(bands!=null)add('Install bands',bands,'band','band');else notTimed.push('bands (count not found in the parts list)');
  if(plugTotal)add('Insert sealing plugs (15 to 20 s each; 17.5 s used)',plugTotal,'plug','sealPlug');
  if(unnamedPins)notTimed.push('note: '+unnamedPins+' contact(s) are on a connector block with no printed name; they are counted for crimping and insertion but that connector has no position count, so its inspection and unused cavities are not');

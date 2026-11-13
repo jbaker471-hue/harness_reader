@@ -1140,13 +1140,15 @@ console.log('PASS: harness length applies only to conductors without their own l
  // Sensor harness practice: shields floated, sensor leads soldered with clear heat shrink. Counted only when the notes say so.
  const sw=[{method:'traced-wire-one-end'},{method:'traced-wire-one-end'},{method:'traced-wire-one-end'},{method:'paired-schematic'}];
  const cutS={rows:[{wire:'C1',awg:'22',cut:100,cable:true,conductors:2}],counts:{total:1,ok:1}};
- const rs={...rates,solder:5,jointShrink:1,shieldFloat:5};
+ const rs={...rates,sensorSolder:1.5,solderSetup:3,jointShrink:1,shieldFloat:1.5};
  const plain=ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:[]});
  const sens=ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:['SENSOR_LEADS','SOLDERING','SHIELD_FLOAT']});
  const line=(s,re)=>s.time.lines.find(l=>re.test(l.label));
  if(line(plain,/Solder sensor lead/)||line(plain,/Float shield/))throw Error('without the notes nothing is added');
- if(!line(sens,/Solder sensor lead/)||line(sens,/Solder sensor lead/).count!==3||line(sens,/Clear heat shrink/).count!==3||line(sens,/Float shield/).count!==1)throw Error('sensor operations: '+JSON.stringify(sens.time.lines));
- if(Math.abs(sens.time.minutes-plain.time.minutes-(3*5+3*1+1*5))>1e-6)throw Error('sensor minutes: '+(sens.time.minutes-plain.time.minutes));
+ if(!line(sens,/Solder sensor lead/)||line(sens,/Solder sensor lead/).count!==3||line(sens,/Clear heat shrink/).count!==3||line(sens,/Float shield/).count!==1||line(sens,/Set up soldering iron/).count!==1)throw Error('sensor operations: '+JSON.stringify(sens.time.lines));
+ if(Math.abs(sens.time.minutes-plain.time.minutes-(3+3*1.5+3*1+1*1.5))>1e-6)throw Error('sensor minutes: '+(sens.time.minutes-plain.time.minutes));
+ {const ops=vm.runInContext('laborOps',labor);const d=n=>ops.find(o=>o[0]===n)[3];if(d('sensorSolder')!==1.5||d('solderSetup')!==3||d('jointShrink')!==1||d('shieldFloat')!==1.5)throw Error('shop times for sensor operations changed')}
+ if(line(plain,/Set up soldering iron/))throw Error('no solder joints, no iron setup');
  if(line(ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:['SENSOR_LEADS']}),/Solder sensor lead/))throw Error('sensor leads without a solder note are not counted as solder joints');
  // Cuts are made at the top of the tolerance with no extra excess by default (146: 216 +1 is cut at 217).
  if(!/id="cutAllowance"[^>]*value="0"/.test(html))throw Error('the default excess added to each cut must be 0: the shop cuts at the top of the tolerance');

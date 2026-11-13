@@ -2,6 +2,13 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: owner's times for sensor operations (supersedes the starting estimates below)
+
+- Owner's estimates, now the defaults: float one shield 1 to 2 min (1.5 used); solder one sensor lead 1 to 2 min (1.5 used) plus soldering iron setup once per harness ("a few more minutes"; 3 used, the owner did not give an exact figure); cut, slide and shrink clear tubing over one joint up to 1 min (1 used).
+- The sensor solder joint has its own rate (`sensorSolder`) so the general solder termination rate is unchanged. The float rate (`shieldFloat`) changed for the Labor tab as well.
+- Hours now (owner's estimate): 146 11.46 (11.5), 147 9.94 (9.5), 148 10.41 (10), 149 6.11 (11), 150 5.71 (11.5), 151 7.31 (7), 152 8.61 (10), 153 7.72 (10), 154 6.93 (10.5), 155 4.58 (5.5), 156 3.90 (7.5).
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe; only time and quote lines changed against the previous run.
+
 ## 2026-11-13 update: overall harness length and sensor operations (measured by counts only on the 11-drawing set)
 
 - Shop rule: the inch length printed at the top of a drawing is the overall harness length. Cutting every wire to it leaves each a little long, which is acceptable because wires are trimmed to fit at assembly. With no confirmed or single labelled length, the cut list now uses the longest printed length (source "overall") and says so in the harness note.
