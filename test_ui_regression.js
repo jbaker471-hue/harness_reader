@@ -1113,6 +1113,10 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(s.kit.crimpContacts!==1||s.kit.fillerContacts!==1||s.kit.sealingPlugs!==1||s.kit.state!=='read')throw Error('kit wrong: '+JSON.stringify(s.kit));
  const want=2*.1667+1*.25+(2/2)*2.5333+1*.0781+2*.0276+2*5; // insert 2:32 per wire = 2 cavities
  if(Math.abs(s.time.minutes-want)>1e-6||!s.time.notTimed.some(x=>/sealing plugs/.test(x)))throw Error('time wrong: '+s.time.minutes+' vs '+want+' '+JSON.stringify(s.time.notTimed));
+ // With the shop's sealing plug time (15 to 20 s; 17.5 s used) the plug is timed and no longer listed as untimed.
+ const sp=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:ctx.st.bom,rates:{...rates,sealPlug:.2917}});
+ if(Math.abs(sp.time.minutes-(want+.2917))>1e-6||sp.time.notTimed.some(x=>/sealing plugs/.test(x))||!sp.time.lines.some(l=>/sealing plugs/.test(l.label)&&l.count===1))throw Error('sealing plug time wrong: '+sp.time.minutes+' '+JSON.stringify(sp.time.notTimed));
+ if(!/\['sealPlug','[^']*15 to 20 s[^']*',\.25,\.2917,\.3333,'plug'\]/.test(src))throw Error('the sealing plug operation must carry the 15 to 20 s range');
  // An unread wiring sheet: not used is held, not in the kit, and the answer says where to look.
  ctx.st.raw.tableAudits=[{page:3,title:'wire gauge labels',connectors:['P1'],status:'INCOMPLETE',rowsRead:0,counted:true,ruledRows:26,detail:'sheet 3 shows 26 printed wire gauge labels but only 0 wire(s) were read on it',missed:[]}];
  const h=ctx.jobSummary({connectors:[c],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});

@@ -172,6 +172,7 @@ const laborOps=[
  ['coax','Coax/twinax/triax multi-step termination',6,12,25,'termination'],
  ['solder','Solder termination',2,5,12,'termination'],
  ['insert','Identify cavity, verify and insert contact — local observed time (2:32)',2.5333,2.5333,2.5333,'contact'],
+ ['sealPlug','Insert sealing plug — local estimate (15 to 20 s; 17.5 s used)',.25,.2917,.3333,'plug'],
  ['route','Route conductor on board/in bundle',.5,1.2,3,'conductor'],
  ['jacketPrep','Remove/trim outer jacket and prepare cable end',2,5,12,'cable end'],
  ['twistedPrep','Trim, untwist and dress pair/triad/quad',2,5,12,'cable end'],
@@ -855,7 +856,7 @@ function jobSummary(x){
  add('Heat shrink',cables+estCables,'shielded cable','heatShrinkEnd');
  add('Braid trim',cables+estCables,'shielded cable','braidTrimEnd');
  if(bands!=null)add('Install bands',bands,'band','band');else notTimed.push('bands (count not found in the parts list)');
- if(plugTotal)notTimed.push('sealing plugs (no observed time entered)');
+ if(plugTotal)add('Insert sealing plugs (15 to 20 s each; 17.5 s used)',plugTotal,'plug','sealPlug');
  if(unnamedPins)notTimed.push('note: '+unnamedPins+' contact(s) are on a connector block with no printed name; they are counted for crimping and insertion but that connector has no position count, so its inspection and unused cavities are not');
  if(cuts.ungrouped)notTimed.push('cable count estimated: '+cuts.ungrouped+' conductor(s) of shielded cables the cut list could not group were counted as about '+estCables+' cable(s)');
  const minutes=lines.reduce((s,l)=>s+l.minutes,0);
