@@ -54,6 +54,10 @@ type traceEnd struct {
 // end is so its drawn shape can be summarised. Never set in the app.
 var traceHeldHook func(reason string, x, y, dir, em float64, segs []Segment)
 
+// traceSameHook, when set (diagnostics only), is told where a wire's two ends landed on blocks given the
+// same connector name. Never set in the app.
+var traceSameHook func(ax, ay, bx, by, em float64)
+
 // segGraph joins segments that share an end point.
 type segGraph struct {
 	segs []Segment
@@ -932,7 +936,7 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			case hasBox(e.x, e.y, dir, em):
 				kind = "crimp ferrule"
 			}
-			if kind == "" || occupied[strings.ToUpper(tc)+":"+c.pinID] {
+			if occupied[strings.ToUpper(tc)+":"+c.pinID] {
 				noConn++
 				if traceHeldHook != nil && kind == "" {
 					traceHeldHook("unnamed block end", e.x, e.y, dir, em, g.segs)
@@ -940,6 +944,13 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 				continue
 			}
 			occupied[strings.ToUpper(tc)+":"+c.pinID] = true
+			if kind == "" {
+				// The far end is a block of pin numbers that carries no printed name. The line is still drawn from
+				// this connector's pin, so the pin is wired; the far end stays unresolved.
+				out = append(out, WireRow{Page: p.Number, Connector: tc, Cavity: c.pinID, EndSignal: "connector block with no printed name: pin " + strings.TrimSpace(e.pin.Text), Color: c.color, AWG: labels[c.label].gauge, Y: labels[c.label].y, Method: "traced-wire-unnamed-block",
+					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE; THE FAR END IS A BLOCK OF PIN NUMBERS WITH NO PRINTED NAME; CHECK SOURCE"})
+				continue
+			}
 			lbl := strings.TrimSpace(e.pin.Text)
 			method, conf := "traced-wire-to-ferrule", "DRAFT — TRACED ALONG THE DRAWN WIRE TO A CRIMP FERRULE (DRAWN AS A SMALL BOX), NOT A CONNECTOR PIN; CHECK SOURCE"
 			if kind == "ring terminal" {
@@ -951,7 +962,17 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			noConn++
 			continue
 		case ta == tb:
+			// Both ends in one column of one block: pins of the same connector wired together (a jumper). Ends in
+			// two different columns that were given the same name are a naming doubt, not a jumper, and stay held.
+			if math.Abs(a.x-b.x) <= 3 && a.pinID != "" && b.pinID != "" && a.pinID != b.pinID && !pairRead[ta+":"+a.pinID+">"+tb+":"+b.pinID] {
+				out = append(out, WireRow{Page: p.Number, Connector: ta, Cavity: a.pinID, End: tb, EndCavity: b.pinID, EndSignal: "jumper between two pins of the same connector", Color: a.color, AWG: labels[a.label].gauge, Y: labels[a.label].y, Method: "traced-wire-jumper",
+					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE; BOTH ENDS ARE PINS OF THE SAME CONNECTOR; CHECK SOURCE"})
+				continue
+			}
 			same++
+			if traceSameHook != nil {
+				traceSameHook(a.x, a.y, b.x, b.y, labels[a.label].em)
+			}
 			continue
 		}
 		if pairRead[ta+":"+a.pinID+">"+tb+":"+b.pinID] {
