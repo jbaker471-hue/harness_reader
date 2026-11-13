@@ -2,6 +2,18 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: fix order items 3 to 7 (measured by counts only on the 11-drawing set)
+
+- Item 3, cable grouping: wires of one cable that end at terminals each have their own far-end node, so they never grouped. The far end is left out of the key when it is a terminal; an odd conductor out is set aside; mixed cable sizes of one gauge are grouped when exactly one cut into the parts-list sizes exists. Cables found before to after: 147 30 to 31, 149 12 to 25, 150 20 to 22, 151 0 to 24, 152 0 to 25, 153 21 to 31, 155 4 to 17, 156 7 to 16. Still single: conductors whose partner is not next to them in drawing order (colour order A A B B on 153 and 155); that needs the drawn shield symbols.
+- Item 2 follow-up, 155: eight wires stopped at a break in their line 50 em short of their pin (90% of the way drawn at that height). A wire now carries on past a short break to the nearest free pin label in a pin column when at least 80% of the way is drawn and no other gauge label lies between. 155's printed pins with no wire went 8 to 0 and all its pin checks pass.
+- Contacts on a connector block with no printed name are counted for crimping and insertion (151, 152).
+- Item 4, per-wire lengths: not read from the layout sheet. The cut list now has a Lengths by branch table (one length per destination, with the drawing's printed dimensions listed) so a branched harness needs a few entries, not one per wire.
+- Item 5, part mismatches: real differences on the drawings, not reading errors. 147: both headers differ from the parts list only in the keying letter. 154: the slash sheet differs, the same on three sheets (now one alert). 149: the header is the mating half; one designator sits directly above it. The alert names the fields that differ.
+- 151: the part decodes to 128 positions and the parts list wording says 61; pin 128 is wired and 80 pins are used, so 128 stands. New POSITION_COUNT_DISAGREES review alert.
+- Item 6: a tabulated parts list keeps every quantity column; the BOM page has a variant column picker.
+- Item 7: ferrule 1.5 min and ring terminal 2 min are in as starting estimates. Sealing plugs are not timed; the shop's time is needed.
+- Built-exe hours now (yours): 146 11.15 (11.5), 147 9.31 (9.5), 148 10.16 (10), 149 5.46 (11), 150 4.98 (11.5), 151 6.71 (7), 152 5.10 (10), 153 6.87 (10), 154 6.93 (10.5), 155 4.08 (5.5), 156 3.48 (7.5). No drawing went down at any step.
+
 ## 2026-11-13 update: unread wires (fix order item 2)
 
 Measured by counts only with the local structure diagnostic on the 11-drawing set (drawing 6 is 151, drawing 7 is 152, drawing 5 is 150, drawing 10 is 155).

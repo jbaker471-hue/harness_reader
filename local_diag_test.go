@@ -527,6 +527,36 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					pf("PARTDIFF: connector %d on sheet %d: lengths after the slash %d and %d, differing positions [%s]", ci, sheet, len(e2), len(o2), strings.Join(diffs, " "))
 				}
 			}
+			{
+				// per sheet and reader: how many wire rows, and how many of their ends carry a single-letter or numeric label
+				type mk struct {
+					page   int
+					method string
+				}
+				cnt, lab := map[mk]int{}, map[mk]int{}
+				for _, w := range v.Wires {
+					k := mk{w.Page, w.Method}
+					cnt[k]++
+					if i := strings.LastIndex(w.EndSignal, ": "); i >= 0 {
+						if _, ok := pinAtEnd(strings.TrimSpace(w.EndSignal[i+2:])); ok {
+							lab[k]++
+						}
+					}
+				}
+				ks := make([]mk, 0, len(cnt))
+				for k := range cnt {
+					ks = append(ks, k)
+				}
+				sort.Slice(ks, func(i, j int) bool {
+					if ks[i].page != ks[j].page {
+						return ks[i].page < ks[j].page
+					}
+					return ks[i].method < ks[j].method
+				})
+				for _, k := range ks {
+					pf("METHODS: sheet %d: %s rows %d, far-end label is pin-shaped %d", k.page, strings.ReplaceAll(k.method, "-", " "), cnt[k], lab[k])
+				}
+			}
 			// parts-list rows that are connector parts: which read connector (by index) their reference names, never the text
 			for bi, bm := range v.Boms {
 				if !rePN.MatchString(strings.ToUpper(bm.Part)) {
@@ -644,6 +674,36 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 							}
 						}
 						pf("PINCHECK: problem number: %s; nearest NC at dx %.1f em, dy %.1f em", m.Reason, bdx, bdy)
+						{
+							// what is drawn and printed at this pin: counts only
+							em := math.Max(w.Size, 4)
+							cx := (w.X + w.right()) / 2
+							hNear, hLong, gauge, others := 0, 0, 0, 0
+							for _, s := range pg.Segs {
+								if math.Abs(s[1]-s[3]) > 0.3*em || math.Abs((s[1]+s[3])/2-w.Y) > 1.2*em {
+									continue
+								}
+								x0, x1 := math.Min(s[0], s[2]), math.Max(s[0], s[2])
+								if x1 < cx-8*em || x0 > cx+8*em {
+									continue
+								}
+								hNear++
+								if x1-x0 > 10*em {
+									hLong++
+								}
+							}
+							for _, n := range its {
+								if math.Abs(n.Y-w.Y) > 1.0*em || (n.X == w.X && n.Y == w.Y) {
+									continue
+								}
+								if reGaugeLabel.MatchString(n.Text) || strings.EqualFold(n.Text, "AWG") {
+									gauge++
+								} else {
+									others++
+								}
+							}
+							pf("PINDRAWN: horizontal lines at the pin %d (longer than 10 em: %d), gauge labels on its line %d, other items on its line %d, pin item shape [%s]", hNear, hLong, gauge, others, tokenShape(w.Text))
+						}
 					}
 				}
 			}
@@ -808,6 +868,9 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				}
 				for _, d := range heldEndShapes(p) {
 					pf("    held end: %s", d)
+				}
+				for _, d := range bareEndShapes(p) {
+					pf("    bare end: %s", d)
 				}
 				for _, d := range sameNameShapes(p) {
 					pf("    same-name pair: %s", d)
@@ -1226,6 +1289,76 @@ func heldEndShapes(p Page) []string {
 		cnt[fmt.Sprintf("%s: short h%d v%d slant%d, long %d (h%d v%d), extent %s, nearest number %s, on the line %s", reason, h, v, sl, long, longH, longV, ext, near, along)]++
 	}
 	defer func() { traceHeldHook = nil }()
+	traceSheet(p, nil, nil)
+	out := []string{}
+	for k, n := range cnt {
+		out = append(out, fmt.Sprintf("%dx %s", n, k))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// bareEndShapes says, for each kept one-ended wire, where the nearest pin-shaped item is from its unnumbered end
+// (em across, outward positive, and em up), and how many drawn strokes touch the end. Counts and offsets only.
+func bareEndShapes(p Page) []string {
+	cnt := map[string]int{}
+	traceBareHook = func(x, y, dir, em float64) {
+		near, bd := "none within 40 em", math.Inf(1)
+		for _, w := range p.Words {
+			if _, ok := pinAtEnd(w.Text); !ok || w.Rotated {
+				continue
+			}
+			dx, dy := ((w.X+w.right())/2-x)*dir/em, (w.Y-y)/em
+			if math.Abs(dx) > 40 || math.Abs(dy) > 6 {
+				continue
+			}
+			if d := math.Abs(dx) + 3*math.Abs(dy); d < bd {
+				bd, near = d, fmt.Sprintf("dx %+.0f dy %+.0f, %s", dx, dy, tokenShape(w.Text))
+			}
+		}
+		touch := 0
+		for _, s := range p.Segs {
+			if math.Hypot(s[0]-x, s[1]-y) <= 0.5*em || math.Hypot(s[2]-x, s[3]-y) <= 0.5*em {
+				touch++
+			}
+		}
+		// further along the same height, outward: the nearest pin-shaped item up to 400 em, and how much of the gap is drawn
+		far, fd := "none", math.Inf(1)
+		for _, w := range p.Words {
+			if _, ok := pinAtEnd(w.Text); !ok || w.Rotated || math.Abs(w.Y-y) > 1.2*em {
+				continue
+			}
+			dx := ((w.X+w.right())/2 - x) * dir
+			if dx > 0 && dx < 400*em && dx < fd {
+				fd = dx
+			}
+		}
+		if !math.IsInf(fd, 1) {
+			covered := 0.0
+			for _, s := range p.Segs {
+				if math.Abs(s[1]-s[3]) > 0.2*em || math.Abs((s[1]+s[3])/2-y) > 0.6*em {
+					continue
+				}
+				a0, a1 := (math.Min(s[0], s[2])-x)*dir, (math.Max(s[0], s[2])-x)*dir
+				if a0 > a1 {
+					a0, a1 = a1, a0
+				}
+				a0, a1 = math.Max(a0, 0), math.Min(a1, fd)
+				if a1 > a0 {
+					covered += a1 - a0
+				}
+			}
+			far = fmt.Sprintf("%.0f em outward, %.0f%% of the gap drawn at that height", math.Round(fd/em/10)*10, math.Round(100*math.Min(covered/fd, 1)/10)*10)
+		}
+		vert := 0
+		for _, s := range p.Segs {
+			if (math.Hypot(s[0]-x, s[1]-y) <= 0.5*em || math.Hypot(s[2]-x, s[3]-y) <= 0.5*em) && math.Abs(s[0]-s[2]) <= 0.2*em {
+				vert++
+			}
+		}
+		cnt[fmt.Sprintf("nearest pin-shaped item %s; strokes touching the end %d (vertical %d); same height further out: %s", near, touch, vert, far)]++
+	}
+	defer func() { traceBareHook = nil }()
 	traceSheet(p, nil, nil)
 	out := []string{}
 	for k, n := range cnt {

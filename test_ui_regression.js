@@ -1129,6 +1129,10 @@ console.log('PASS: harness length applies only to conductors without their own l
  // Wire ends on a ring terminal are in the kit and the build time.
  const rg=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpOpen:2},wires:[{method:'traced-wire-to-ring'},{method:'paired-schematic'}]});
  if(rg.kit.ringTerminals!==1||!rg.time.lines.some(l=>/ring terminal/.test(l.label)&&l.count===1&&Math.abs(l.minutes-2)<1e-9))throw Error('ring terminals missing from kit or time: '+JSON.stringify(rg.kit)+JSON.stringify(rg.time.lines));
+ // Wire ends on a pin of a connector block with no printed name are real contacts: crimped and inserted, and said so.
+ const un=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates,wires:[{method:'traced-wire-unnamed-block'},{method:'traced-wire-unnamed-block'},{method:'paired-schematic'}]});
+ const base=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates,wires:[{method:'paired-schematic'}]});
+ if(un.kit.unnamedPins!==2||un.kit.crimpContacts!==base.kit.crimpContacts+2||!(un.time.minutes>base.time.minutes)||!un.time.notTimed.some(s=>/no printed name/.test(s)))throw Error('unnamed-block contacts must be in the kit and the time: '+JSON.stringify(un.kit));
  // Cuts are made at the top of the tolerance with no extra excess by default (146: 216 +1 is cut at 217).
  if(!/id="cutAllowance"[^>]*value="0"/.test(html))throw Error('the default excess added to each cut must be 0: the shop cuts at the top of the tolerance');
  // The quote uses the job summary's observed-time estimate when the Labor tab was not used.
@@ -1231,4 +1235,27 @@ console.log('PASS: harness length applies only to conductors without their own l
  v.st.bom=[{item:'1',qty:2,qtyText:'2',qtyVariants:[]}];
  if(v.bomVariantHtml()!=='')throw Error('no picker without tabulated quantities');
  console.log('PASS: a tabulated parts list offers its quantity columns; choosing one sets every tabulated line and clears the verified mark');
+}
+
+// Lengths by branch: cuts are grouped by where they go and one typed length fills every cut of that branch that has none.
+{
+ const els={cutDest:{}};
+ const d={st:{raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'36 IN',tolerance:'±1.0',upper:'37 IN'}]},nets:[]},$:id=>els[id]||null,safe:s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),showReport(){},renderCutList(){d.rerendered=true},lastCut:null};
+ vm.createContext(d);vm.runInContext(block('function harnessCandidates(','function autoHarness(')+block('function destKey(','function cutEdit('),d);
+ const n1={length:''},n2={length:''},n3={length:'12 IN'},n4={length:''};
+ d.lastCut={rows:[
+  {from:'P1:1, P1:2',to:'J2:1, J2:2',status:'NO LENGTH',stated:[],nets:[n1,n2]},
+  {from:'P1:3',to:'J2:3',status:'OK',stated:['12 IN'],nets:[n3]},
+  {from:'P1:4',to:'@UNRESOLVED_4',status:'NO LENGTH',stated:[],nets:[n4]},
+  {from:'P1 (8 pins)',to:'ETH1',status:'NO LENGTH',stated:[],nets:[{length:''}],purchased:true}]};
+ const g=d.destGroups(d.lastCut.rows);
+ if(g.length!==2||g[0].key!=='P1 → J2'||g[0].rows.length!==2||g[0].missing!==1||g[1].key!=='P1 → ends with no connector name')throw Error('groups: '+JSON.stringify(g.map(x=>[x.key,x.rows.length,x.missing])));
+ d.renderDestLengths();
+ const h=els.cutDest.innerHTML;
+ if(!h.includes('goes to 2 places')||!h.includes('37 IN')||!h.includes('top of 36 IN')||(h.match(/<input/g)||[]).length!==2)throw Error('branch table: '+h.slice(0,400));
+ d.destSet('P1 → J2','36 IN');
+ if(n1.length!=='36 IN'||n2.length!=='36 IN'||n3.length!=='12 IN'||n4.length!==''||!d.rerendered)throw Error('a branch length fills only the cuts of that branch with no length');
+ d.lastCut={rows:[{from:'P1:1',to:'J2:1',status:'NO LENGTH',stated:[],nets:[{length:''}]}]};d.renderDestLengths();
+ if(els.cutDest.innerHTML!=='')throw Error('one destination needs no branch table');
+ console.log('PASS: lengths by branch group cuts by destination, list the printed dimensions, and fill only cuts with no length');
 }
