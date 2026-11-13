@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -229,6 +230,79 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					}
 				}
 				pf("ASSIGN: connector %d: positions %d, wired %d, not used %d, pins with 2+ wires %d", ci+1, a.Positions, a.Wired, a.Unused, double)
+				if a.Positions == 0 {
+					// Why no position count: counts and yes/no only, never a designator or a part number.
+					checks, pass, nc := 0, 0, 0
+					for _, ta := range v.TableAudits {
+						if strings.EqualFold(ta.Title, "pin numbers "+k) {
+							checks++
+							if ta.Status == "COMPLETE" {
+								pass++
+							}
+							nc += len(ta.NC)
+						}
+					}
+					numeric, other, maxPin := map[int]bool{}, 0, 0
+					unknownWhy := false
+					for _, m := range v.CavityModels {
+						if strings.EqualFold(m.Tag, k) {
+							for _, id := range m.Wired {
+								if n, err := strconv.Atoi(id); err == nil && n > 0 {
+									numeric[n] = true
+									if n > maxPin {
+										maxPin = n
+									}
+								} else {
+									other++
+								}
+							}
+							unknownWhy = strings.HasPrefix(m.AllSource, "unknown")
+						}
+					}
+					partKnown, famKnown := false, false
+					partShape, famShape := "none", "none"
+					for _, c := range v.Connectors {
+						if strings.EqualFold(c.Name, k) {
+							partKnown = strings.TrimSpace(c.Part) != "" && !strings.EqualFold(strings.TrimSpace(c.Part), "NOT RESOLVED")
+							famKnown = c.Family != ""
+							if partKnown {
+								partShape = tokenShape(c.Part)
+								// the decoder's own one-word shape vocabulary, never the part number
+								famShape = DecodeConnectorFamily(c.Part).Shape
+							}
+						}
+					}
+					pinShapes := map[string]int{}
+					for _, m := range v.CavityModels {
+						if strings.EqualFold(m.Tag, k) {
+							for _, id := range m.Wired {
+								pinShapes[tokenShape(id)]++
+							}
+						}
+					}
+					shapeKeys := make([]string, 0, len(pinShapes))
+					for s := range pinShapes {
+						shapeKeys = append(shapeKeys, s)
+					}
+					sort.Strings(shapeKeys)
+					shapeList := []string{}
+					for _, s := range shapeKeys {
+						shapeList = append(shapeList, fmt.Sprintf("%s=%d", s, pinShapes[s]))
+					}
+					yn := func(b bool) string {
+						if b {
+							return "yes"
+						}
+						return "no"
+					}
+					for _, m := range v.CavityModels {
+						if strings.EqualFold(m.Tag, k) && m.AtLeast > 0 {
+							pf("NOPOSL: connector %d: at least %d positions", ci+1, m.AtLeast)
+						}
+					}
+					pf("NOPOSX: connector %d: part shape [%s], decoder shape [%s], wired pin shapes [%s]", ci+1, partShape, famShape, strings.Join(shapeList, "; "))
+					pf("NOPOS: connector %d: pin-number checks %d, passing %d, NC pins %d, wired pins numeric %d, wired pins not numeric %d, highest wired pin %d, gaps below it %d, part number present %s, family recognised %s, gap-held %s", ci+1, checks, pass, nc, len(numeric), other, maxPin, maxPin-len(numeric), yn(partKnown), yn(famKnown), yn(unknownWhy))
+				}
 			}
 			done, total := 0, 0
 			for _, t := range v.TableAudits {

@@ -2,6 +2,13 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: connectors with no position count (fix order item 1)
+
+- Local diagnostic on the 11-drawing set (counts only): 25 connectors had a printed wire list but no position count. Classes: numbered pins with no gaps and no NC list (5), a part number the decoder does not know (14, mostly manufacturer-style codes), lettered pins (several 2-position connectors and two circular connectors with 31 to 43 lettered contacts), and connectors with no wires read (2).
+- Done: when every pin-number check passes and the wired pins alone run 1-N (or A-C) with no gaps, the drawing's own positions are used and none are unused, because the shop rule prints every unused pin as NC. Six connectors on the set now have a count; no drawing's wire or connector count went down.
+- Done: when pins have gaps and no NC list, the positions stay unproven but the card says "at least N positions" from the highest printed pin (11 connectors on the set). No unused count is given from a lower bound.
+- Still open: part-number decode for manufacturer-style codes and MS-style circular inserts needs arrangement tables that are not in the repository; lettered circular contacts (lower case and doubled letters) are not read as a sequence.
+
 ## 2026-11-04 update (Claude)
 
 - Unused pins are found by **process of elimination** again: verified cavity inventory minus every wired cavity on the drawing. No technician checkbox is needed. `eliminationStatus(c)` in `assets/ui.html` releases the list automatically (ELIMINATED, MEDIUM) when nothing on the drawing contradicts it, and rates it CONFIRMED (HIGH) when an independent comparison agrees: the drawing's stated used-contact count, the drawing's own unused notes, every wire listed consistently in two places, or the filled cavities on a drawn face view. It HOLDs only for a concrete reason, which it names: inventory unknown, drawing conflict, wires off the insert, a cavity marked unused that is also wired, an unassigned wire row anywhere on the drawing, a far end naming this connector that could not be read, a stated used count that disagrees, or position-only wire rows. Eliminated cavities show and filter as Not used on the face view, and the build plan gets them as the unused list.

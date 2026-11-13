@@ -29,6 +29,24 @@ type FaceView struct {
 	Labeled   int         `json:"labeled"`
 }
 
+// pinOrdinal reads a printed pin as its place in the sequence: 1, 2, 3, or A=1, B=2, C=3 for single upper-case letters.
+func pinOrdinal(id string) (n int, letter bool) {
+	if v, err := strconv.Atoi(id); err == nil && v >= 1 {
+		return v, false
+	}
+	if len(id) == 1 && id[0] >= 'A' && id[0] <= 'Z' {
+		return int(id[0]-'A') + 1, true
+	}
+	return 0, false
+}
+
+func pinLabel(n int, letter bool) string {
+	if letter {
+		return string(rune('A' + n - 1))
+	}
+	return strconv.Itoa(n)
+}
+
 type CavityModel struct {
 	UnusedStatus   string         `json:"unusedStatus"`
 	Tag            string         `json:"tag"`
@@ -36,6 +54,7 @@ type CavityModel struct {
 	All            []string       `json:"all"`
 	AllSource      string         `json:"allSource"`
 	AllVerified    bool           `json:"allVerified"` // drawing or reviewed exact-part guide inventory; wiring coverage is separate
+	AtLeast        int            `json:"atLeast,omitempty"` // lower bound from the highest printed pin when the positions are not proven
 	Wired          []string       `json:"wired"`
 	ExplicitUnused []UnusedCavity `json:"explicitUnused"`
 	Unused         []string       `json:"unused"`
@@ -394,39 +413,47 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 		// No catalog data and no face view: the drawing itself states the
 		// positions when every pin-number check passes and the wired pins plus
 		// the NC pins run 1..N with no gaps.
-		if len(m.All) == 0 && checks > 0 && allPass && len(ncSeen) > 0 {
+		// With no NC list the same rule holds when the wired pins alone run 1..N: the drawing prints a line for
+		// every pin and marks every unused pin NC, so a connector with neither has none unused.
+		if len(m.All) == 0 && checks > 0 && allPass && (len(ncSeen) > 0 || len(seen) > 0) {
 			ids := map[int]bool{}
 			okNum, maxN := true, 0
-			for id := range seen {
-				n, err := strconv.Atoi(id)
-				if err != nil || n < 1 {
-					okNum = false
-					break
-				}
-				ids[n] = true
-				if n > maxN {
-					maxN = n
-				}
-			}
-			for id := range ncSeen {
-				n, err := strconv.Atoi(id)
-				if err != nil || n < 1 {
-					okNum = false
-					break
-				}
-				ids[n] = true
-				if n > maxN {
-					maxN = n
+			lettered, numbered := 0, 0 // a connector is numbered 1,2,3 or lettered A,B,C, never both
+			for _, set := range []map[string]bool{seen, ncSeen} {
+				for id := range set {
+					n, letter := pinOrdinal(id)
+					if n < 1 {
+						okNum = false
+						break
+					}
+					if letter {
+						lettered++
+					} else {
+						numbered++
+					}
+					ids[n] = true
+					if n > maxN {
+						maxN = n
+					}
 				}
 			}
+			if lettered > 0 && numbered > 0 {
+				okNum = false
+			}
+			isLetter := lettered > 0
 			if okNum && maxN > 0 && len(ids) == maxN {
 				for i := 1; i <= maxN; i++ {
-					m.All = append(m.All, strconv.Itoa(i))
+					m.All = append(m.All, pinLabel(i, isLetter))
 				}
-				m.AllSource = fmt.Sprintf("from the drawing: %d wired pins plus %d pins marked NC make positions 1-%d with no gaps (no catalog data for this part)", len(seen), len(ncSeen), maxN)
+				if len(ncSeen) > 0 {
+					m.AllSource = fmt.Sprintf("from the drawing: %d wired pins plus %d pins marked NC make positions 1-%d with no gaps (no catalog data for this part)", len(seen), len(ncSeen), maxN)
+				} else {
+					m.AllSource = fmt.Sprintf("from the drawing: pins 1-%d are all wired and the drawing marks no pin NC, so there are %d positions and none unused (no catalog data for this part)", maxN, maxN)
+				}
 				m.AllVerified = true
 			} else if okNum && maxN > 0 {
-				m.AllSource = fmt.Sprintf("unknown: the drawing's wired and NC pins leave %d gap(s) in 1-%d, so the positions are not proven", maxN-len(ids), maxN)
+				m.AllSource = fmt.Sprintf("unknown: the drawing's wired and NC pins leave %d gap(s) in 1-%d, so the positions are not proven; at least %d positions", maxN-len(ids), maxN, maxN)
+				m.AtLeast = maxN
 			}
 		}
 		for _, u := range a.Unused {

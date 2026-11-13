@@ -1133,3 +1133,14 @@ console.log('PASS: harness length applies only to conductors without their own l
   q.st.laborUnitHours=null;q.st.raw=null;if(q.quoteLaborHours().hours!==null)throw Error('no drawing: no estimate')}
  console.log('PASS: job summary gives cuts, connectors, positions, used/unused, kit and observed-time build estimate, and holds an unread sheet');
 }
+
+// A lower bound from the highest printed pin is said as a lower bound, never as the count.
+{
+ const ctx={st:{raw:{cavityModels:[{tag:'P1',all:[],allVerified:false,atLeast:37,wired:['1','2','37'],views:[]}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(ctx);
+ vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
+ const h=ctx.pinUsageHtml({id:'a',tag:'P1',part:'',occupied:'1, 2, 37',labels:[],capacity:0},0);
+ if(!h.includes('at least 37 positions')||!h.includes('is not proven'))throw Error('a lower bound must read as a lower bound: '+h.slice(0,600));
+ if(/NOT USED \d/.test(h))throw Error('no unused count may be given from a lower bound');
+ console.log('PASS: a lower bound from the highest printed pin is shown as "at least N" with no unused count');
+}
