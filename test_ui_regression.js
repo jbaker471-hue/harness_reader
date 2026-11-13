@@ -343,8 +343,14 @@ if(cab.nets.length!==2)throw Error('cable must keep both conductor nets so a typ
 equal(cabled.rows.find(r=>r.awg==='22').cable,undefined);
 // repeated colors, leftovers and user override
 const bad=cutCtx.buildCutList([{id:'A',endpoints:'X:1, Y:1',awg:'24',color:'WHT'},{id:'B',endpoints:'X:2, Y:2',awg:'24',color:'WHT'},{id:'C',endpoints:'X:3, Y:3',awg:'24',color:'BLU'}],{cables:{'24':2}});
-equal(bad.counts.cables,0);
-if(!bad.rows.every(r=>r.notes.some(n=>/pairing uncertain|cable incomplete/.test(n))))throw Error('ungroupable conductors must say why');
+// WHT, WHT, BLU: one conductor is the odd one out, the second WHT and the BLU are the pair. The odd one says it is incomplete.
+equal(bad.counts.cables,1);
+equal(bad.rows.filter(r=>r.cable).map(r=>r.color),['WHT + BLU']);
+if(!bad.rows.filter(r=>!r.cable).every(r=>r.notes.some(n=>/cable incomplete/.test(n))))throw Error('the conductor left over must say why');
+// WHT, WHT, BLU, BLU: no pairing is proven (the partners may not be next to each other), so none is guessed
+const shifted=cutCtx.buildCutList([{id:'A',endpoints:'X:1, Y:1',awg:'24',color:'WHT'},{id:'B',endpoints:'X:2, Y:2',awg:'24',color:'WHT'},{id:'C',endpoints:'X:3, Y:3',awg:'24',color:'BLU'},{id:'D',endpoints:'X:4, Y:4',awg:'24',color:'BLU'}],{cables:{'24':2}});
+equal(shifted.counts.cables,0);
+if(!shifted.rows.every(r=>r.notes.some(n=>/pairing uncertain/.test(n))))throw Error('a shifted pairing must say it is uncertain');
 equal(cutCtx.effectiveCables(detected,{'24':'1'}),{'24':1});            // user can force plain single wire
 equal(cutCtx.effectiveCables(detected,{'24':''}),{'24':2});             // blank keeps the BOM reading
 for(const [txt,n] of [['TWISTED SHIELDED PAIR',2],['CABLE 3 CONDUCTOR SHIELDED',3],['SHIELDED CABLE 4C',4]]){const p=cutCtx.parseCableLine({part:'M27500-X',description:txt+' 22 AWG'});if(!p||p.n!==n)throw Error('cable text not read: '+txt)}
@@ -1143,4 +1149,41 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!h.includes('at least 37 positions')||!h.includes('is not proven'))throw Error('a lower bound must read as a lower bound: '+h.slice(0,600));
  if(/NOT USED \d/.test(h))throw Error('no unused count may be given from a lower bound');
  console.log('PASS: a lower bound from the highest printed pin is shown as "at least N" with no unused count');
+}
+
+// Wires that end at terminals (each far end is its own node) are grouped into cables by gauge and near connector.
+{
+ const net=(i,pin,color,far,awg='22')=>({id:'W'+i,endpoints:'P1:'+pin+', '+far,awg,color});
+ const terminated=[net(1,1,'WHT','@UNRESOLVED_1'),net(2,2,'BLU','@UNRESOLVED_2'),net(3,3,'WHT','@UNRESOLVED_3'),net(4,4,'BLU','@UNRESOLVED_4'),net(5,5,'WHT','@UNRESOLVED_5'),net(6,6,'BLU','@UNRESOLVED_6')];
+ let r=cutCtx.buildCutList(terminated,{cables:{'22':2}});
+ const cables=r.rows.filter(x=>x.cable),singles=r.rows.filter(x=>!x.cable);
+ if(cables.length!==3||singles.length!==0)throw Error('three pairs ending at terminals are three cables, got '+cables.length+' cables and '+singles.length+' singles');
+ if(cables.some(c=>c.conductors!==2||!/WHT/.test(c.color)||!/BLU/.test(c.color)))throw Error('each cable holds one white and one blue conductor');
+ // repeated colours in a chunk are still not paired
+ r=cutCtx.buildCutList([net(1,1,'WHT','@UNRESOLVED_1'),net(2,2,'WHT','@UNRESOLVED_2'),net(3,3,'BLU','@UNRESOLVED_3'),net(4,4,'BLU','@UNRESOLVED_4')],{cables:{'22':2}});
+ if(r.rows.filter(x=>x.cable).length!==0||!r.rows.every(x=>(x.notes||[]).some(n=>/missing or repeated/.test(n))))throw Error('repeated colours must stay unpaired and say why');
+ // an odd conductor left over stays a single and says the cable is incomplete
+ r=cutCtx.buildCutList(terminated.slice(0,5),{cables:{'22':2}});
+ if(r.rows.filter(x=>x.cable).length!==2||r.rows.filter(x=>!x.cable).length!==1||!(r.rows.find(x=>!x.cable).notes||[]).some(n=>/cable incomplete/.test(n)))throw Error('five conductors make two cables and one incomplete single');
+ // different near connectors never share a cable
+ r=cutCtx.buildCutList([net(1,1,'WHT','@UNRESOLVED_1'),{id:'W2',endpoints:'P2:2, @UNRESOLVED_2',awg:'22',color:'BLU'}],{cables:{'22':2}});
+ if(r.rows.some(x=>x.cable))throw Error('wires from different connectors are not one cable');
+ // a real far connector still keeps the pair together, and different far connectors still do not
+ r=cutCtx.buildCutList([{id:'A',endpoints:'P1:1, J1:1',awg:'22',color:'WHT'},{id:'B',endpoints:'P1:2, J1:2',awg:'22',color:'BLU'}],{cables:{'22':2}});
+ if(r.rows.filter(x=>x.cable).length!==1)throw Error('a pair between two connectors is still one cable');
+ r=cutCtx.buildCutList([{id:'A',endpoints:'P1:1, J1:1',awg:'22',color:'WHT'},{id:'B',endpoints:'P1:2, J2:2',awg:'22',color:'BLU'}],{cables:{'22':2}});
+ if(r.rows.some(x=>x.cable))throw Error('two real connectors at the far end keep the conductors apart');
+ console.log('PASS: wires ending at terminals group into cables by gauge and near connector; repeated colours, odd leftovers and different connectors stay apart');
+}
+
+// An odd conductor out is set aside; a pairing that would have to be guessed is not made.
+{
+ const n=(i,c)=>({id:'W'+i,endpoints:'P1:'+i+', @UNRESOLVED_'+i,awg:'22',color:c});
+ let r=cutCtx.buildCutList([n(1,'WHT'),n(2,'WHT'),n(3,'BLU')],{cables:{'22':2}});
+ if(r.counts.cables!==1||r.rows.filter(x=>!x.cable).length!==1)throw Error('A A B: one cable and one conductor set aside');
+ r=cutCtx.buildCutList([n(1,'WHT'),n(2,'BLU'),n(3,'WHT'),n(4,'BLU'),n(5,'WHT')],{cables:{'22':2}});
+ if(r.counts.cables!==2||r.rows.filter(x=>!x.cable).length!==1)throw Error('A B A B A: two cables and the last conductor set aside');
+ r=cutCtx.buildCutList([n(1,'WHT'),n(2,'WHT'),n(3,'BLU'),n(4,'BLU')],{cables:{'22':2}});
+ if(r.counts.cables!==0)throw Error('A A B B could only be paired by guessing');
+ console.log('PASS: an odd conductor out is set aside, and a pairing that would need guessing is left single');
 }

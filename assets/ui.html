@@ -1577,29 +1577,48 @@ function buildCutList(nets,opts){
  // gauge and connector pair in drawing order; the pairing is inferred, so it is flagged.
  const cableN=a=>{const n=Number((o.cables||{})[String(a||'').trim()]);return Number.isInteger(n)&&n>=2?n:1};
  const tagOf=e=>String(e).split(':')[0];
+ // A far end that is a terminal (ferrule, ring, unnamed block) is a node of its own: two wires of one cable end at two
+ // different terminals, so the far end is left out of the grouping key and the cable is found by gauge and near connector.
+ const farTag=r=>{const t=tagOf(String(r.to||'').split(' / ')[0]);return t.startsWith('@')?'':t};
  const items=[],buckets=new Map(),mixBuckets=new Map();let cableNo=0;
  for(const r of conds){
   const n=cableN(r.awg);
   const mix=(o.cableMix||{})[String(Number(r.awg)||'')];
-  if(n<2&&mix&&mix.length){const bk='MIX|'+[r.awg,tagOf(r.from),tagOf(r.to.split(' / ')[0])].join('|');let b=mixBuckets.get(bk);if(!b){b={sizes:mix,list:[]};mixBuckets.set(bk,b)}b.list.push(r);continue}
+  if(n<2&&mix&&mix.length){const bk='MIX|'+[r.awg,tagOf(r.from),farTag(r)].join('|');let b=mixBuckets.get(bk);if(!b){b={sizes:mix,list:[]};mixBuckets.set(bk,b)}b.list.push(r);continue}
   if(n<2){items.push(r);continue}
-  const bk=[r.awg,tagOf(r.from),tagOf(r.to.split(' / ')[0])].join('|');
+  const bk=[r.awg,tagOf(r.from),farTag(r)].join('|');
   let b=buckets.get(bk);if(!b){b=[];buckets.set(bk,b)}
   b.push(r);
-  if(b.length<n)continue;
-  buckets.set(bk,[]);
-  const colors=b.map(m=>m.color);
-  if(colors.some(c=>!c)||new Set(colors).size<n){
-   for(const m of b){m.notes.push('Expected a '+n+'-conductor cable but the colors in this group are missing or repeated; pairing uncertain');items.push(m)}
-   continue;
-  }
-  cableNo++;
+ }
+ // One cable of n conductors from a group of rows.
+ const makeCable=(b,n)=>{
+  cableNo++;const colors=b.map(m=>m.color);
   const cab={key:'C:'+b.map(m=>m.key).join('+'),harness:b.every(m=>m.harness),cable:true,conductors:n,members:b,wire:'CABLE '+cableNo,awg:b[0].awg,color:colors.join(' + '),signal:'',from:b.map(m=>m.from).join(', '),to:b.map(m=>m.to).join(', '),splice:false,sources:b.reduce((s,m)=>s+m.sources,0),lens:[].concat(...b.map(m=>m.lens)),stated:[].concat(...b.map(m=>m.stated)),invalid:[].concat(...b.map(m=>m.invalid)),assumed:b.some(m=>m.assumed),conflicts:[],nets:[].concat(...b.map(m=>m.nets)),notes:['Conductors grouped into one cable by gauge, connector pair and drawing order; confirm against the drawing and BOM: '+b.map(m=>m.wire+' ('+m.color+')').join(' + ')]};
   for(const m of b)for(const nt of m.notes)if(!cab.notes.includes(nt))cab.notes.push(nt);
-  items.push(cab);
+  return cab;
+ };
+ // The best way to cut a bucket (rows in drawing order) into consecutive groups of n conductors with distinct colours.
+ // Groups of n are cables and the rest stay single. It is used only when it finds every cable the bucket can hold, so
+ // an odd conductor out is set aside but a shifted pairing (for example colours A A B B) is never guessed.
+ const partition=(list,n)=>{
+  const m=list.length,best=[{cables:0,prev:-1,take:0}];
+  for(let i=1;i<=m;i++){
+   let c={cables:best[i-1].cables,prev:i-1,take:0};
+   if(i>=n){const cs=list.slice(i-n,i).map(x=>x.color);if(cs.every(Boolean)&&new Set(cs).size===n&&best[i-n].cables+1>=c.cables)c={cables:best[i-n].cables+1,prev:i-n,take:n}}
+   best.push(c)}
+  const out=[];let i=m;while(i>0){const st=best[i];out.unshift(st.take?list.slice(i-st.take,i):[list[i-1]]);i=st.prev}
+  return out;
+ };
+ for(const [bk,b] of buckets){
+  const n=cableN(b[0].awg),groups=partition(b,n),cabs=groups.filter(g=>g.length===n&&n>1).length;
+  if(b.length>=n&&cabs===Math.floor(b.length/n)){
+   for(const g of groups){if(g.length===n)items.push(makeCable(g,n));else items.push(g[0])}
+   for(const g of groups)if(g.length!==n)g[0].notes.push('Expected a '+n+'-conductor cable but only '+g.length+' conductor(s) were left over after pairing; cable incomplete');
+   continue;
+  }
+  for(const m of b){m.notes.push(b.length<n?'Expected a '+n+'-conductor cable but only '+b.length+' matching conductor(s) found; cable incomplete':'Expected a '+n+'-conductor cable but the colors in this group are missing or repeated; pairing uncertain');items.push(m)}
  }
- for(const [bk,b] of buckets)for(const m of b){m.notes.push('Expected a '+cableN(m.awg)+'-conductor cable but only '+b.length+' matching conductor(s) found; cable incomplete');items.push(m)}
- // Same gauge, cables of different sizes: in drawing order a new cable starts where a colour repeats. The grouping is
+  // Same gauge, cables of different sizes: in drawing order a new cable starts where a colour repeats. The grouping is
  // used only when every group is a size the parts list has and every cable of one size has the same colour set.
  for(const [bk,b] of mixBuckets){
   const runs=[];let cur=[];
