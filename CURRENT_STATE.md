@@ -2,6 +2,17 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: connectors with no position count (fix order item 1)
+
+Measured by counts only with the local structure diagnostic on the 11-drawing set. 25 connectors had a printed wire list and no position count.
+
+- Where a position count really comes from, in order of strength: a catalog or guide inventory for the part; the connector's own face view; wired pins plus a printed NC list that run 1-N with no gaps; and now the count the parts-list description states for that part ("37 POS", "15 P"). The last settled 11 connectors: every stated count was at least the highest wired pin, and none disagreed with the wiring.
+- A run of wired pins 1-N with no NC list is only a lower bound. Counter-example measured on the set: a part whose parts list says 25 positions has pins 1-18 wired and no NC word printed anywhere on its sheets. Of the 29 connectors with unused pins, 19 have no NC word on their sheets, so "no NC list" cannot mean "none unused". The card says "at least N positions" and gives no unused count from it.
+- Lettered pins are never numbered 1..N. A stated count is kept on the connector, but no cavity list is invented.
+- Result on the local set: 16 connectors gained a position count, 9 have none (6 of them carry an "at least N" lower bound), and no wire-row total or connector count went down.
+- To check: one connector decodes to 128 positions from its part number while its own parts-list description says 61. One of the two is wrong; compare it against the sheet.
+- Still open: part-number decode for manufacturer-style codes and MS-style circular inserts needs arrangement tables that are not in the repository.
+
 ## 2026-11-04 update (Claude)
 
 - Unused pins are found by **process of elimination** again: verified cavity inventory minus every wired cavity on the drawing. No technician checkbox is needed. `eliminationStatus(c)` in `assets/ui.html` releases the list automatically (ELIMINATED, MEDIUM) when nothing on the drawing contradicts it, and rates it CONFIRMED (HIGH) when an independent comparison agrees: the drawing's stated used-contact count, the drawing's own unused notes, every wire listed consistently in two places, or the filled cavities on a drawn face view. It HOLDs only for a concrete reason, which it names: inventory unknown, drawing conflict, wires off the insert, a cavity marked unused that is also wired, an unassigned wire row anywhere on the drawing, a far end naming this connector that could not be read, a stated used count that disagrees, or position-only wire rows. Eliminated cavities show and filter as Not used on the face view, and the build plan gets them as the unused list.

@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestStructuredNetlistFallback(t *testing.T) {
 	p := Page{Number: 1, Width: 850, Height: 610}
@@ -28,8 +31,14 @@ func TestTextualBOMFallbackAndConnectors(t *testing.T) {
 	}
 	bom[0].Reference = "J10"
 	c := connectorsFromDescribedParts(bom, nil)
-	if len(c) != 1 || c[0].Part != "M80-5100642" || c[0].CavityCount != 0 {
+	// the parts-list description states "6 WAY", so the connector carries that count, marked as stated and unverified
+	if len(c) != 1 || c[0].Part != "M80-5100642" || c[0].CavityCount != 6 || !strings.Contains(c[0].LayoutStatus, "STATED IN THE PARTS LIST") || !strings.Contains(c[0].LayoutStatus, "NOT VERIFIED") {
 		t.Fatalf("connector fallback %+v", c)
+	}
+	// a description that states no count leaves the count unknown
+	bom[0].Description = "CONNECTOR HOUSING, CRIMP"
+	if c = connectorsFromDescribedParts(bom, nil); len(c) != 1 || c[0].CavityCount != 0 || !strings.Contains(c[0].LayoutStatus, "UNRESOLVED") {
+		t.Fatalf("no stated count must stay unknown: %+v", c)
 	}
 }
 func TestUnrelatedNotesNotMistakenForNetlist(t *testing.T) {

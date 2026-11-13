@@ -1032,7 +1032,7 @@ function pinUsageHtml(c,i){
   const rows=[...g.wired,...g.offinsert].sort(sortCav).map(id=>{const r=(net.get(id)||[])[0]||{};return `<tr><td>${safe(id)}</td><td>${safe(r.signal||'—')}</td><td>${safe([r.wire,r.awg,r.color].filter(Boolean).join(' · ')||'—')}</td><td>${safe(r.far||(d.occupied.has(id)?'in the occupied list; no wire row found':'—'))}</td></tr>`}).join('');
   parts.push(`<p class="small"><b>Used (${g.wired.length+off.length}):</b> ${safe(compressRanges([...g.wired,...off]))}</p><div class="face-table tablebox"><table><thead><tr><th>Pin</th><th>Signal</th><th>Wire · AWG · colour</th><th>Goes to</th></tr></thead><tbody>${rows}</tbody></table></div>`);
  }
- if(!hasInventory)parts.push('<p class="callout">The cavity inventory for this part is not known, so the pins that are NOT used cannot be listed. Resolve the part number or enter the insert capacity.</p>');
+ if(!hasInventory){const al=Number(d.m&&d.m.atLeast)||0;parts.push(al?'<p class="callout">The drawing prints pins up to '+al+', so this connector has <b>at least '+al+' positions</b>. Some pins below '+al+' have no line and are not marked NC, so the exact count, and which pins are NOT used, is not proven. Resolve the part number or enter the insert capacity.</p>':'<p class="callout">The cavity inventory for this part is not known, so the pins that are NOT used cannot be listed. Resolve the part number or enter the insert capacity.</p>')}
  else if(notUsed.length){
   const why=[];
   if(g.unused.length)why.push(g.unused.length+' marked not used ('+[...new Set(g.unused.map(id=>d.explicitSrc.get(id)==='marked by you'?'by you':'by the drawing'))].join(' and ')+')');

@@ -464,6 +464,11 @@ func connectorFromBOM(rows []BOMRow) []Connector {
 			}
 			seen[key] = true
 			n, s := getLayout(pn)
+			if n == 0 {
+				if dn, ok := positionsFromDescription(r.Description); ok {
+					n, s = dn, descCountLayout(dn)
+				}
+			}
 			out = append(out, Connector{tag, pn, n, "MIL-DTL-38999", []int{r.Page}, s})
 		}
 	}
