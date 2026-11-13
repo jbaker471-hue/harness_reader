@@ -296,6 +296,19 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 						pf("NCSEEN: connector %d: sheets with its wires %d, NC words on them %d, pin-list words on them %d", ci+1, len(wirePages), ncw, lists)
 					}
 					pf("POSCHK: connector %d: positions %d, source %s, parts-list count %s", ci+1, a.Positions, class, statedText)
+					if len(stated) == 1 && statedText != fmt.Sprintf("%d", a.Positions) && a.Positions > 0 {
+						hi := 0
+						for _, m := range v.CavityModels {
+							if strings.EqualFold(m.Tag, k) {
+								for _, id := range m.Wired {
+									if n, err := strconv.Atoi(id); err == nil && n > hi {
+										hi = n
+									}
+								}
+							}
+						}
+						pf("POSCONF: connector %d: positions %d, parts-list count %s, wired pins %d, highest wired pin %d", ci+1, a.Positions, statedText, a.Wired, hi)
+					}
 				}
 				if a.Positions == 0 {
 					// Why no position count: counts and yes/no only, never a designator or a part number.
@@ -453,6 +466,119 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					}
 					pf("NOPOSX: connector %d: part shape [%s], decoder shape [%s], wired pin shapes [%s]", ci+1, partShape, famShape, strings.Join(shapeList, "; "))
 					pf("NOPOS: connector %d: pin-number checks %d, passing %d, NC pins %d, wired pins numeric %d, wired pins not numeric %d, highest wired pin %d, gaps below it %d, part number present %s, family recognised %s, gap-held %s", ci+1, checks, pass, nc, len(numeric), other, maxPin, maxPin-len(numeric), yn(partKnown), yn(famKnown), yn(unknownWhy))
+				}
+			}
+			for _, is := range v.Issues {
+				if is.Code != "CONNECTOR_PART_MISMATCH" {
+					continue
+				}
+				class := "other"
+				switch {
+				case strings.Contains(is.Message, "Both have insert"):
+					class = "same insert, different connector part"
+				case strings.Contains(is.Message, "mating halves"):
+					class = "mating halves"
+				case strings.Contains(is.Message, "The inserts differ"):
+					class = "different inserts"
+				}
+				other := "no"
+				if strings.Contains(is.Message, "is also the parts-list part of") {
+					other = "yes"
+				} else if strings.Contains(is.Message, "designator was not read") {
+					other = "yes, designator not read"
+				}
+				ci := 0
+				for i, k := range keys {
+					if strings.EqualFold(k, is.Connector) {
+						ci = i + 1
+					}
+				}
+				sheet := 0
+				if len(is.Pages) > 0 {
+					sheet = is.Pages[0]
+				}
+				pf("PARTMIS: connector %d on sheet %d: %s; header part belongs to another connector in the parts list: %s", ci, sheet, class, other)
+				{
+					// where the two part numbers differ, as positions after the slash and character classes only
+					ex := normPart(strings.TrimPrefix(is.Expected, "Parts list: "))
+					ob := normPart(strings.TrimPrefix(is.Observed, "Wiring sheet header: "))
+					cut := func(s string) string {
+						if i := strings.Index(s, "/"); i >= 0 {
+							return s[i+1:]
+						}
+						return s
+					}
+					cls := func(b byte) string {
+						switch {
+						case b >= '0' && b <= '9':
+							return "digit"
+						case b >= 'A' && b <= 'Z':
+							return "letter"
+						}
+						return "symbol"
+					}
+					e2, o2 := cut(ex), cut(ob)
+					diffs := []string{}
+					for i := 0; i < len(e2) && i < len(o2); i++ {
+						if e2[i] != o2[i] {
+							diffs = append(diffs, fmt.Sprintf("%d:%s/%s", i+1, cls(e2[i]), cls(o2[i])))
+						}
+					}
+					pf("PARTDIFF: connector %d on sheet %d: lengths after the slash %d and %d, differing positions [%s]", ci, sheet, len(e2), len(o2), strings.Join(diffs, " "))
+				}
+			}
+			// parts-list rows that are connector parts: which read connector (by index) their reference names, never the text
+			for bi, bm := range v.Boms {
+				if !rePN.MatchString(strings.ToUpper(bm.Part)) {
+					continue
+				}
+				ref := strings.ToUpper(strings.TrimSpace(bm.Reference))
+				who := "none"
+				if ref != "" {
+					who = "a designator that is not a read connector"
+					for i, k := range keys {
+						if strings.EqualFold(k, ref) {
+							who = fmt.Sprintf("connector %d", i+1)
+						}
+					}
+				}
+				hdr := "no"
+				for _, is := range v.Issues {
+					if is.Code == "CONNECTOR_PART_MISMATCH" && normPart(strings.TrimPrefix(is.Observed, "Wiring sheet header: ")) == normPart(bm.Part) {
+						hdr = "yes"
+					}
+				}
+				own := "none"
+				for i, k := range keys {
+					for _, c := range v.Connectors {
+						if strings.EqualFold(c.Name, k) && normPart(c.Part) == normPart(bm.Part) {
+							own = fmt.Sprintf("connector %d", i+1)
+						}
+					}
+				}
+				pf("BOMCONN: parts-list row %d: reference names %s; part is held by %s; part is the mismatching header part: %s; reference words %d", bi+1, who, own, hdr, len(strings.Fields(ref)))
+			}
+			// every part-number header on the wiring sheets: how many designators sit near it, and where (em, relative)
+			for _, pg := range x.Data.Pages {
+				for _, h := range pg.Words {
+					ht := strings.TrimSpace(strings.ToUpper(h.Text))
+					if !reSplitPNHead.MatchString(ht) {
+						continue
+					}
+					em := math.Max(h.Size, 4)
+					near := []string{}
+					for _, w := range pg.Words {
+						tx := strings.ToUpper(strings.TrimSpace(w.Text))
+						if reRefDesignator.FindString(tx) != tx || tx == "" {
+							continue
+						}
+						dx, dy := (w.X-h.X)/em, (w.Y-h.Y)/em
+						if math.Abs(dx) <= 30 && math.Abs(dy) <= 8 {
+							near = append(near, fmt.Sprintf("%+.0f,%+.0f", dx, dy))
+						}
+					}
+					sort.Strings(near)
+					pf("HDRNEAR: sheet %d: header at %.2f,%.2f: designators within 30 em across and 8 em up or down: %d [%s]", pg.Number, h.X/pg.Width, h.Y/pg.Height, len(near), strings.Join(near, " "))
 				}
 			}
 			done, total := 0, 0

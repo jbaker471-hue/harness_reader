@@ -1187,3 +1187,48 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(r.counts.cables!==0)throw Error('A A B B could only be paired by guessing');
  console.log('PASS: an odd conductor out is set aside, and a pairing that would need guessing is left single');
 }
+
+// When no complete pairing exists, conductors are still taken n at a time: good groups are cables, bad ones stay single.
+{
+ const n=(i,c)=>({id:'W'+i,endpoints:'P1:'+i+', @UNRESOLVED_'+i,awg:'22',color:c});
+ // A A | A B | A B | B B : two cables, four singles (the measured regression: this used to give zero cables)
+ const r=cutCtx.buildCutList(['WHT','WHT','WHT','BLU','WHT','BLU','BLU','BLU'].map((c,i)=>n(i+1,c)),{cables:{'22':2}});
+ if(r.counts.cables!==2||r.rows.filter(x=>!x.cable).length!==4)throw Error('partial pairing must keep the groups that are clear: '+r.counts.cables);
+ if(!r.rows.filter(x=>!x.cable).every(x=>x.notes.some(s=>/pairing uncertain/.test(s))))throw Error('unclear groups say so');
+ console.log('PASS: an incomplete pairing keeps the clear groups as cables and leaves the unclear ones single');
+}
+
+// Mixed cable sizes of one gauge with different colour sets: grouped only when exactly one cut into the parts-list sizes exists.
+{
+ const mk=cs=>cs.map((c,i)=>({id:'M'+i,endpoints:'P1:'+(i+1)+', @UNRESOLVED_'+(i+1),awg:'22',color:c}));
+ const opt={allowance:0,cables:{},cableMix:{'22':[2,4]}};
+ let r=cutCtx.buildCutList(mk(['B','C','A','B','A','B','A','B','C','D','A','D','A','B']),opt);
+ const sizes=r.rows.filter(x=>x.cable).map(x=>x.conductors).join(',');
+ if(sizes!=='2,2,2,4,2,2'||r.rows.some(x=>!x.cable))throw Error('unique fit expected 2,2,2,4,2,2 but got '+sizes);
+ if(!r.rows.every(x=>x.notes.some(s=>/only way to cut/.test(s))))throw Error('a fitted grouping must say how it was found');
+ // six different colours can be 2+4 or 4+2: nothing is chosen
+ r=cutCtx.buildCutList(mk(['A','B','C','D','E','F']),opt);
+ if(r.rows.some(x=>x.cable)||!r.rows.every(x=>x.notes.some(s=>/could not be told/.test(s))))throw Error('two possible cuts must stay single');
+ // a conductor with no colour blocks the fit
+ r=cutCtx.buildCutList(mk(['A','B','','B']),opt);
+ if(r.rows.some(x=>x.cable))throw Error('a missing colour must block the fit');
+ console.log('PASS: mixed cable sizes group by a unique fit to the parts-list sizes; two possible cuts or a missing colour stay single');
+}
+
+// A tabulated parts list: the variant column picker appears only when there is a choice, and choosing sets every quantity.
+{
+ const els={bomVerified:{checked:true},bomVariant:{}};
+ const v={st:{bom:[],bomVariant:0},$:id=>els[id]||(els[id]={}),render(){v.rendered=(v.rendered||0)+1},safe:s=>String(s)};
+ vm.createContext(v);vm.runInContext(block('function bomVariantCount(','function renderBOM('),v);
+ v.st.bom=[{item:'1',qty:2,qtyText:'2',qtyVariants:['2','4','-']},{item:'2',qty:1,qtyText:'1',qtyVariants:['1','A/R','3']},{item:'3',qty:5,qtyText:'5',qtyVariants:[]}];
+ if(v.bomVariantCount()!==3)throw Error('three variant columns');
+ const h=v.bomVariantHtml();
+ if(!h.includes('3 quantity columns')||!h.includes('on 2 lines')||(h.match(/<option/g)||[]).length!==3)throw Error('picker: '+h);
+ v.bomVariantSet('1');
+ if(v.st.bom[0].qty!==4||v.st.bom[1].qtyText!=='A/R'||v.st.bom[1].qty!==0||v.st.bom[2].qty!==5||els.bomVerified.checked!==false||!v.rendered)throw Error('column 2 must set 4, A/R and leave the untabulated line: '+JSON.stringify(v.st.bom));
+ v.bomVariantSet('2');
+ if(v.st.bom[0].qty!==0||v.st.bom[0].qtyText!=='0'||v.st.bom[1].qty!==3)throw Error('a dash is zero for that variant');
+ v.st.bom=[{item:'1',qty:2,qtyText:'2',qtyVariants:[]}];
+ if(v.bomVariantHtml()!=='')throw Error('no picker without tabulated quantities');
+ console.log('PASS: a tabulated parts list offers its quantity columns; choosing one sets every tabulated line and clears the verified mark');
+}
