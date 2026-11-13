@@ -13,7 +13,9 @@ var schematicPin = regexp.MustCompile(`^(?:[1-9][0-9]{0,2}|[A-Za-z])$`)
 var schematicGauge = regexp.MustCompile(`^(?:[1-2][0-9]|3[0-2])$`)
 
 func schematicColor(s string) string {
- aliases := map[string]string{"BK":"BLK","BLACK":"BLK","BLK":"BLK","WH":"WHT","WHITE":"WHT","WHT":"WHT","RD":"RED","RED":"RED","GN":"GRN","GREEN":"GRN","GRN":"GRN","BU":"BLU","BLUE":"BLU","BLU":"BLU","YE":"YEL","YELLOW":"YEL","YEL":"YEL","OG":"ORN","ORANGE":"ORN","ORN":"ORN","BN":"BRN","BROWN":"BRN","BRN":"BRN","GY":"GRY","GRAY":"GRY","GREY":"GRY","GRY":"GRY","VT":"VIO","VIOLET":"VIO","VIO":"VIO","PK":"PNK","PINK":"PNK","PNK":"PNK"}
+ aliases := map[string]string{"BK":"BLK","BLACK":"BLK","BLK":"BLK","WH":"WHT","WHITE":"WHT","WHT":"WHT","RD":"RED","RED":"RED","GN":"GRN","GREEN":"GRN","GRN":"GRN","BU":"BLU","BLUE":"BLU","BLU":"BLU","YE":"YEL","YELLOW":"YEL","YEL":"YEL","OG":"ORN","ORANGE":"ORN","ORN":"ORN","BN":"BRN","BROWN":"BRN","BRN":"BRN","GY":"GRY","GRAY":"GRY","GREY":"GRY","GRY":"GRY","VT":"VIO","VIOLET":"VIO","VIO":"VIO","PK":"PNK","PINK":"PNK","PNK":"PNK",
+  // other common abbreviations (MIL-STD-681 colour names and shop usage)
+  "ORA":"ORN","ORG":"ORN","ORNG":"ORN","PUR":"VIO","PRP":"VIO","PPL":"VIO","PURPLE":"VIO","VIOL":"VIO","GRA":"GRY","TAN":"TAN","TN":"TAN","NAT":"NAT","CLR":"CLR","BRWN":"BRN"}
  parts:=strings.Split(strings.ToUpper(strings.TrimSpace(s)),"/")
  for i,p:=range parts {v,ok:=aliases[p];if !ok{return ""};parts[i]=v}
  return strings.Join(parts,"/")

@@ -445,6 +445,13 @@ func (d *pdfDoc) extractText(page references.FPDF_PAGE, pl *PageLayout) error {
 			continue
 		}
 		r := rune(u.Unicode)
+		// PDFium reports a hyphen that ends a wrapped line as U+0002. It is a real hyphen on the drawing
+		// (a reference designator broken as GSE-/P3), so keep it as one instead of dropping it.
+		if r == 2 {
+			if hy, herr := inst.FPDFText_IsHyphen(&requests.FPDFText_IsHyphen{TextPage: tp.TextPage, Index: i}); herr == nil && hy.IsHyphen {
+				r = '-'
+			}
+		}
 		if r == '\r' || r == '\n' {
 			continue
 		}
@@ -1037,6 +1044,23 @@ func legacyPage(pl PageLayout) Page {
 		ax, _ := conv(lw.Box.X0, lw.Box.Y0)
 		bx, _ := conv(lw.Box.X1, lw.Box.Y1)
 		p.Words = append(p.Words, Word{Text: lw.Text, X: x, Y: fh - y, Size: lw.Size, X1: math.Max(ax, bx)})
+	}
+	// Horizontal rules, for counting the rows of ruled tables.
+	p.RulesTruncated = pl.VectorDetailTruncated
+	for _, s := range pl.Segments {
+		x0, y0 := conv(s[0], s[1])
+		x1, y1 := conv(s[2], s[3])
+		if math.Hypot(x1-x0, y1-y0) >= 0.5 {
+			p.Segs = append(p.Segs, Segment{x0, fh - y0, x1, fh - y1})
+		}
+		if math.Abs(y0-y1) > 0.6 || math.Abs(x1-x0) < 8 {
+			continue
+		}
+		if x0 > x1 {
+			x0, x1 = x1, x0
+		}
+		y := fh - (y0+y1)/2
+		p.HRules = append(p.HRules, Segment{x0, y, x1, y})
 	}
 	sort.SliceStable(p.Words, func(i, j int) bool {
 		if d := p.Words[i].Y - p.Words[j].Y; d > 2 || d < -2 {

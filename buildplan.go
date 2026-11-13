@@ -30,14 +30,21 @@ type PlanWire struct {
 }
 
 type PlanConnector struct {
-	Tag         string     `json:"tag"`
-	Part        string     `json:"part"`
-	All         []string   `json:"all"`         // cavity inventory; empty = unknown
-	AllSource   string     `json:"allSource"`   // where the inventory came from
-	AllVerified bool       `json:"allVerified"` // inventory taken from the drawing or a verified layout
-	Unused      []string   `json:"unused"`      // drawing-declared unused (used when the inventory is unknown)
-	Wired       []PlanWire `json:"wired"`
-	Contact     string     `json:"contact"` // optional user-entered contact P/N (overrides the catalog candidate)
+	Tag            string     `json:"tag"`
+	Part           string     `json:"part"`
+	All            []string   `json:"all"`            // cavity inventory; empty = unknown
+	AllSource      string     `json:"allSource"`      // where the inventory came from
+	AllVerified    bool       `json:"allVerified"`    // inventory taken from the drawing or a verified layout
+	Unused         []string   `json:"unused"`         // exact reconciled unused list, or explicit drawing declarations while held
+	UnusedVerified bool       `json:"unusedVerified"` // complete list passed pinout, count, conductor and layout reconciliation
+	Wired          []PlanWire `json:"wired"`
+	Contact        string     `json:"contact"` // optional user-entered contact P/N (overrides the catalog candidate)
+	// Fill treatment for this connector's unused cavities when a drawing note
+	// states it (overrides the request policy), its source, and the plug the
+	// note names (by find number or part number).
+	Policy       string `json:"policy"`
+	PolicySource string `json:"policySource"`
+	PlugPart     string `json:"plugPart"`
 }
 
 type PlanRequest struct {
@@ -68,6 +75,8 @@ type KitLine struct {
 type ConnectorPlan struct {
 	Tag            string       `json:"tag"`
 	Part           string       `json:"part"`
+	Policy         string       `json:"policy"`
+	PolicySource   string       `json:"policySource"`
 	Contact        string       `json:"contact"`
 	ContactSex     string       `json:"contactSex"`
 	ContactSize    string       `json:"contactSize"`
@@ -207,8 +216,9 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 	if err != nil {
 		return BuildPlan{}, err
 	}
+	validPolicy := map[string]bool{"contact+plug": true, "plug-only": true, "contact-only": true}
 	policy := req.Policy
-	if policy != "plug-only" {
+	if !validPolicy[policy] {
 		policy = "contact+plug"
 	}
 	if req.BuildQty < 1 {
@@ -239,6 +249,15 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 	for _, c := range req.Connectors {
 		c.Part = cleanPN(c.Part)
 		cp := ConnectorPlan{Tag: c.Tag, Part: c.Part, Wired: []string{}, Unused: []string{}, Kit: []KitLine{}, Crimp: []CrimpSetup{}, Issues: []string{}}
+		cpol := policy
+		cp.PolicySource = firstNonEmpty(c.PolicySource, "chosen in the build plan (no drawing note)")
+		if validPolicy[c.Policy] {
+			cpol, cp.PolicySource = c.Policy, firstNonEmpty(c.PolicySource, "drawing note")
+		}
+		if strings.HasPrefix(cp.PolicySource, "CONFLICT") {
+			cp.Issues = append(cp.Issues, cp.PolicySource)
+		}
+		cp.Policy = cpol
 		// --- contact identity ---------------------------------------------
 		res := ResolveConnectorContacts(c.Part)
 		cp.Positions = res.PositionCount
@@ -299,12 +318,28 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 					cp.Issues = append(cp.Issues, "Cavity "+w+" is wired but is not in the cavity inventory ("+c.AllSource+").")
 				}
 			}
+			explicitUnused := map[string]bool{}
+			for _, u := range uniqSorted(c.Unused) {
+				if isWired[u] || !in[u] {
+					inventoryConflict = true
+					cp.Issues = append(cp.Issues, "Conflicting unused-cavity declaration: "+u+". Resolve before kitting.")
+					continue
+				}
+				explicitUnused[u] = true
+				cp.Unused = append(cp.Unused, u)
+			}
+			unaccounted := []string{}
 			for _, a := range all {
-				if !isWired[a] {
-					cp.Unused = append(cp.Unused, a)
+				if !isWired[a] && !explicitUnused[a] {
+					unaccounted = append(unaccounted, a)
 				}
 			}
-			cp.UnusedComplete = c.AllVerified && !inventoryConflict
+			cp.UnusedComplete = c.AllVerified && c.UnusedVerified && !inventoryConflict && len(unaccounted) == 0
+			if len(unaccounted) > 0 {
+				cp.Issues = append(cp.Issues, "UNACCOUNTED cavities (not covered by the reconciled unused list): "+strings.Join(unaccounted, ", ")+". HOLD: do not remove contacts or install filler contacts/sealing plugs until pinout, used-count, conductor and layout evidence agree.")
+			} else if !c.UnusedVerified {
+				cp.Issues = append(cp.Issues, "Unused-position list has not passed the pinout, sourced used-count, conductor-coverage and connector-layout gates; preparation quantities remain unresolved.")
+			}
 			if cp.Positions == 0 {
 				cp.Positions, cp.PositionSource = len(all), c.AllSource
 			} else if cp.Positions != len(all) {
@@ -325,12 +360,18 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 
 		wiredSet := map[string]bool{}
 		inventorySet := map[string]bool{}
-		for _, w := range cp.Wired { wiredSet[w] = true }
-		for _, a := range all { inventorySet[a] = true }
+		for _, w := range cp.Wired {
+			wiredSet[w] = true
+		}
+		for _, a := range all {
+			inventorySet[a] = true
+		}
 		for _, u := range c.Unused {
 			if wiredSet[u] || (len(all) > 0 && !inventorySet[u]) {
 				cp.UnusedComplete = false
-				cp.Issues = append(cp.Issues, "Conflicting unused-cavity declaration: " + u + ". Resolve before kitting.")
+				if len(all) == 0 {
+					cp.Issues = append(cp.Issues, "Conflicting unused-cavity declaration: "+u+". Resolve before kitting.")
+				}
 			}
 		}
 		if inventoryConflict {
@@ -353,8 +394,8 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 				cp.Kit = append(cp.Kit, KitLine{Part: cp.Contact, Purpose: "contacts to crimp (wired cavities)", Qty: len(cp.Wired)})
 				addTotal(cp.Contact, "contact", c.Tag, len(cp.Wired))
 			}
-			if policy == "contact+plug" {
-				q, note := unusedCount, ""
+			if cpol == "contact+plug" || cpol == "contact-only" {
+				q, note := unusedCount, cp.PolicySource
 				if !countKnown {
 					q, note = -1, "unused count unknown"
 				}
@@ -366,7 +407,17 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 		} else {
 			cp.Kit = append(cp.Kit, KitLine{Part: "UNRESOLVED CONTACT", Purpose: "contacts", Qty: -1, Note: "enter the contact P/N"})
 		}
-		if plug, src, ok := sealPlugFor(cp.ContactSize, refs); ok {
+		plug, src, ok := sealPlugFor(cp.ContactSize, refs)
+		if named := cleanPN(c.PlugPart); named != "" {
+			// The drawing names the plug; use it, and check it fits the contact size.
+			if m := reMS27488Size.FindStringSubmatch(named); m != nil && cp.ContactSize != "" && !strings.HasPrefix(strings.ToUpper(cp.ContactSize), m[1]) {
+				cp.Issues = append(cp.Issues, "The drawing note names sealing plug "+named+" (size "+m[1]+"), but "+c.Tag+" uses size "+cp.ContactSize+" contacts. Confirm the plug before kitting.")
+			}
+			plug, src, ok = named, cp.PolicySource, true
+		}
+		if cpol == "contact-only" {
+			// the note calls for contacts only: no sealing plugs
+		} else if ok {
 			q, note := unusedCount, "source: "+src
 			if !countKnown {
 				q, note = -1, "unused count unknown"
@@ -515,3 +566,5 @@ func MakeBuildPlan(req PlanRequest) (BuildPlan, error) {
 	plan.Notes = append(plan.Notes, "Crimp frame and positioner come from the DMC wall chart reference (chart-extracted, unverified). Confirm against the current DMC chart and the positioner data plate before production.")
 	return plan, nil
 }
+
+var reMS27488Size = regexp.MustCompile(`^MS27488-([0-9]{1,2})`)

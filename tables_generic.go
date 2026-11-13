@@ -31,6 +31,10 @@ type genericTable struct {
 	Title   string
 	Rows    []map[string]string
 	HeaderY float64
+	// RowY is the baseline of each row in Rows (recognizer frame), and Audit
+	// the completeness check of a pin/wire table (nil when not checked).
+	RowY  []float64
+	Audit *TableAudit
 }
 
 var headerVocab = map[string]string{
@@ -46,7 +50,7 @@ var headerVocab = map[string]string{
 	"MFR": "vendor", "MANUFACTURER": "vendor", "VENDOR": "vendor", "MFG": "vendor",
 	"REF DES": "ref", "REFDES": "ref", "REF": "ref", "REF DESIG": "ref", "REFERENCE DESIGNATOR": "ref", "REFERENCE DESIGNATION": "ref", "DESIGNATOR": "ref", "CONN": "ref", "CONNECTOR": "ref",
 	"NOTES OR REMARKS": "note",
-	"UM": "um", "U/M": "um", "UNIT": "um", "NOTES": "note", "NOTE": "note", "REMARKS": "note", "MATERIAL": "note", "SPECIFICATION": "note", "MATERIAL/SPEC": "note", "MATERIAL SPECIFICATION": "note",
+	"UM":               "um", "U/M": "um", "UNIT": "um", "NOTES": "note", "NOTE": "note", "REMARKS": "note", "MATERIAL": "note", "SPECIFICATION": "note", "MATERIAL/SPEC": "note", "MATERIAL SPECIFICATION": "note",
 	// wiring
 	"PIN": "pin", "PIN NO": "pin", "PINS": "pin", "CONT": "pin", "CONT NO": "pin", "CONTACT": "pin", "CONTACT NO": "pin", "CAV": "pin", "CAV NO": "pin", "CAVITY": "pin", "TERM": "pin", "POS": "pin", "POSITION": "pin",
 	"WIRE": "wire", "WIRE NO": "wire", "WIRE ID": "wire", "WIRE #": "wire", "CKT": "wire", "CKT NO": "wire", "CIRCUIT": "wire", "CONDUCTOR": "wire", "WIRE NUMBER": "wire",
@@ -55,14 +59,19 @@ var headerVocab = map[string]string{
 	"AWG": "awg", "GAGE": "awg", "GAUGE": "awg", "WIRE SIZE": "awg", "WIRE GAGE": "awg", "WIRE GAUGE": "awg", "GA": "awg", "SIZE": "awg",
 	"FROM": "from", "SOURCE": "from", "FROM CONN": "from", "FROM REF DES": "from", "FROM REF": "from", "END A": "from",
 	"TO": "to", "DEST": "to", "DESTINATION": "to", "TO CONN": "to", "TO REF DES": "to", "TO REF": "to", "TERMINATION": "to", "END B": "to",
-	"FROM PIN": "frompin", "TO PIN": "topin", "WIRE TYPE": "other", "TYPE": "other", "LENGTH": "other", "SPEC": "other", "CABLE": "other", "SHIELD": "other", "TWIST": "other",
+	"FROM PIN": "frompin", "TO PIN": "topin", "WIRE TYPE": "other", "TYPE": "other", "LENGTH": "length", "LEN": "length", "WIRE LENGTH": "length", "CUT LENGTH": "length", "LENGTH IN": "length", "LENGTH INCHES": "length", "LENGTH FT": "length", "LENGTH MM": "length", "LENGTH CM": "length", "SPEC": "other", "CABLE": "other", "SHIELD": "other", "TWIST": "other",
 }
 
 var groupWords = map[string]string{"FROM": "from", "TO": "to", "SOURCE": "from", "DESTINATION": "to", "END A": "from", "END B": "to", "ORIGIN": "from"}
 
+// reGluedPN finds a P/N run onto the word before it ("MANUFACTUREP/N"), as
+// some drawings' text comes out when the space is drawn as a gap, not a space.
+var reGluedPN = regexp.MustCompile(`([A-Z]{2,})(P/N|P/NO)$`)
+
 func normHead(s string) string {
 	s = strings.ToUpper(strings.TrimSpace(s))
 	s = strings.NewReplacer(".", "", ":", "", "_", " ", "(", "", ")", "").Replace(s)
+	s = reGluedPN.ReplaceAllString(s, "$1 $2")
 	return strings.Join(strings.Fields(s), " ")
 }
 
@@ -78,7 +87,9 @@ func headerRole(label string) string {
 	}
 	// Unrecognized organization-prefixed P/N headings are separate reference
 	// columns, never text to concatenate into the manufacturer part number.
-	if strings.HasSuffix(n, " P/N") || strings.HasSuffix(n, " PN") {return "partref"}
+	if strings.HasSuffix(n, " P/N") || strings.HasSuffix(n, " PN") {
+		return "partref"
+	}
 	return ""
 }
 
@@ -138,26 +149,52 @@ func buildHeader(lines []evidenceLine, i int) ([]tColumn, []int, bool) {
 		return nil, nil, false
 	}
 	band := []int{i}
+	// Only words across the heading's own width belong to the table: a
+	// parts list printed beside the drawing notes shares its heading
+	// baselines with note text to one side.
+	spanL, spanR := math.Inf(1), math.Inf(-1)
+	for _, w := range base.Words {
+		if !w.Rotated && headerish(w.Text) {
+			spanL, spanR = math.Min(spanL, w.X), math.Max(spanR, w.right())
+		}
+	}
+	spanL, spanR = spanL-4*em, spanR+4*em
+	bandWords := map[int][]Word{i: base.Words}
 	// Stacked heading lines above/below (a single-line heading can sit
 	// vertically between the two halves of two-line headings).
 	for _, j := range []int{i - 2, i - 1, i + 1, i + 2} {
 		if j < 0 || j >= len(lines) || math.Abs(lines[j].Y-base.Y) > 2.4*em {
 			continue
 		}
-		ok := len(lines[j].Words) > 0
+		allHead := func(ws []Word) bool {
+			for _, w := range ws {
+				if !headerish(w.Text) {
+					return false
+				}
+			}
+			return len(ws) > 0
+		}
+		if allHead(lines[j].Words) {
+			band = append(band, j)
+			bandWords[j] = lines[j].Words
+			continue
+		}
+		// otherwise only the words across the heading's width
+		var in []Word
 		for _, w := range lines[j].Words {
-			if !headerish(w.Text) {
-				ok = false
+			if w.right() >= spanL && w.X <= spanR {
+				in = append(in, w)
 			}
 		}
-		if ok {
+		if len(in) < len(lines[j].Words) && allHead(in) {
 			band = append(band, j)
+			bandWords[j] = in
 		}
 	}
 	// Columns from the band line with the most fragments.
 	baseIdx := i
 	for _, j := range band {
-		if len(lines[j].Words) > len(lines[baseIdx].Words) {
+		if len(bandWords[j]) > len(bandWords[baseIdx]) {
 			baseIdx = j
 		}
 	}
@@ -166,7 +203,7 @@ func buildHeader(lines []evidenceLine, i int) ([]tColumn, []int, bool) {
 		parts []Word
 	}
 	accs := []acc{}
-	for _, w := range lines[baseIdx].Words {
+	for _, w := range bandWords[baseIdx] {
 		cols = append(cols, tColumn{x0: w.X, x1: w.right()})
 		accs = append(accs, acc{parts: []Word{w}})
 	}
@@ -175,7 +212,7 @@ func buildHeader(lines []evidenceLine, i int) ([]tColumn, []int, bool) {
 		if j == baseIdx {
 			continue
 		}
-		for _, w := range lines[j].Words {
+		for _, w := range bandWords[j] {
 			cx := (w.X + w.right()) / 2
 			best, bd := -1, math.Inf(1)
 			for k, c := range cols {
@@ -416,24 +453,71 @@ func validRow(kind string, c map[string]string) bool {
 	return false
 }
 
-func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind string, cols []tColumn, em float64, startY float64) []map[string]string {
+// joinCellLines joins two wrapped lines of one cell in reading order. A line that ends in a hyphen is a
+// word broken at the hyphen (a reference designator such as GSE-/P3), so the next line continues it with no space.
+func joinCellLines(first, second string) string {
+	if strings.HasSuffix(first, "-") {
+		return first + second
+	}
+	return first + " " + second
+}
+
+func mergeTableCells(dst, src map[string]string, prepend bool) {
+	for role, value := range src {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if dst[role] == "" {
+			dst[role] = value
+		} else if prepend {
+			dst[role] = joinCellLines(value, dst[role])
+		} else {
+			dst[role] = joinCellLines(dst[role], value)
+		}
+	}
+}
+
+func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind string, cols []tColumn, em float64, startY float64) ([]map[string]string, []float64) {
 	rows := []map[string]string{}
+	rowY := []float64{}
 	misses := 0
 	lastY := startY
+	lastRowY := startY
 	pitch := 0.0
+	pending := map[string]string{}
+	pendingLines := 0
+	// A bottom-up parts list whose cells are vertically centred on the item line wraps above and below it.
+	// frags remembers every unmatched baseline so it joins the nearest item line, not the next one up.
+	type fragLine struct {
+		y float64
+		c map[string]string
+	}
+	var frags []fragLine
+	centered := false
+	maxMisses := 2
+	if kind == "bom" && step < 0 {
+		maxMisses = 8
+	}
 	for i := from; i >= 0 && i < len(lines); i += step {
 		if band[i] {
 			continue
 		}
 		l := lines[i]
 		gap := math.Abs(lastY - l.Y)
+		// Compare adjacent physical lines, not only completed rows. A single
+		// parts-list record can occupy several baselines (description, REF DES,
+		// manufacturer, then the item/qty/part line). Comparing every fragment
+		// to the last completed row makes those legitimate baselines look like
+		// an ever-growing gap and stops before the identifying fields arrive.
 		if (pitch > 0 && gap > math.Max(3.2*pitch, 3.5*em)) || (pitch == 0 && gap > 5*em) {
 			break
 		}
+		lastY = l.Y
 		c := assignCells(l, cols, em)
 		if len(c) == 0 {
 			misses++
-			if misses >= 2 {
+			if misses >= maxMisses {
 				break
 			}
 			continue
@@ -441,32 +525,86 @@ func readRows(lines []evidenceLine, from int, step int, band map[int]bool, kind 
 		if !validRow(kind, c) {
 			// a wrapped description continues the previous row (rows read
 			// top-down have the wrap below, bottom-up above)
-			if kind == "bom" && len(rows) > 0 && c["desc"] != "" && c["part"] == "" && c["item"] == "" && c["qty"] == "" {
+			if step > 0 && kind == "bom" && len(rows) > 0 && len(pending) == 0 && c["desc"] != "" && c["part"] == "" && c["item"] == "" && c["qty"] == "" {
 				prev := rows[len(rows)-1]
-				if step > 0 {
-					prev["desc"] = strings.TrimSpace(prev["desc"] + " " + c["desc"])
-				} else {
-					prev["desc"] = strings.TrimSpace(c["desc"] + " " + prev["desc"])
-				}
-				lastY = l.Y
+				prev["desc"] = strings.TrimSpace(prev["desc"] + " " + c["desc"])
 				continue
 			}
+			if kind != "bom" || step > 0 {
+				misses++
+				if misses >= maxMisses {
+					break
+				}
+				continue
+			}
+			mergeTableCells(pending, c, true)
+			frags = append(frags, fragLine{l.Y, c})
+			pendingLines++
+			if validRow(kind, pending) {
+				c = pending
+			} else {
+				misses++
+				if pendingLines >= maxMisses || misses >= maxMisses {
+					break
+				}
+				continue
+			}
+		} else if len(pending) > 0 {
+			if kind == "bom" && step < 0 && len(rows) == 0 {
+				centered = true
+			}
+			if kind == "bom" && step < 0 && centered && len(rows) > 0 {
+				var toPrev, toThis []fragLine
+				for _, f := range frags {
+					if math.Abs(f.y-lastRowY) < math.Abs(f.y-l.Y) {
+						toPrev = append(toPrev, f)
+					} else {
+						toThis = append(toThis, f)
+					}
+				}
+				sort.SliceStable(toPrev, func(a, b int) bool { return toPrev[a].y < toPrev[b].y })
+				for _, f := range toPrev {
+					mergeTableCells(rows[len(rows)-1], f.c, true)
+				}
+				sort.SliceStable(toThis, func(a, b int) bool { return toThis[a].y > toThis[b].y })
+				for _, f := range toThis {
+					mergeTableCells(c, f.c, false)
+				}
+			} else {
+				mergeTableCells(pending, c, step < 0)
+				c = pending
+			}
+		}
+		if !validRow(kind, c) {
 			misses++
-			if misses >= 2 {
+			if misses >= maxMisses {
 				break
 			}
 			continue
 		}
 		misses = 0
+		pending = map[string]string{}
+		pendingLines = 0
+		frags = nil
+		rowGap := math.Abs(lastRowY - l.Y)
 		if pitch == 0 {
-			pitch = gap
+			pitch = rowGap
 		} else {
-			pitch = (2*pitch + gap) / 3
+			pitch = (2*pitch + rowGap) / 3
 		}
-		lastY = l.Y
+		lastRowY = l.Y
 		rows = append(rows, c)
+		rowY = append(rowY, l.Y)
 	}
-	return rows
+	if centered && len(rows) > 0 && pitch > 0 {
+		sort.SliceStable(frags, func(a, b int) bool { return frags[a].y < frags[b].y })
+		for _, f := range frags {
+			if math.Abs(f.y-lastRowY) <= pitch*0.6 {
+				mergeTableCells(rows[len(rows)-1], f.c, true)
+			}
+		}
+	}
+	return rows, rowY
 }
 
 func genericTables(p Page) []genericTable {
@@ -504,13 +642,13 @@ func genericTables(p Page) []genericTable {
 			if kind == "" {
 				continue
 			}
-			down := readRows(lines, maxI+1, 1, bandSet, kind, seg, em, lines[maxI].Y)
-			up := readRows(lines, minI-1, -1, bandSet, kind, seg, em, lines[minI].Y)
+			down, downY := readRows(lines, maxI+1, 1, bandSet, kind, seg, em, lines[maxI].Y)
+			up, upY := readRows(lines, minI-1, -1, bandSet, kind, seg, em, lines[minI].Y)
 			t := genericTable{Page: p.Number, Kind: kind, Cols: seg, HeaderY: hy}
 			if len(up) > len(down) {
-				t.Up, t.Rows = true, up
+				t.Up, t.Rows, t.RowY = true, up, upY
 			} else {
-				t.Rows = down
+				t.Rows, t.RowY = down, downY
 			}
 			if len(t.Rows) == 0 {
 				continue
@@ -522,6 +660,10 @@ func genericTables(p Page) []genericTable {
 				}
 				if !has["from"] {
 					t.Title = tableTitleTag(lines, minI, seg[0].x0, seg[len(seg)-1].x1+160)
+				}
+				if !t.Up {
+					a := auditWireTable(p, lines, t, bandSet, em, lines[maxI].Y)
+					t.Audit = &a
 				}
 			}
 			out = append(out, t)
@@ -563,6 +705,22 @@ func (t genericTable) bomRows() []BOMRow {
 		if vendor == "" && r["cage"] != "" {
 			vendor = "CAGE " + r["cage"]
 		}
+		// A tabulated parts list has a quantity column per assembly variant (dash
+		// number): several separate numbers in the quantity cells are never joined.
+		variants := 0
+		if toks := strings.Fields(r["qty"]); len(toks) > 1 {
+			all := true
+			for _, t := range toks {
+				u := strings.ToUpper(t)
+				if _, ok := plainQty(u); !ok && u != "A/R" && u != "AR" && u != "-" {
+					all = false
+				}
+			}
+			if all {
+				variants = len(toks)
+				r["qty"] = toks[0]
+			}
+		}
 		qty := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["qty"]), " ", ""))
 		if qty == "AR" || strings.HasPrefix(qty, "ASREQ") {
 			qty = "A/R"
@@ -570,7 +728,7 @@ func (t genericTable) bomRows() []BOMRow {
 		if qty == "" {
 			qty = "UNRESOLVED"
 		}
-		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE"})
+		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Unit: normUnit(r["um"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE" + variantNote(variants)})
 	}
 	return out
 }
@@ -610,7 +768,7 @@ func (t genericTable) wireRows() []WireRow {
 		if !pinValue.MatchString(endPin) {
 			endPin = ""
 		}
-		out = append(out, WireRow{Page: t.Page, Connector: conn, Cavity: pin, Signal: r["signal"], End: end, EndCavity: endPin, EndSignal: endSignal, Confidence: "DRAFT — TABLE READER (header-grounded)", Y: t.HeaderY - float64(i), Wire: r["wire"], Color: r["color"], AWG: r["awg"], Method: "table-reader"})
+		out = append(out, WireRow{Page: t.Page, Connector: conn, Cavity: pin, Signal: r["signal"], End: end, EndCavity: endPin, EndSignal: endSignal, Confidence: "DRAFT — TABLE READER (header-grounded)", Y: t.HeaderY - float64(i), Wire: r["wire"], Color: r["color"], AWG: r["awg"], Length: strings.TrimSpace(r["length"]), Method: "table-reader"})
 	}
 	return out
 }
@@ -683,7 +841,6 @@ func tableSummary(t genericTable) string {
 	return fmt.Sprintf("%s table, %d row(s), %s, columns [%s]", t.Kind, len(t.Rows), dir, strings.Join(roles, ", "))
 }
 
-
 // unusedRows returns rows of a pin/wire table that document a spare or
 // not-connected cavity (they are skipped as conductors).
 func (t genericTable) unusedRows() []UnusedCavity {
@@ -714,4 +871,25 @@ func (t genericTable) unusedRows() []UnusedCavity {
 		out = append(out, UnusedCavity{Connector: conn, Cavity: pin, Page: t.Page, Source: "pin table row marked " + label + " on sheet " + itoa(t.Page)})
 	}
 	return out
+}
+
+// normUnit writes a parts-list unit of measure one way: FT, IN, EA, M, MM...
+func normUnit(u string) string {
+	u = strings.ToUpper(strings.Trim(strings.TrimSpace(u), ".:"))
+	switch u {
+	case "FEET", "FOOT", "'":
+		return "FT"
+	case "INCH", "INCHES", `"`:
+		return "IN"
+	case "EACH":
+		return "EA"
+	}
+	return u
+}
+
+func variantNote(n int) string {
+	if n < 2 {
+		return ""
+	}
+	return fmt.Sprintf("; TABULATED: %d quantities on this line (one per assembly variant); the first is used, check the dash number being built", n)
 }

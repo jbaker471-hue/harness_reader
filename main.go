@@ -333,6 +333,27 @@ func run() error {
 		}
 		jsonAnswer(w, v)
 	})
+	mux.HandleFunc("/api/compare", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		b, ok := readPDF(w, r)
+		if !ok {
+			return
+		}
+		if !isPDF(b) {
+			http.Error(w, "Expected PDF file", 422)
+			return
+		}
+		// Revision comparison is deliberately side-effect free: the comparison PDF is analyzed
+		// locally but never replaces the current drawing used by page review and reanalysis.
+		v, e := viewAnalysis(b)
+		if e != nil {
+			http.Error(w, "PDF comparison analysis failed: "+e.Error(), 422)
+			return
+		}
+		jsonAnswer(w, v)
+	})
 	mux.HandleFunc("/api/clear", func(w http.ResponseWriter, r *http.Request) {
 		if !post(w, r) {
 			return
@@ -508,6 +529,45 @@ func run() error {
 		}
 		jsonAnswer(w, map[string]int{"learned": n})
 	})
+	// The right answers for the open drawing, saved on this PC only.
+	mux.HandleFunc("/api/answer-key", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			if !post(w, r) {
+				return
+			}
+			_, x := current.get()
+			if x == nil {
+				http.Error(w, "Open a drawing first", 409)
+				return
+			}
+			var k AnswerKey
+			if e := json.NewDecoder(io.LimitReader(r.Body, 262144)).Decode(&k); e != nil {
+				http.Error(w, "Invalid JSON", 400)
+				return
+			}
+			k.SHA256 = x.SHA256
+			if e := saveAnswerKey(k); e != nil {
+				http.Error(w, "Could not save the answer key: "+e.Error(), 422)
+				return
+			}
+			saved, _ := loadAnswerKey(x.SHA256)
+			jsonAnswer(w, map[string]any{"key": saved})
+			return
+		}
+		if !secure(w, r) {
+			return
+		}
+		_, x := current.get()
+		if x == nil {
+			jsonAnswer(w, map[string]any{"key": nil})
+			return
+		}
+		if k, ok := loadAnswerKey(x.SHA256); ok {
+			jsonAnswer(w, map[string]any{"key": k})
+			return
+		}
+		jsonAnswer(w, map[string]any{"key": nil})
+	})
 	mux.HandleFunc("/api/layouts/forget", func(w http.ResponseWriter, r *http.Request) {
 		if !post(w, r) {
 			return
@@ -637,7 +697,133 @@ func run() error {
 		if !secure(w, r) {
 			return
 		}
-		jsonAnswer(w, []any{})
+		v, e := accessoryReference()
+		if e != nil {
+			http.Error(w, "Accessory reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/wire-cable-library", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := wireCableReference()
+		if e != nil {
+			http.Error(w, "Wire/cable reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/wire-decode", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		part := r.URL.Query().Get("part")
+		if len(part) > 80 {
+			http.Error(w, "Part number too long", http.StatusBadRequest)
+			return
+		}
+		text := r.URL.Query().Get("description")
+		if len(text) > 300 {
+			http.Error(w, "Description too long", http.StatusBadRequest)
+			return
+		}
+		v, e := DecodeWireLine(part, text)
+		if e != nil {
+			http.Error(w, "Wire specification reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	// Validates a reference PDF (standard or catalog) without loading it as the current drawing.
+	mux.HandleFunc("/api/reference-validate", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		b, ok := readPDF(w, r)
+		if !ok {
+			return
+		}
+		jsonAnswer(w, ValidateReferencePDF(b))
+	})
+	mux.HandleFunc("/api/connector-family", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		part := r.URL.Query().Get("part")
+		if len(part) > 80 {
+			http.Error(w, "Part number too long", http.StatusBadRequest)
+			return
+		}
+		arr := r.URL.Query().Get("arrangement")
+		if len(arr) > 20 {
+			http.Error(w, "Arrangement too long", http.StatusBadRequest)
+			return
+		}
+		jsonAnswer(w, DecodeConnectorFamilyWith(part, arr))
+	})
+	// Every insert arrangement the application knows, loaded or not, independent of any connector.
+	mux.HandleFunc("/api/insert-layouts", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := listInsertLayouts()
+		if e != nil {
+			http.Error(w, "Insert layout library unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/arrangement-register", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := arrangementRegister()
+		if e != nil {
+			http.Error(w, "Arrangement register unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/family-coverage", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := familyCoverage()
+		if e != nil {
+			http.Error(w, "Coverage audit unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
+	})
+	mux.HandleFunc("/api/insert-layout", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		id := r.URL.Query().Get("id")
+		if len(id) > 20 {
+			http.Error(w, "Arrangement too long", http.StatusBadRequest)
+			return
+		}
+		g, problems := insertGeometryFor("MIL-STD-1560", id)
+		if g == nil {
+			http.Error(w, "No stored layout for that arrangement", http.StatusNotFound)
+			_ = problems
+			return
+		}
+		jsonAnswer(w, g)
+	})
+	mux.HandleFunc("/api/tool-equivalence-library", func(w http.ResponseWriter, r *http.Request) {
+		if !secure(w, r) {
+			return
+		}
+		v, e := toolEquivalenceReference()
+		if e != nil {
+			http.Error(w, "Tool-equivalence reference unavailable: "+e.Error(), 500)
+			return
+		}
+		jsonAnswer(w, v)
 	})
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

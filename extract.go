@@ -45,6 +45,15 @@ type Page struct {
 	// table readers require it: on legacy (possibly mirrored) coordinates they
 	// can swap columns and produce wrong pin mappings.
 	PageAccurate bool `json:"-"`
+	// HRules are the horizontal ruled lines of the page in the recognizer
+	// frame (x0, y, x1, y with x0 < x1, Y up). Table audits use them to count
+	// drawn table rows. RulesTruncated means the page had more vector detail
+	// than was captured, so a row count from rules would be unreliable.
+	HRules         []Segment `json:"-"`
+	// Segs are all drawn line segments (recognizer frame), used to follow a
+	// wire from one connector to the other along the line drawn for it.
+	Segs []Segment `json:"-"`
+	RulesTruncated bool      `json:"-"`
 }
 type PDFData struct {
 	Pages  []Page   `json:"pages"`

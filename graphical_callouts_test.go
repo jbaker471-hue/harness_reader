@@ -94,3 +94,17 @@ func TestLeaderStartsOnActualSlopingFlagEdge(t *testing.T) {
 		t.Fatalf("%v %s", targets, status)
 	}
 }
+
+func TestLeaderTargetCandidatesStaySuggestions(t *testing.T) {
+	p := PageLayout{Words: []LayoutWord{
+		{Text: "P3 BACKSHELL", Box: Box{90, 90, 135, 102}},
+		{Text: "FAR AWAY TEXT", Box: Box{300, 300, 380, 312}},
+	}}
+	got := calloutTargetCandidates(p, [][2]float64{{100, 100}}, Box{10, 10, 25, 25})
+	if len(got) != 1 || got[0].Text != "P3 BACKSHELL" || got[0].Kind != "backshell / strain relief" {
+		t.Fatalf("target suggestions: %+v", got)
+	}
+	if got[0].Distance <= 0 {
+		t.Fatal("target suggestion must retain its evidence distance")
+	}
+}

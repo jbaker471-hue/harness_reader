@@ -1,0 +1,2 @@
+# PDFs carry byte offsets (xref), so line endings must never be rewritten on checkout.
+*.pdf binary

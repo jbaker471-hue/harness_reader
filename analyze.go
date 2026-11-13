@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -37,6 +38,7 @@ type WireRow struct {
 	Wire          string `json:"wire,omitempty"`
 	Color         string `json:"color,omitempty"`
 	AWG           string `json:"awg,omitempty"`
+	Length        string `json:"length,omitempty"`
 	Method        string `json:"method,omitempty"`
 	Corroboration int    `json:"corroboration,omitempty"`
 }
@@ -50,6 +52,9 @@ type BOMRow struct {
 	Reference     string `json:"reference"`
 	Page          int    `json:"page"`
 	Status        string `json:"status"`
+	// Unit is the parts list's unit of measure (U/M) for the quantity, as
+	// printed (EA, FT, IN...), empty when the list has no unit column.
+	Unit string `json:"unit,omitempty"`
 }
 type Finding struct {
 	Severity string `json:"severity"`
@@ -57,6 +62,11 @@ type Finding struct {
 	Message  string `json:"message"`
 	Pages    []int  `json:"pages"`
 	Category string `json:"category"`
+	// optional structured detail, copied into the discrepancy export
+	Connector string `json:"connector,omitempty"`
+	Part      string `json:"part,omitempty"`
+	Expected  string `json:"expected,omitempty"`
+	Observed  string `json:"observed,omitempty"`
 }
 type ConnectorAudit struct {
 	Tag      string   `json:"tag"`
@@ -76,6 +86,8 @@ type Analysis struct {
 	PageSummary    []PageSummary    `json:"pageSummary"`
 	ToolingMatches []ToolMatch      `json:"toolingMatches"`
 	Unused         []UnusedCavity   `json:"unused"`
+	UsedCounts     []StatedUsed     `json:"usedCounts"`
+	TableAudits    []TableAudit     `json:"tableAudits"`
 }
 type PageSummary struct {
 	Page       int    `json:"page"`
@@ -161,11 +173,19 @@ func findConnectorWords(p Page) []struct{ Tag, Part string } {
 			tag := ""
 			best := 1e12
 			for _, v := range p.Words {
-				if reTag.MatchString(strings.TrimSpace(v.Text)) && abs(v.Y-w.Y) < 11 {
+				text := strings.TrimSpace(v.Text)
+				// A designator wrapped at its hyphen (GSE-, then P3 on the next baseline) is one tag.
+				for _, u := range p.Words {
+					if strings.HasSuffix(strings.TrimSpace(u.Text), "-") && abs(u.X-v.X) < 3*math.Max(v.Size, 1) && u.Y > v.Y && u.Y-v.Y <= 2.2*math.Max(v.Size, 1) {
+						text = strings.TrimSpace(u.Text) + text
+						break
+					}
+				}
+				if reTag.MatchString(text) && abs(v.Y-w.Y) < 11 {
 					dist := abs(v.X - w.X)
 					if dist < best {
 						best = dist
-						tag = reTag.FindString(v.Text)
+						tag = reTag.FindString(text)
 					}
 				}
 			}
@@ -501,11 +521,20 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	a.Findings = []Finding{}
 	a.Audits = []ConnectorAudit{}
 	a.PageSummary = []PageSummary{}
+	a.TableAudits = []TableAudit{}
 	var tables []genericTable
+	partTags, headerConflicts := headerPartTags(d)
+	colWhy := map[int]string{}
+	a.TableAudits = append(a.TableAudits, headerConflicts...)
 	for _, p := range d.Pages {
 		a.Words += len(p.Words)
 		gts := genericTables(p)
 		tables = append(tables, gts...)
+		for _, t := range gts {
+			if t.Audit != nil {
+				a.TableAudits = append(a.TableAudits, *t.Audit)
+			}
+		}
 		bb := bomRows(p)
 		// Retry with geometry-based columns rather than a fixed BOM template.
 		if len(bb) == 0 {
@@ -526,6 +555,50 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			bb = gb
 		}
 		w := pairedSchematicRows(p)
+		// Follow the drawn wire lines first: the line decides which pins a wire
+		// joins. The column reader then fills only lines that were not traced.
+		tw, twhy, blocks := traceSheet(p, w, partTags)
+		// A one-ended reading (a number at one end only) is a last resort: it is
+		// added only for lines no reader read with both ends.
+		var oneEnded []WireRow
+		for _, r := range tw {
+			if r.Method == "traced-wire-one-end" {
+				oneEnded = append(oneEnded, r)
+			} else {
+				w = append(w, r)
+			}
+		}
+		pw, why := positionalSchematicRows(p, w, partTags)
+		w = append(w, pw...)
+		for _, r := range oneEnded {
+			taken := false
+			for _, o := range w {
+				if math.Abs(o.Y-r.Y) <= 1.5 || (strings.EqualFold(o.Connector, r.Connector) && o.Cavity == r.Cavity) || (strings.EqualFold(o.End, r.Connector) && o.EndCavity == r.Cavity) {
+					taken = true
+					break
+				}
+			}
+			if !taken {
+				w = append(w, r)
+			}
+		}
+		// connectors whose wires another reader read get a pin column too
+		blocks = append(blocks, rowBlocks(p, w, blocks)...)
+		// shields terminated to a pin use that pin
+		w = append(w, shieldPinRows(p, blocks, w)...)
+		// every pin number printed beside a traced connector needs exactly one wire
+		a.TableAudits = append(a.TableAudits, pinNumberAudits(p, blocks, w)...)
+		switch {
+		case twhy != "" && why != "":
+			colWhy[p.Number] = why + "; " + twhy
+		case twhy != "":
+			colWhy[p.Number] = twhy
+		case why != "" && len(tw) == 0:
+			colWhy[p.Number] = why
+		}
+		if au, ok := auditSchematic(p, w); ok {
+			a.TableAudits = append(a.TableAudits, au)
+		}
 		if len(w) == 0 {
 			w = wireRows(p)
 		}
@@ -588,7 +661,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			kept := w[:0]
 			for _, r := range w {
 				positional := r.Method == "" || r.Method == "legacy-template"
-				if positional && !strings.HasPrefix(r.Confidence, "DRAFT — HEADER-GROUNDED") && (r.Connector == "UNASSIGNED" || grounded[r.Connector+":"+r.Cavity]) {
+				if positional && !strings.HasPrefix(r.Confidence, "DRAFT — HEADER-GROUNDED") && (len(tr) > 0 || r.Connector == "UNASSIGNED" || grounded[r.Connector+":"+r.Cavity]) {
 					continue
 				}
 				kept = append(kept, r)
@@ -626,6 +699,7 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 		a.Unused = append(a.Unused, t.unusedRows()...)
 	}
 	a.Unused = dedupeUnused(a.Unused)
+	a.UsedCounts = statedUsedCounts(d)
 	a.Wires = mergeWireRows(a.Wires)
 	a.Connectors = connectorFromBOM(a.BOM)
 	if a.Connectors == nil {
@@ -667,6 +741,10 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	// Connector part references may occur in a non-D38999 parts list or in
 	// a different location from the older fixed P1/SA drawing template.
 	for _, c := range flexibleConnectors(d, a.BOM, a.Wires, a.Connectors) {
+		// text glued together from neighbouring words is not a part number
+		if reGluedPart.MatchString(c.Part) || strings.Count(strings.ToUpper(c.Part), "D38999") > 1 {
+			continue
+		}
 		if c.Tag != "UNASSIGNED" && seenCon[c.Tag] {
 			continue
 		}
@@ -781,6 +859,34 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 			a.Connectors = append(a.Connectors, Connector{w.Connector, "NOT RESOLVED", 0, "UNKNOWN", []int{w.Page}, "UNRESOLVED"})
 		}
 	}
+	// Part numbers printed in the connector headers of the wiring sheets (split
+	// over two lines). They fill a connector the parts list did not resolve and
+	// are compared with the part the parts list gives.
+	for _, p := range d.Pages {
+		for tag, part := range headerPartNumbers(p) {
+			n, st := getLayout(part)
+			found := false
+			for i := range a.Connectors {
+				c := &a.Connectors[i]
+				if c.Tag != tag {
+					continue
+				}
+				found = true
+				switch {
+				case c.Part == "" || c.Part == "NOT RESOLVED" || (c.CavityCount == 0 && n > 0):
+					// the header part decodes to a known insert; the earlier reading did not
+					c.Part, c.CavityCount, c.LayoutStatus, c.Family = part, n, st, "MIL-DTL-38999"
+				default:
+					if f, ok := headerPartFinding(a.Connectors, *c, part, p.Number); ok {
+						a.Findings = append(a.Findings, f)
+					}
+				}
+			}
+			if !found && seenWireTag(a.Wires, tag) {
+				a.Connectors = append(a.Connectors, Connector{Tag: tag, Part: part, CavityCount: n, Family: "MIL-DTL-38999", Pages: []int{p.Number}, LayoutStatus: st})
+			}
+		}
+	}
 	if len(a.Connectors) == 0 {
 		a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "NO_CONNECTORS", Message: "No connector records identified. Text extraction may have succeeded, but connector interpretation has not. Check the per-page coverage and supported identifier patterns; no cavity release is permitted."})
 	}
@@ -793,7 +899,37 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 	if a.Words == 0 {
 		a.Findings = append(a.Findings, Finding{Severity: "ERROR", Code: "NO_NATIVE_TEXT", Message: "No machine-readable text extracted (scanned page, or lettering drawn as graphics). Use page review."})
 	}
+	{
+		tags := []string{}
+		for _, c := range a.Connectors {
+			if c.Tag != "" && c.Tag != "UNASSIGNED" {
+				tags = append(tags, c.Tag)
+			}
+		}
+		a.TableAudits = append(a.TableAudits, gaugeLabelAudits(d, a.Wires, tags, colWhy)...)
+	}
+	{
+		byPart := map[int]int{}
+		for _, w := range a.Wires {
+			if strings.Contains(w.Confidence, "MATCHED BY THE HEADER PART NUMBER") {
+				byPart[w.Page]++
+			}
+		}
+		for pg, n := range byPart {
+			a.Findings = append(a.Findings, Finding{Severity: "REVIEW", Code: "CONNECTOR_MATCHED_BY_PART", Category: CatReview, Pages: []int{pg}, Message: fmt.Sprintf("Sheet %d: the connector designators above the pin columns could not be read, so %d wire(s) were assigned to connectors by the part number printed in each header. Check the sheet.", pg, n)})
+		}
+	}
 	a.Findings = append(a.Findings, flexibleWarnings(d, a)...)
+	for _, t := range a.TableAudits {
+		if t.Status != "INCOMPLETE" {
+			continue
+		}
+		who := "the connectors in this table"
+		if len(t.Connectors) > 0 {
+			who = strings.Join(t.Connectors, ", ")
+		}
+		a.Findings = append(a.Findings, Finding{Severity: "WARNING", Code: "TABLE_ROW_NOT_READ", Category: CatExtraction, Pages: []int{t.Page}, Message: t.Detail + " Unused pins for " + who + " are on hold until those rows are read (select the table in Page review) or confirmed not to be wires."})
+	}
 	a.Findings = append(a.Findings, drawingReferenceFindings(d, a.BOM)...)
 
 	for _, c := range a.Connectors {
