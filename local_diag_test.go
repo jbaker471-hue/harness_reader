@@ -683,6 +683,9 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				for _, d := range heldEndShapes(p) {
 					pf("    held end: %s", d)
 				}
+				for _, d := range sameNameShapes(p) {
+					pf("    same-name pair: %s", d)
+				}
 			}
 			pf("    colour reader rows %d · column reader rows %d · traced rows %d · drawn segments %d · column reader says: %q · tracer says: %q", len(colour), len(pos), len(tw), len(p.Segs), why, twhy)
 			for _, tb := range genericTables(p) {
@@ -1097,6 +1100,28 @@ func heldEndShapes(p Page) []string {
 		cnt[fmt.Sprintf("%s: short h%d v%d slant%d, long %d (h%d v%d), extent %s, nearest number %s, on the line %s", reason, h, v, sl, long, longH, longV, ext, near, along)]++
 	}
 	defer func() { traceHeldHook = nil }()
+	traceSheet(p, nil, nil)
+	out := []string{}
+	for k, n := range cnt {
+		out = append(out, fmt.Sprintf("%dx %s", n, k))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// sameNameShapes classes, as counts only, the wires whose two ends landed on blocks given the same connector
+// name: whether the ends share a column (one block wired to itself) or sit in different columns, and how far
+// apart they are in em.
+func sameNameShapes(p Page) []string {
+	cnt := map[string]int{}
+	traceSameHook = func(ax, ay, bx, by, em float64) {
+		col := "different columns"
+		if math.Abs(ax-bx) <= 3 {
+			col = "same column"
+		}
+		cnt[fmt.Sprintf("%s, %.0f em apart across, %.0f em apart down", col, math.Round(math.Abs(ax-bx)/em/10)*10, math.Round(math.Abs(ay-by)/em/5)*5)]++
+	}
+	defer func() { traceSameHook = nil }()
 	traceSheet(p, nil, nil)
 	out := []string{}
 	for k, n := range cnt {

@@ -54,6 +54,10 @@ type traceEnd struct {
 // end is so its drawn shape can be summarised. Never set in the app.
 var traceHeldHook func(reason string, x, y, dir, em float64, segs []Segment)
 
+// traceSameHook, when set (diagnostics only), is told where a wire's two ends landed on blocks given the
+// same connector name. Never set in the app.
+var traceSameHook func(ax, ay, bx, by, em float64)
+
 // segGraph joins segments that share an end point.
 type segGraph struct {
 	segs []Segment
@@ -958,7 +962,17 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 			noConn++
 			continue
 		case ta == tb:
+			// Both ends in one column of one block: pins of the same connector wired together (a jumper). Ends in
+			// two different columns that were given the same name are a naming doubt, not a jumper, and stay held.
+			if math.Abs(a.x-b.x) <= 3 && a.pinID != "" && b.pinID != "" && a.pinID != b.pinID && !pairRead[ta+":"+a.pinID+">"+tb+":"+b.pinID] {
+				out = append(out, WireRow{Page: p.Number, Connector: ta, Cavity: a.pinID, End: tb, EndCavity: b.pinID, EndSignal: "jumper between two pins of the same connector", Color: a.color, AWG: labels[a.label].gauge, Y: labels[a.label].y, Method: "traced-wire-jumper",
+					Confidence: "DRAFT — TRACED ALONG THE DRAWN WIRE; BOTH ENDS ARE PINS OF THE SAME CONNECTOR; CHECK SOURCE"})
+				continue
+			}
 			same++
+			if traceSameHook != nil {
+				traceSameHook(a.x, a.y, b.x, b.y, labels[a.label].em)
+			}
 			continue
 		}
 		if pairRead[ta+":"+a.pinID+">"+tb+":"+b.pinID] {

@@ -9,7 +9,9 @@ Measured by counts only with the local structure diagnostic on the 11-drawing se
 - Cause found for 151 and 152: a drawn wire from a named connector's pin to a block of pin numbers that carries no printed name was dropped unless that end was drawn as a ferrule or ring terminal. Unread wires equalled held unnamed-block ends exactly (6 and 12).
 - Done: such a wire now gives the named connector's pin a one-ended row (method traced-wire-unnamed-block, far end left unresolved). 151 reads 80 of 80 gauge labels (was 74) and 152 reads 80 of 80 (was 68); their printed-pin checks now all pass (printed pins with no wire 6 to 0 and 12 to 0). No drawing's wire rows or any connector's wired or position count went down.
 - Built-exe end-to-end (headless Edge, counts only): app build hours 151 6.2 to 6.56, 152 3.99 to 4.71 (your estimates 7 and 10); every other drawing equal or slightly up, none down.
-- Not fixed: 150 still reads 46 of 48 (one line ends at an unnumbered position in a pin column, and 34 pin problems are pins with two wires read to them), and 155 still reads 43 of 44 (two lines with a gauge label and no pin number at either end) with 8 printed pin numbers at one lettered connector that have no wire read. These are different causes and need their own diagnosis.
+- Done: a wire whose two ends are two pins in one column of one connector is a jumper and now gets a row (method traced-wire-jumper). 150 reads 47 of 48 (was 46); its printed-pin checks agreeing 10 to 11 of 14.
+- Diagnosed, not changed: the last unread wire on 150 ends at an unnumbered position in a pin column. The tracer holds it on purpose (three older tests protect that rule, because the missing number is then the problem to flag). 155 reads 43 of 44: the last wire has no pin number within reach at either end (one end has a number about 3 em off its line). 155 also has 8 printed pin numbers beside one lettered connector with no wire read and no NC near them; not yet explained.
+- Built-exe hours after items 1 and 2 (before to after): 150 4.77 to 4.98, 151 6.2 to 6.56, 152 3.99 to 4.71; none went down.
 
 ## 2026-11-13 update: connectors with no position count (fix order item 1)
 
