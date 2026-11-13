@@ -440,8 +440,8 @@ equal([top.status,top.cut],['HARNESS LENGTH',217]);
 cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'OVERALL LENGTH',text:'48 IN'}]},harnessLength:null,harnessLengthOff:false,quote:{wireCost:{a:1},bomCost:{b:2}},shieldTerm:{x:1},cableSpec:{'24':'2'}};
 cutCtx.autoHarness();equal(cutCtx.st.harnessLength.text,'48 IN');             // one distinct value on two sheets: pre-selected for confirmation
 cutCtx.st.harnessLength=null;cutCtx.st.raw.harnessLengths.push({page:2,label:'CABLE LENGTH',text:'60 IN'});
-cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);                        // two different values: the user must choose
-cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);   // a cleared choice is not re-applied
+cutCtx.autoHarness();equal([cutCtx.st.harnessLength.text,cutCtx.st.harnessLength.source],['60 IN','overall']);   // two different values: the longer is the overall length (shop rule: cut long, trim at assembly)
+cutCtx.st.harnessLength=null;cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);   // a cleared choice is not re-applied
 cutCtx.st.harnessLength={text:'48 IN'};cutCtx.resetCutListState();
 equal([cutCtx.st.harnessLength,cutCtx.st.shieldTerm,cutCtx.st.cableSpec,cutCtx.st.quote.wireCost,cutCtx.st.quote.bomCost],[null,{},{},{},{}]);
 if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="0"'))throw Error('default excess must be 0 (cut at the top of the tolerance)');
@@ -923,10 +923,10 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('the single labelled length must still be selected automatically');
  cutCtx.st={raw:{harnessLengths:[{page:1,label:'DIMENSION',text:'36.00',tolerance:'±1.0'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('a dimension alone must never be selected automatically');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='36.00'||cutCtx.st.harnessLength.source!=='overall')throw Error('the one length printed on the drawing is the overall harness length');
  cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'CUT',text:'5 FT'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('two different labelled lengths must still be left for the user');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='5 FT'||cutCtx.st.harnessLength.source!=='overall')throw Error('with two lengths the longer one (5 FT, not 48 IN) is the overall length');
  console.log('PASS: unlabelled dimensions are candidates only; a single labelled length is still auto-selected');
 }
 
@@ -1011,10 +1011,10 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!h||h.text!=='216 IN'||h.source!=='confirmed'||!/37 cables/.test(h.basis))throw Error('a confirmed length must be used with its basis');
  cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216',tolerance:'-0.0/+1.0'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('an unconfirmed dimension must never be selected');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='216'||cutCtx.st.harnessLength.source!=='overall')throw Error('an unconfirmed dimension is used as the overall length and marked as such');
  cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216 IN',corroborated:true,basis:'a'},{page:2,label:'DIMENSION',text:'108 IN',corroborated:true,basis:'b'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('two confirmed candidates are left for the user');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='216 IN'||cutCtx.st.harnessLength.source!=='overall')throw Error('with two confirmed candidates the longer is the overall length');
  if(cutCtx.endsText('GSE-P3:9, GSE-P3:16')!=='GSE-P3 pins 9, 16'||cutCtx.endsText('CB-P3:15')!=='CB-P3 pin 15'||cutCtx.endsText('A:1, B:2')!=='A pin 1; B pin 2')throw Error('end labels');
  const tab=html.slice(html.indexOf('id="tab-cutlist"'),html.indexOf('</section>',html.indexOf('id="tab-cutlist"')));
  if(!/<details class="techdetails"><summary><b>Cable details and shield notes/.test(tab)||tab.indexOf('id="cutStatus"')<tab.indexOf('Cable details and shield notes'))throw Error('cable reference material collapses; the status and rows stay visible');
@@ -1046,7 +1046,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(Math.round(L.inches)!==217)throw Error('the cut list must read 217 inches');
  cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216',tolerance:'-0.0/+1.0',upper:'217 IN'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('an unconfirmed dimension is still never selected on its own');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='217 IN'||cutCtx.st.harnessLength.nominal!=='216'||cutCtx.st.harnessLength.source!=='overall')throw Error('the overall length is cut at the top of its tolerance');
  cutCtx.st={raw:{harnessLengths:[{page:3,label:'CUT',text:'5.0 FT',tolerance:'±2'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
  if(cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('a tolerance in an unknown unit is not added');
@@ -1137,6 +1137,17 @@ console.log('PASS: harness length applies only to conductors without their own l
  const un=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates,wires:[{method:'traced-wire-unnamed-block'},{method:'traced-wire-unnamed-block'},{method:'paired-schematic'}]});
  const base=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates,wires:[{method:'paired-schematic'}]});
  if(un.kit.unnamedPins!==2||un.kit.crimpContacts!==base.kit.crimpContacts+2||!(un.time.minutes>base.time.minutes)||!un.time.notTimed.some(s=>/no printed name/.test(s)))throw Error('unnamed-block contacts must be in the kit and the time: '+JSON.stringify(un.kit));
+ // Sensor harness practice: shields floated, sensor leads soldered with clear heat shrink. Counted only when the notes say so.
+ const sw=[{method:'traced-wire-one-end'},{method:'traced-wire-one-end'},{method:'traced-wire-one-end'},{method:'paired-schematic'}];
+ const cutS={rows:[{wire:'C1',awg:'22',cut:100,cable:true,conductors:2}],counts:{total:1,ok:1}};
+ const rs={...rates,solder:5,jointShrink:1,shieldFloat:5};
+ const plain=ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:[]});
+ const sens=ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:['SENSOR_LEADS','SOLDERING','SHIELD_FLOAT']});
+ const line=(s,re)=>s.time.lines.find(l=>re.test(l.label));
+ if(line(plain,/Solder sensor lead/)||line(plain,/Float shield/))throw Error('without the notes nothing is added');
+ if(!line(sens,/Solder sensor lead/)||line(sens,/Solder sensor lead/).count!==3||line(sens,/Clear heat shrink/).count!==3||line(sens,/Float shield/).count!==1)throw Error('sensor operations: '+JSON.stringify(sens.time.lines));
+ if(Math.abs(sens.time.minutes-plain.time.minutes-(3*5+3*1+1*5))>1e-6)throw Error('sensor minutes: '+(sens.time.minutes-plain.time.minutes));
+ if(line(ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:['SENSOR_LEADS']}),/Solder sensor lead/))throw Error('sensor leads without a solder note are not counted as solder joints');
  // Cuts are made at the top of the tolerance with no extra excess by default (146: 216 +1 is cut at 217).
  if(!/id="cutAllowance"[^>]*value="0"/.test(html))throw Error('the default excess added to each cut must be 0: the shop cuts at the top of the tolerance');
  // The quote uses the job summary's observed-time estimate when the Labor tab was not used.

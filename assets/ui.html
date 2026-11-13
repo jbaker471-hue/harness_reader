@@ -173,6 +173,7 @@ const laborOps=[
  ['solder','Solder termination',2,5,12,'termination'],
  ['insert','Identify cavity, verify and insert contact — local observed time (2:32)',2.5333,2.5333,2.5333,'contact'],
  ['sealPlug','Insert sealing plug — local estimate (15 to 20 s; 17.5 s used)',.25,.2917,.3333,'plug'],
+ ['jointShrink','Slide and shrink clear tubing over a solder joint — starting estimate',.5,1,2,'joint'],
  ['route','Route conductor on board/in bundle',.5,1.2,3,'conductor'],
  ['jacketPrep','Remove/trim outer jacket and prepare cable end',2,5,12,'cable end'],
  ['twistedPrep','Trim, untwist and dress pair/triad/quad',2,5,12,'cable end'],
@@ -846,6 +847,13 @@ function jobSummary(x){
  add('Identify cavities, verify and insert contacts (2:32 per wire = 2 cavities)',(wiredTotal+unnamedPins+fillerTotal)/2,'wire (2 cavities)','insert');
  if(ferrules){add('Crimp ferrule (starting estimate, not your observed time)',ferrules,'ferrule','crimpFerrule')}
  if(rings){add('Crimp ring terminal (starting estimate, not your observed time)',rings,'ring terminal','crimpOpen')}
+ // Shop practice on sensor harnesses: every shield is floated, and each sensor lead (RTD, thermistor, thermocouple) is
+ // soldered to its wire with clear heat shrink slid over the joint. Counted only when the drawing's notes mention them.
+ const feats=new Set(x.features||[]);
+ const leadEnds=(x.wires||[]).filter(w=>w.method==='traced-wire-one-end').length;
+ const sensorJoints=feats.has('SENSOR_LEADS')&&feats.has('SOLDERING')?leadEnds:0;
+ if(sensorJoints){add('Solder sensor lead to wire (starting estimate, not your observed time)',sensorJoints,'joint','solder');add('Clear heat shrink over each solder joint (starting estimate, not your observed time)',sensorJoints,'joint','jointShrink')}
+ else if(feats.has('SENSOR_LEADS')&&!leadEnds)notTimed.push('sensor lead solder joints (the notes mention sensor leads but no wire was read ending at one)');
  add('Continuity test (ring-out)',conductors,'circuit','test');
  add('Inspect contact positions',positions,'position','inspect');
  // Shielded cables: heat shrink 3 min and braid trim 2 min once per cable (calibrated to 146-148). Conductors of a
@@ -855,6 +863,7 @@ function jobSummary(x){
   const avg=sizes.length?sizes.reduce((a,b)=>a+b,0)/sizes.length:2;estCables=Math.round(cuts.ungrouped/avg)}
  add('Heat shrink',cables+estCables,'shielded cable','heatShrinkEnd');
  add('Braid trim',cables+estCables,'shielded cable','braidTrimEnd');
+ if(feats.has('SHIELD_FLOAT'))add('Float shield: cut back and insulate (starting estimate, not your observed time)',cables+estCables,'shielded cable','shieldFloat');
  if(bands!=null)add('Install bands',bands,'band','band');else notTimed.push('bands (count not found in the parts list)');
  if(plugTotal)add('Insert sealing plugs (15 to 20 s each; 17.5 s used)',plugTotal,'plug','sealPlug');
  if(unnamedPins)notTimed.push('note: '+unnamedPins+' contact(s) are on a connector block with no printed name; they are counted for crimping and insertion but that connector has no position count, so its inspection and unused cavities are not');
@@ -1724,7 +1733,11 @@ function harnessOpt(){
 }
 function cutOpts(){const det=detectCableSpecs(st.bom);return {defUnit:$('cutUnit')?$('cutUnit').value:'IN',allowance:$('cutAllowance')?$('cutAllowance').value:0,cables:effectiveCables(det,st.cableSpec),cableMix:mixedCableSizes(det,st.cableSpec),harness:harnessOpt(),assemblies:bomCableAssemblies(st.bom,st.nets).assemblies}}
 function harnessCandidates(){const seen=new Set(),out=[];for(const h of st.raw?.harnessLengths||[]){const k=h.text;if(!seen.has(k)){seen.add(k);out.push(h)}}return out}
-function autoHarness(){if(st.harnessLength||st.harnessLengthOff)return;const all=harnessCandidates(),conf=all.filter(h=>h.corroborated);if(conf.length===1){st.harnessLength={text:conf[0].upper||conf[0].text,nominal:conf[0].text,tolerance:conf[0].tolerance||'',page:conf[0].page,label:conf[0].label,source:'confirmed',basis:conf[0].basis};return}const c=all.filter(h=>h.label!=='DIMENSION');if(c.length===1)st.harnessLength={text:c[0].upper||c[0].text,nominal:c[0].text,tolerance:c[0].tolerance||'',page:c[0].page,label:c[0].label,source:'detected'}}
+function autoHarness(){if(st.harnessLength||st.harnessLengthOff)return;const all=harnessCandidates(),conf=all.filter(h=>h.corroborated);if(conf.length===1){st.harnessLength={text:conf[0].upper||conf[0].text,nominal:conf[0].text,tolerance:conf[0].tolerance||'',page:conf[0].page,label:conf[0].label,source:'confirmed',basis:conf[0].basis};return}const c=all.filter(h=>h.label!=='DIMENSION');if(c.length===1){st.harnessLength={text:c[0].upper||c[0].text,nominal:c[0].text,tolerance:c[0].tolerance||'',page:c[0].page,label:c[0].label,source:'detected'};return}
+ // Shop rule: every drawing prints the overall harness length, and every wire is cut to it (a little long is fine; it is
+ // trimmed at assembly). With nothing confirmed, the longest length printed on the drawing is the overall length.
+ let best=null,bi=-1;for(const h of all){const L=parseLength(h.upper||h.text,'IN');if(L&&L.inches>0&&L.inches>bi){bi=L.inches;best=h}}
+ if(best)st.harnessLength={text:best.upper||best.text,nominal:best.text,tolerance:best.tolerance||'',page:best.page,label:best.label,source:'overall'}}
 function harnessSet(v){const t=String(v).trim();if(t){st.harnessLength={text:t,page:0,label:'',source:'typed'};st.harnessLengthOff=false}else{st.harnessLength=null;st.harnessLengthOff=true}renderCutList()}
 function harnessPick(i){const h=harnessCandidates()[i];if(!h)return;st.harnessLength={text:h.upper||h.text,nominal:h.text,tolerance:h.tolerance||'',page:h.page,label:h.label,source:'detected'};st.harnessLengthOff=false;renderCutList()}
 function renderHarnessLength(){
@@ -1732,7 +1745,7 @@ function renderHarnessLength(){
  const c=harnessCandidates(),cur=st.harnessLength;
  const list=c.length?'<ul>'+c.map((h,i)=>`<li>Sheet ${safe(h.page)}: ${h.label==='DIMENSION'?'a dimension printed with a tolerance, not labelled as a length (unit not stated):':safe(h.label)} ${safe(h.text)}${h.tolerance?' '+safe(h.tolerance):''}${h.upper?' <span class="small muted">(cut at '+safe(h.upper)+')</span>':''}${h.corroborated?' <span class="tag good">confirmed</span>':''} <button type="button" onclick="harnessPick(${i})" ${cur&&cur.text===h.text?'disabled':''}>Use this</button></li>`).join('')+'</ul>':'<p class="small muted">No overall harness length was found on the first three sheets.</p>';
  const hi=cur&&cur.nominal&&cur.nominal!==cur.text?' Printed '+safe(cur.nominal)+(cur.tolerance?' '+safe(cur.tolerance):'')+'; cut at the high side of the tolerance.':'';
- const note=cur?hi+(cur.source==='confirmed'?'confirmed: '+safe(cur.basis||'')+'. Printed on sheet '+safe(cur.page)+' with no unit; read as inches':cur.source==='detected'?'detected on sheet '+safe(cur.page)+', confirm':'typed by you'):'';
+ const note=cur?hi+(cur.source==='overall'?' The longest length printed on the drawing (sheet '+safe(cur.page)+'), taken as the overall harness length: every wire is cut to it and trimmed at assembly':cur.source==='confirmed'?'confirmed: '+safe(cur.basis||'')+'. Printed on sheet '+safe(cur.page)+' with no unit; read as inches':cur.source==='detected'?'detected on sheet '+safe(cur.page)+', confirm':'typed by you'):'';
  if(cur){el.innerHTML=`<div class="callout ${cur.source==='confirmed'?'good':''}"><b>Length used for cables with none of their own: ${safe(cur.text)}</b> <span class="small">(${note})</span></div><details class="techdetails"><summary><b>Change the length</b> <span class="small muted">other candidates, or type your own</span></summary>${harnessPanelBody(c,cur,list)}</details>`;return}
  el.innerHTML=harnessPanelBody(c,cur,list);
 }
@@ -1938,7 +1951,7 @@ function computeQuote(x){
 function quoteInput(){const errs=(st.raw?.issues||[]).filter(i=>(i.Severity||i.severity)==='ERROR').length;const banded=!!(st.summary&&st.summary.time&&st.summary.time.lines.some(l=>l.unit==='band'&&l.count>0));const open=typeof shieldSummary==='function'?shieldSummary().open:0;return {shieldOpen:quoteLaborOnly(st.quote)&&banded?0:open,shieldsUnderBand:quoteLaborOnly(st.quote)&&banded?open:0,quote:st.quote,qty:$('buildQty')?$('buildQty').value:1,cut:lastCut,bom:st.bom,laborUnitHours:quoteLaborHours().hours,drawingErrors:errs}}
 // Labor hours for the quote: the Labor tab when it has been used, otherwise the
 // job summary's estimate from the shop's observed times.
-function quoteLaborHours(){if(st.laborUnitHours)return {hours:st.laborUnitHours,from:'Labor tab estimate'};try{const s=st.raw?(st.summary||jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[]})):null;if(s&&s.time&&s.time.hours>0)return {hours:s.time.hours,from:'Build time from your observed times (job summary)'}}catch(e){}return {hours:null,from:''}}
+function quoteLaborHours(){if(st.laborUnitHours)return {hours:st.laborUnitHours,from:'Labor tab estimate'};try{const s=st.raw?(st.summary||jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[],features:st.raw?.assemblyFeatures||[]})):null;if(s&&s.time&&s.time.hours>0)return {hours:s.time.hours,from:'Build time from your observed times (job summary)'}}catch(e){}return {hours:null,from:''}}
 const money=v=>v==null?'—':v.toLocaleString('en-US',{style:'currency',currency:'USD'});
 function quoteSet(k,v){st.quote[k]=String(v).trim();updateQuoteTotals()}
 function quoteWire(label,v){st.quote.wireCost[label]=String(v).trim();updateQuoteTotals()}
@@ -1968,7 +1981,7 @@ function summaryRates(){const o={};for(const [k,,,base] of laborOps){const e=doc
 function renderJobSummary(){
  const el=$('jobSummary');if(!el)return;
  if(!st.raw){el.innerHTML='<p class="muted">Read a drawing to see its wire cuts, connectors, used and unused pins, kit and build time here.</p>';return}
- const s=jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[]});
+ const s=jobSummary({connectors:st.connectors,cut:typeof lastCut!=='undefined'?lastCut:null,bom:st.bom,rates:summaryRates(),wires:st.raw?.wires||[],features:st.raw?.assemblyFeatures||[]});
  st.summary=s;
  const badge=v=>v==='read'?'<span class="tag good">read</span>':'<span class="tag warn">look here</span>';
  const go=(t,l)=>` <a href="#" onclick="tab('${t}');return false">${safe(l)}</a>`;

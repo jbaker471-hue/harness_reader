@@ -2,6 +2,14 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: overall harness length and sensor operations (measured by counts only on the 11-drawing set)
+
+- Shop rule: the inch length printed at the top of a drawing is the overall harness length. Cutting every wire to it leaves each a little long, which is acceptable because wires are trimmed to fit at assembly. With no confirmed or single labelled length, the cut list now uses the longest printed length (source "overall") and says so in the harness note.
+- A length printed on its own with an inch unit and no tolerance (number and unit alone, or with one more word beside it, 12 or more, on a line of six words or fewer, not in a parts list row) is now a length candidate. Drawing 154 went from 0 of 34 cuts with a length to 34 of 34. Every one of the 11 drawings now has a length on every cut.
+- New operations when the drawing notes call for them: float each shield (cut back and insulate), solder each sensor lead to its wire, and slide and shrink clear tubing over each solder joint. Times are STARTING ESTIMATES (5, 5 and 1 minute), not observed; the owner's real times are still owed.
+- Hours after this change: 146 11.46, 147 9.94, 148 10.41, 149 7.63, 150 7.18, 151 8.71, 152 13.98, 153 9.71, 154 6.93, 155 5.75, 156 4.89. 151 and 152 now exceed the owner's estimates (7 and 10), which points at the placeholder sensor times.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines, vet, Go suite, GUI build, executable smoke), shuffled x5 suite ok, end-to-end run on the built exe; only drawing 154 changed against the previous run and no count went down.
+
 ## 2026-11-13 update: fix order items 3 to 7 (measured by counts only on the 11-drawing set)
 
 - Item 3, cable grouping: wires of one cable that end at terminals each have their own far-end node, so they never grouped. The far end is left out of the key when it is a terminal; an odd conductor out is set aside; mixed cable sizes of one gauge are grouped when exactly one cut into the parts-list sizes exists. Cables found before to after: 147 30 to 31, 149 12 to 25, 150 20 to 22, 151 0 to 24, 152 0 to 25, 153 21 to 31, 155 4 to 17, 156 7 to 16. Still single: conductors whose partner is not next to them in drawing order (colour order A A B B on 153 and 155); that needs the drawn shield symbols.

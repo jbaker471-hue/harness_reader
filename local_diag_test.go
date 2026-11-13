@@ -557,6 +557,53 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					pf("METHODS: sheet %d: %s rows %d, far-end label is pin-shaped %d", k.page, strings.ReplaceAll(k.method, "-", " "), cnt[k], lab[k])
 				}
 			}
+			// every number printed with a length unit on the first three sheets: unit class, size class and what shares its line
+			{
+				reNU := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*(INCHES|INCH|IN\.?|"|FT\.?|FEET|'|MM|CM)$`)
+				reNum := regexp.MustCompile(`^\d+(?:\.\d+)?$`)
+				for _, pg := range x.Data.Pages {
+					if pg.Number > 3 {
+						continue
+					}
+					lineWords := map[float64]int{}
+					for _, l := range pageLines(pg) {
+						lineWords[l.Y] = len(strings.Fields(l.Text))
+					}
+					for _, s := range noteSegments(pg) {
+						txt := strings.ToUpper(strings.Join(strings.Fields(s.text()), " "))
+						toks := strings.Fields(txt)
+						for i, tk := range toks {
+							cand := tk
+							if i+1 < len(toks) && reNum.MatchString(tk) {
+								cand = tk + " " + toks[i+1]
+							}
+							m := reNU.FindStringSubmatch(cand)
+							if m == nil {
+								continue
+							}
+							v, _ := strconv.ParseFloat(m[1], 64)
+							unit := "inch"
+							switch {
+							case strings.HasPrefix(m[2], "F"), m[2] == "'":
+								unit = "foot"
+							case m[2] == "MM", m[2] == "CM":
+								unit = "metric"
+							}
+							size := "under 12"
+							if v >= 12 {
+								size = "12 or more"
+							}
+							n := 0
+							for y, c := range lineWords {
+								if math.Abs(y-s.y) < 3.6 {
+									n = c
+								}
+							}
+							pf("NUMUNIT: sheet %d: unit %s, value %s, words in its text group %d, words on its whole line %d, excluded word in group %v, height on sheet %.1f", pg.Number, unit, size, len(toks), n, reLengthExclude.MatchString(txt), s.y/pg.Height)
+						}
+					}
+				}
+			}
 			// parts-list rows that are connector parts: which read connector (by index) their reference names, never the text
 			for bi, bm := range v.Boms {
 				if !rePN.MatchString(strings.ToUpper(bm.Part)) {

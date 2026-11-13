@@ -113,6 +113,8 @@ type ViewAnalysis struct {
 	CaptureChecks    []CaptureCheck    `json:"captureChecks"`
 }
 
+var reSensorLead = regexp.MustCompile(`\bRTDS?\b|\bTHERMISTORS?\b|\bTHERMOCOUPLES?\b`)
+
 func viewAnalysis(b []byte) (ViewAnalysis, error) {
 	x, err := ExtractDocument(b)
 	if err != nil {
@@ -316,12 +318,17 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 				"WIRE_STRIPPING":     {"STRIP", "JACKET"},
 				"HEAT_SHRINK":        {"SHRINK", "SLEEVING", "BOOT"},
 				"TERMINAL_CRIMPING":  {"CRIMP", "RING TONGUE"},
+				"SHIELD_FLOAT":       {"FLOAT"},
 			} {
 				for _, hint := range hints {
 					if strings.Contains(s, hint) {
 						terms[k] = true
 					}
 				}
+			}
+			// temperature sensor leads (RTD, thermistor, thermocouple) are joined to the harness wires, not crimped into a connector
+			if reSensorLead.MatchString(s) {
+				terms["SENSOR_LEADS"] = true
 			}
 			if rePhysicalLabelRequirement.MatchString(strings.TrimSpace(s)) {
 				terms["LABELING"] = true
