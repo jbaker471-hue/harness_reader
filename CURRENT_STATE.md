@@ -2,6 +2,22 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-14 update: smarter job summary (owner asked for ideas 1 to 6; no build traveler)
+
+Done and verified:
+
+- To confirm list: the job summary opens with the few things that would turn the drawing from "look" to "read", grouped by reason, each with the tab that fixes it. One-click answers that are remembered per drawing are NOT built; the list links to the existing tabs.
+- Hour range: build time shows low to high hours from each operation's time range (the Labor tab's range, scaled with any time changed there). Unconfirmed cavities add almost no spread: a cavity that turns out wired costs about the same as one that is filled.
+- Per-connector and per-branch work: two operations (connector assembly beyond the first two connectors; branch layout) are listed as NOT TIMED with their counts until the owner enters times on the Labor tab. No time is assumed, because the gaps to the owner's hours do not track connector count (149 with 7 connectors is over, 156 with 4 is under).
+- Actual hours: the job summary takes the hours a finished harness really took and saves them on this PC only (numbers only, in the user configuration folder, keyed by drawing checksum; the list across jobs carries no checksum). After three jobs it suggests operation time changes (ridge fit toward today's times, limited to half to double, shown for changes of 10% or more). Nothing is applied automatically. New endpoint /api/job-actual (token required).
+- Connector identity in the reader: a connector read as two records (short name with part and positions, longer name ending in it with the wires) is joined before anything is derived, with a CONNECTOR_RECORDS_JOINED review alert. 156 now shows 4 connectors, all wired. The parts-list-quantity repeat rule (150) is still applied in the job summary only, because removing a record in the reader could hide a real connector whose wires were not read.
+
+Not done:
+
+- Branch lengths from the layout. The length reader finds only 2 to 3 dimensions with a tolerance on each branched drawing, fewer than their branches, so per-branch dimensions are either not printed or are printed as bare numbers the reader does not take. Next step is a counts-only diagnostic of bare numbers on the layout sheets before any rule is written.
+
+Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe. Hours unchanged from the section below.
+
 ## 2026-11-14 update: a connector read as two records is counted once (drawing 156)
 
 - Measured by counts only: on 156 one connector was read as two records. A short name carried the part number and 9 positions with no wires; a longer name ending in it carried 7 wires with no part or position count.
