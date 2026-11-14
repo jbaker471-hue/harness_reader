@@ -1146,6 +1146,45 @@ console.log('PASS: harness length applies only to conductors without their own l
   if(two.connectors.some(r=>r.repeat)||two.positions!==9)throw Error('two wired connectors ending in the short name: nothing is joined');
   const own=ctx.jobSummary({connectors:[{...long,part:'OTHER-1'},short],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
   if(own.connectors.some(r=>r.repeat))throw Error('a wired connector with its own part number is not joined')}
+ // Low / likely / high hours come from the range of each operation time; with no range all three are the same.
+ {const base1={connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:ctx.st.bom,rates:{...rates,sealPlug:.2917}};
+  const flat=ctx.jobSummary(base1);
+  if(Math.abs(flat.time.lowHours-flat.time.hours)>1e-9||Math.abs(flat.time.highHours-flat.time.hours)>1e-9)throw Error('no range given: low and high must equal the likely hours');
+  const rg=ctx.jobSummary({...base1,ratesLow:{sealPlug:.25,strip:.1},ratesHigh:{sealPlug:.3333,strip:.3}});
+  if(!(rg.time.lowHours<rg.time.hours&&rg.time.hours<rg.time.highHours)||Math.abs((rg.time.highHours-rg.time.hours)*60-((.3333-.2917)+2*(.3-.1667)))>1e-6)throw Error('range wrong: '+rg.time.lowHours+' '+rg.time.hours+' '+rg.time.highHours);
+  const odd=ctx.jobSummary({...base1,ratesLow:{strip:9,sealPlug:NaN},ratesHigh:{strip:-1,sealPlug:null}});
+  if(odd.time.lowHours>odd.time.hours+1e-9||odd.time.highHours<odd.time.hours-1e-9)throw Error('a low above or a high below the likely time must not invert the range');
+  if(!flat.time.lines.every(l=>typeof l.key==='string'&&l.key))throw Error('every time line carries its operation key');
+  if(sp.confirm.length!==0)throw Error('a fully read drawing has nothing to confirm: '+JSON.stringify(sp.confirm))}
+ // Work per connector and per branch beyond the first two connectors: not timed until the shop enters its times.
+ {const k=n=>({tag:'K'+n,part:'',occupied:'1',labels:['1','2'],verified:false});
+  const four=[k(1),k(2),k(3),k(4)],cut0={rows:[],counts:{total:0,ok:0}};
+  const n0=ctx.jobSummary({connectors:four,cut:cut0,bom:[],rates:{...rates,connAssemble:0,branchLayout:0}});
+  if(n0.time.lines.some(l=>l.key==='connAssemble'||l.key==='branchLayout')||!n0.time.notTimed.some(s=>/^2 connectors beyond the first two: connector assembly .* and branch layout/.test(s)))throw Error('per-connector work must be listed as not timed until a time is entered: '+JSON.stringify(n0.time.notTimed));
+  if(!n0.confirm.some(i=>i.tab==='labor'&&/beyond the first two/.test(i.text)))throw Error('untimed per-connector work belongs on the confirm list');
+  const n1=ctx.jobSummary({connectors:four,cut:cut0,bom:[],rates:{...rates,connAssemble:8,branchLayout:6}});
+  const ca=n1.time.lines.find(l=>l.key==='connAssemble'),bl=n1.time.lines.find(l=>l.key==='branchLayout');
+  if(!ca||ca.count!==2||ca.minutes!==16||!bl||bl.count!==2||bl.minutes!==12||n1.time.notTimed.some(s=>/beyond the first two/.test(s)))throw Error('per-connector lines wrong: '+JSON.stringify(n1.time.lines));
+  const half=ctx.jobSummary({connectors:four,cut:cut0,bom:[],rates:{...rates,connAssemble:8,branchLayout:0}});
+  if(!half.time.lines.some(l=>l.key==='connAssemble')||!half.time.notTimed.some(s=>/beyond the first two: branch layout/.test(s)))throw Error('one time entered: the other stays listed as not timed');
+  const two=ctx.jobSummary({connectors:[k(1),k(2)],cut:cut0,bom:[],rates:{...rates,connAssemble:8,branchLayout:6}});
+  if(two.time.lines.some(l=>l.key==='connAssemble')||two.time.notTimed.some(s=>/beyond the first two/.test(s)))throw Error('two connectors: no extra connector work');
+  // the confirm list groups connectors by reason and points at the tab that fixes each
+  if(!h.confirm.length||!h.confirm.some(i=>i.tab==='alerts'||i.tab==='cutlist')||!h.confirm.some(i=>i.tab==='connectors'&&/^1 connector \(P1\): /.test(i.text)))throw Error('held drawing confirm list: '+JSON.stringify(h.confirm));
+  if(!/To confirm on this drawing/.test(html)||!/id="actualHours"/.test(html)||!/\/api\/job-actual/.test(html))throw Error('the job summary must show the confirm list and the actual-hours entry')}
+ // Learning from finished jobs: a ratio from any job, suggestions only from three or more, and bad records ignored.
+ {const R={strip:.1667,insert:2.5333,braidTrimEnd:2};
+  const job=(s,i,b,actual)=>({actualHours:actual!=null?actual:(s*R.strip+i*R.insert+b*R.braidTrimEnd)/60,lines:[{key:'strip',count:s},{key:'insert',count:i},{key:'braidTrimEnd',count:b}]});
+  const none=ctx.rateSuggestions([],R);if(none.jobs!==0||none.ratio!==null||none.suggestions.length)throw Error('no jobs: nothing to say');
+  const one=ctx.rateSuggestions([job(100,40,10,5)],R);if(one.jobs!==1||!(one.ratio>1)||one.suggestions.length)throw Error('one job gives a ratio and no suggestions: '+JSON.stringify(one));
+  const exact=ctx.rateSuggestions([job(100,40,10),job(60,30,30),job(200,90,5)],R);
+  if(exact.jobs!==3||Math.abs(exact.ratio-1)>1e-9||exact.suggestions.length)throw Error('jobs that match the estimate need no change: '+JSON.stringify(exact));
+  // braid trim really takes 3x: the jobs run over in proportion to their braid count
+  const over=(s,i,b)=>job(s,i,b,(s*R.strip+i*R.insert+b*R.braidTrimEnd*3)/60);
+  const sg=ctx.rateSuggestions([over(100,40,10),over(60,30,60),over(200,90,5),over(80,20,40)],R);
+  if(sg.jobs!==4||!sg.suggestions.length||sg.suggestions[0].key!=='braidTrimEnd'||!(sg.suggestions[0].suggested>R.braidTrimEnd)||sg.suggestions.some(g=>g.suggested>g.current*2+1e-9||g.suggested<g.current*.5-1e-9))throw Error('the operation that explains the overrun must lead the suggestions, within half to double: '+JSON.stringify(sg.suggestions));
+  const bad=ctx.rateSuggestions([{actualHours:NaN,lines:[{key:'strip',count:5}]},{actualHours:4,lines:[]},{actualHours:4},{actualHours:-1,lines:[{key:'strip',count:5}]},{actualHours:3,lines:[{key:'unknownOp',count:5}]},null].filter(Boolean),R);
+  if(bad.jobs!==0)throw Error('unusable job records must be ignored: '+JSON.stringify(bad))}
  // Answer-key comparison counts only.
  vm.runInContext(block('function answerKeyCompare(','function answerKeyHtml('),ctx);
  const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
