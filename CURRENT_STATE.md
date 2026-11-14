@@ -2,6 +2,73 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-14 update: smarter job summary (owner asked for ideas 1 to 6; no build traveler)
+
+Done and verified:
+
+- To confirm list: the job summary opens with the few things that would turn the drawing from "look" to "read", grouped by reason, each with the tab that fixes it. One-click answers that are remembered per drawing are NOT built; the list links to the existing tabs.
+- Hour range: build time shows low to high hours from each operation's time range (the Labor tab's range, scaled with any time changed there). Unconfirmed cavities add almost no spread: a cavity that turns out wired costs about the same as one that is filled.
+- Per-connector and per-branch work: two operations (connector assembly beyond the first two connectors; branch layout) are listed as NOT TIMED with their counts until the owner enters times on the Labor tab. No time is assumed, because the gaps to the owner's hours do not track connector count (149 with 7 connectors is over, 156 with 4 is under).
+- Actual hours: the job summary takes the hours a finished harness really took and saves them on this PC only (numbers only, in the user configuration folder, keyed by drawing checksum; the list across jobs carries no checksum). After three jobs it suggests operation time changes (ridge fit toward today's times, limited to half to double, shown for changes of 10% or more). Nothing is applied automatically. New endpoint /api/job-actual (token required).
+- Connector identity in the reader: a connector read as two records (short name with part and positions, longer name ending in it with the wires) is joined before anything is derived, with a CONNECTOR_RECORDS_JOINED review alert. 156 now shows 4 connectors, all wired. The parts-list-quantity repeat rule (150) is still applied in the job summary only, because removing a record in the reader could hide a real connector whose wires were not read.
+
+Not done:
+
+- Branch lengths from the layout. The length reader finds only 2 to 3 dimensions with a tolerance on each branched drawing, fewer than their branches, so per-branch dimensions are either not printed or are printed as bare numbers the reader does not take. Next step is a counts-only diagnostic of bare numbers on the layout sheets before any rule is written.
+
+Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe. Hours unchanged from the section below.
+
+## 2026-11-14 update: a connector read as two records is counted once (drawing 156)
+
+- Measured by counts only: on 156 one connector was read as two records. A short name carried the part number and 9 positions with no wires; a longer name ending in it carried 7 wires with no part or position count.
+- Rule (job summary): a record with a part and positions but no wires, whose name is the last part of exactly one wired record that has no part and no positions, is the same connector. The wired record takes the part and positions; the short record stays listed, marked "look" with the reason. Two matching wired records, or a wired record with its own part, are not joined.
+- 156: held unused 31 to 24 (9 phantom unused became 2 real ones), 4.71 h to 4.52 h (owner 7.5). No other drawing changed.
+- Finding: position counts are NOT the gap on 156. Its two remaining connectors with no position count have 4 wires each (highest pins 4 and 9), so at most a handful of unused cavities are missing. About three hours of the owner's estimate is work the model does not time at all. No operation is timed per connector or per branch (backshell, labels, lacing, branch layout).
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe.
+
+## 2026-11-13 update: repeated connectors are not counted twice (drawing 150)
+
+- Measured by counts only: on 150, three connectors carried the same part while the parts list buys one. Two of them had no wires and no parts-list reference, and each added 128 unused cavities (256 in all).
+- Rule: when more connectors carry a part than the parts list buys, the ones with no wires are repeats of another connector and add no positions or unused cavities. They stay listed, marked "look" with the reason. With no parts-list quantity nothing is called a repeat.
+- 150 went from 17.32 h to 10.56 h (owner 11.5); held unused 447 to 191. No other drawing changed.
+- Still open on 150: six wired connectors with no part number and no position count, and one connector with positions and no wires read. On 156: three wired connectors with no part number or position count, and one connector with positions, parts-list quantity 2 and no wires read.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe.
+
+## 2026-11-13 update: unused cavities not yet confirmed are timed as filled
+
+- Shop rule (owner, 2026-11-13): every unused cavity always gets a filler contact and a sealing plug. Until now only confirmed unused cavities were timed, so the eight drawings whose connectors are still "look" had no filler time at all (the same line is 324 minutes on each of 146 to 148).
+- The time estimate now counts a filler contact and a sealing plug in every unused cavity that is not yet confirmed or that no drawing note covers. They stay out of the kit until confirmed, and the estimate carries a note saying so.
+- Hours now (owner's estimate): 146 11.46 (11.5), 147 9.94 (9.5), 148 10.41 (10), 149 11.90 (11), 150 17.32 (11.5), 151 8.56 (7), 152 9.85 (10), 153 9.28 (10), 154 9.39 (10.5), 155 4.90 (5.5), 156 4.71 (7.5).
+- Open: 150 overshoots by almost six hours (447 unused cavities across 17 connectors is probably too many: connectors that are not built as part of this harness, or position counts that are too high). 156 is still short (three of five connectors have no position count). 151 is over, mostly 74 ferrules at the 1.5 minute placeholder.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe; only time, quote and note lines changed against the previous run.
+
+## 2026-11-13 update: owner's times for sensor operations (supersedes the starting estimates below)
+
+- Owner's estimates, now the defaults: float one shield 1 to 2 min (1.5 used); solder one sensor lead 1 to 2 min (1.5 used) plus soldering iron setup once per harness (3 min, confirmed by the owner); cut, slide and shrink clear tubing over one joint up to 1 min (1 used).
+- The sensor solder joint has its own rate (`sensorSolder`) so the general solder termination rate is unchanged. The float rate (`shieldFloat`) changed for the Labor tab as well.
+- Hours now (owner's estimate): 146 11.46 (11.5), 147 9.94 (9.5), 148 10.41 (10), 149 6.11 (11), 150 5.71 (11.5), 151 7.31 (7), 152 8.61 (10), 153 7.72 (10), 154 6.93 (10.5), 155 4.58 (5.5), 156 3.90 (7.5).
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe; only time and quote lines changed against the previous run.
+
+## 2026-11-13 update: overall harness length and sensor operations (measured by counts only on the 11-drawing set)
+
+- Shop rule: the inch length printed at the top of a drawing is the overall harness length. Cutting every wire to it leaves each a little long, which is acceptable because wires are trimmed to fit at assembly. With no confirmed or single labelled length, the cut list now uses the longest printed length (source "overall") and says so in the harness note.
+- A length printed on its own with an inch unit and no tolerance (number and unit alone, or with one more word beside it, 12 or more, on a line of six words or fewer, not in a parts list row) is now a length candidate. Drawing 154 went from 0 of 34 cuts with a length to 34 of 34. Every one of the 11 drawings now has a length on every cut.
+- New operations when the drawing notes call for them: float each shield (cut back and insulate), solder each sensor lead to its wire, and slide and shrink clear tubing over each solder joint. Times are STARTING ESTIMATES (5, 5 and 1 minute), not observed; the owner's real times are still owed.
+- Hours after this change: 146 11.46, 147 9.94, 148 10.41, 149 7.63, 150 7.18, 151 8.71, 152 13.98, 153 9.71, 154 6.93, 155 5.75, 156 4.89. 151 and 152 now exceed the owner's estimates (7 and 10), which points at the placeholder sensor times.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines, vet, Go suite, GUI build, executable smoke), shuffled x5 suite ok, end-to-end run on the built exe; only drawing 154 changed against the previous run and no count went down.
+
+## 2026-11-13 update: fix order items 3 to 7 (measured by counts only on the 11-drawing set)
+
+- Item 3, cable grouping: wires of one cable that end at terminals each have their own far-end node, so they never grouped. The far end is left out of the key when it is a terminal; an odd conductor out is set aside; mixed cable sizes of one gauge are grouped when exactly one cut into the parts-list sizes exists. Cables found before to after: 147 30 to 31, 149 12 to 25, 150 20 to 22, 151 0 to 24, 152 0 to 25, 153 21 to 31, 155 4 to 17, 156 7 to 16. Still single: conductors whose partner is not next to them in drawing order (colour order A A B B on 153 and 155); that needs the drawn shield symbols.
+- Item 2 follow-up, 155: eight wires stopped at a break in their line 50 em short of their pin (90% of the way drawn at that height). A wire now carries on past a short break to the nearest free pin label in a pin column when at least 80% of the way is drawn and no other gauge label lies between. 155's printed pins with no wire went 8 to 0 and all its pin checks pass.
+- Contacts on a connector block with no printed name are counted for crimping and insertion (151, 152).
+- Item 4, per-wire lengths: not read from the layout sheet. The cut list now has a Lengths by branch table (one length per destination, with the drawing's printed dimensions listed) so a branched harness needs a few entries, not one per wire.
+- Item 5, part mismatches: real differences on the drawings, not reading errors. 147: both headers differ from the parts list only in the keying letter. 154: the slash sheet differs, the same on three sheets (now one alert). 149: the header is the mating half; one designator sits directly above it. The alert names the fields that differ.
+- 151: the part decodes to 128 positions and the parts list wording says 61; pin 128 is wired and 80 pins are used, so 128 stands. New POSITION_COUNT_DISAGREES review alert.
+- Item 6: a tabulated parts list keeps every quantity column; the BOM page has a variant column picker.
+- Item 7: ferrule 1.5 min and ring terminal 2 min are in as starting estimates. Sealing plugs are not timed; the shop's time is needed.
+- Built-exe hours now (yours): 146 11.15 (11.5), 147 9.31 (9.5), 148 10.16 (10), 149 5.46 (11), 150 4.98 (11.5), 151 6.71 (7), 152 5.10 (10), 153 6.87 (10), 154 6.93 (10.5), 155 4.08 (5.5), 156 3.48 (7.5). No drawing went down at any step.
+
 ## 2026-11-13 update: unread wires (fix order item 2)
 
 Measured by counts only with the local structure diagnostic on the 11-drawing set (drawing 6 is 151, drawing 7 is 152, drawing 5 is 150, drawing 10 is 155).

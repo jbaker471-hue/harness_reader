@@ -343,8 +343,14 @@ if(cab.nets.length!==2)throw Error('cable must keep both conductor nets so a typ
 equal(cabled.rows.find(r=>r.awg==='22').cable,undefined);
 // repeated colors, leftovers and user override
 const bad=cutCtx.buildCutList([{id:'A',endpoints:'X:1, Y:1',awg:'24',color:'WHT'},{id:'B',endpoints:'X:2, Y:2',awg:'24',color:'WHT'},{id:'C',endpoints:'X:3, Y:3',awg:'24',color:'BLU'}],{cables:{'24':2}});
-equal(bad.counts.cables,0);
-if(!bad.rows.every(r=>r.notes.some(n=>/pairing uncertain|cable incomplete/.test(n))))throw Error('ungroupable conductors must say why');
+// WHT, WHT, BLU: one conductor is the odd one out, the second WHT and the BLU are the pair. The odd one says it is incomplete.
+equal(bad.counts.cables,1);
+equal(bad.rows.filter(r=>r.cable).map(r=>r.color),['WHT + BLU']);
+if(!bad.rows.filter(r=>!r.cable).every(r=>r.notes.some(n=>/cable incomplete/.test(n))))throw Error('the conductor left over must say why');
+// WHT, WHT, BLU, BLU: no pairing is proven (the partners may not be next to each other), so none is guessed
+const shifted=cutCtx.buildCutList([{id:'A',endpoints:'X:1, Y:1',awg:'24',color:'WHT'},{id:'B',endpoints:'X:2, Y:2',awg:'24',color:'WHT'},{id:'C',endpoints:'X:3, Y:3',awg:'24',color:'BLU'},{id:'D',endpoints:'X:4, Y:4',awg:'24',color:'BLU'}],{cables:{'24':2}});
+equal(shifted.counts.cables,0);
+if(!shifted.rows.every(r=>r.notes.some(n=>/pairing uncertain/.test(n))))throw Error('a shifted pairing must say it is uncertain');
 equal(cutCtx.effectiveCables(detected,{'24':'1'}),{'24':1});            // user can force plain single wire
 equal(cutCtx.effectiveCables(detected,{'24':''}),{'24':2});             // blank keeps the BOM reading
 for(const [txt,n] of [['TWISTED SHIELDED PAIR',2],['CABLE 3 CONDUCTOR SHIELDED',3],['SHIELDED CABLE 4C',4]]){const p=cutCtx.parseCableLine({part:'M27500-X',description:txt+' 22 AWG'});if(!p||p.n!==n)throw Error('cable text not read: '+txt)}
@@ -434,8 +440,8 @@ equal([top.status,top.cut],['HARNESS LENGTH',217]);
 cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'OVERALL LENGTH',text:'48 IN'}]},harnessLength:null,harnessLengthOff:false,quote:{wireCost:{a:1},bomCost:{b:2}},shieldTerm:{x:1},cableSpec:{'24':'2'}};
 cutCtx.autoHarness();equal(cutCtx.st.harnessLength.text,'48 IN');             // one distinct value on two sheets: pre-selected for confirmation
 cutCtx.st.harnessLength=null;cutCtx.st.raw.harnessLengths.push({page:2,label:'CABLE LENGTH',text:'60 IN'});
-cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);                        // two different values: the user must choose
-cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);   // a cleared choice is not re-applied
+cutCtx.autoHarness();equal([cutCtx.st.harnessLength.text,cutCtx.st.harnessLength.source],['60 IN','overall']);   // two different values: the longer is the overall length (shop rule: cut long, trim at assembly)
+cutCtx.st.harnessLength=null;cutCtx.st.harnessLengthOff=true;cutCtx.st.raw.harnessLengths.pop();cutCtx.autoHarness();equal(cutCtx.st.harnessLength,null);   // a cleared choice is not re-applied
 cutCtx.st.harnessLength={text:'48 IN'};cutCtx.resetCutListState();
 equal([cutCtx.st.harnessLength,cutCtx.st.shieldTerm,cutCtx.st.cableSpec,cutCtx.st.quote.wireCost,cutCtx.st.quote.bomCost],[null,{},{},{},{}]);
 if(!html.includes('id="cutAllowance" type="number" min="0" step="0.25" value="0"'))throw Error('default excess must be 0 (cut at the top of the tolerance)');
@@ -917,10 +923,10 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('the single labelled length must still be selected automatically');
  cutCtx.st={raw:{harnessLengths:[{page:1,label:'DIMENSION',text:'36.00',tolerance:'±1.0'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('a dimension alone must never be selected automatically');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='36.00'||cutCtx.st.harnessLength.source!=='overall')throw Error('the one length printed on the drawing is the overall harness length');
  cutCtx.st={raw:{harnessLengths:[{page:1,label:'HARNESS LENGTH',text:'48 IN'},{page:2,label:'CUT',text:'5 FT'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('two different labelled lengths must still be left for the user');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='5 FT'||cutCtx.st.harnessLength.source!=='overall')throw Error('with two lengths the longer one (5 FT, not 48 IN) is the overall length');
  console.log('PASS: unlabelled dimensions are candidates only; a single labelled length is still auto-selected');
 }
 
@@ -1005,10 +1011,10 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!h||h.text!=='216 IN'||h.source!=='confirmed'||!/37 cables/.test(h.basis))throw Error('a confirmed length must be used with its basis');
  cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216',tolerance:'-0.0/+1.0'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('an unconfirmed dimension must never be selected');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='216'||cutCtx.st.harnessLength.source!=='overall')throw Error('an unconfirmed dimension is used as the overall length and marked as such');
  cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216 IN',corroborated:true,basis:'a'},{page:2,label:'DIMENSION',text:'108 IN',corroborated:true,basis:'b'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('two confirmed candidates are left for the user');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='216 IN'||cutCtx.st.harnessLength.source!=='overall')throw Error('with two confirmed candidates the longer is the overall length');
  if(cutCtx.endsText('GSE-P3:9, GSE-P3:16')!=='GSE-P3 pins 9, 16'||cutCtx.endsText('CB-P3:15')!=='CB-P3 pin 15'||cutCtx.endsText('A:1, B:2')!=='A pin 1; B pin 2')throw Error('end labels');
  const tab=html.slice(html.indexOf('id="tab-cutlist"'),html.indexOf('</section>',html.indexOf('id="tab-cutlist"')));
  if(!/<details class="techdetails"><summary><b>Cable details and shield notes/.test(tab)||tab.indexOf('id="cutStatus"')<tab.indexOf('Cable details and shield notes'))throw Error('cable reference material collapses; the status and rows stay visible');
@@ -1040,7 +1046,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(Math.round(L.inches)!==217)throw Error('the cut list must read 217 inches');
  cutCtx.st={raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'216',tolerance:'-0.0/+1.0',upper:'217 IN'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
- if(cutCtx.st.harnessLength)throw Error('an unconfirmed dimension is still never selected on its own');
+ if(!cutCtx.st.harnessLength||cutCtx.st.harnessLength.text!=='217 IN'||cutCtx.st.harnessLength.nominal!=='216'||cutCtx.st.harnessLength.source!=='overall')throw Error('the overall length is cut at the top of its tolerance');
  cutCtx.st={raw:{harnessLengths:[{page:3,label:'CUT',text:'5.0 FT',tolerance:'±2'}]},nets:[],bom:[]};
  cutCtx.autoHarness();
  if(cutCtx.st.harnessLength.text!=='5.0 FT')throw Error('a tolerance in an unknown unit is not added');
@@ -1107,11 +1113,78 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(s.kit.crimpContacts!==1||s.kit.fillerContacts!==1||s.kit.sealingPlugs!==1||s.kit.state!=='read')throw Error('kit wrong: '+JSON.stringify(s.kit));
  const want=2*.1667+1*.25+(2/2)*2.5333+1*.0781+2*.0276+2*5; // insert 2:32 per wire = 2 cavities
  if(Math.abs(s.time.minutes-want)>1e-6||!s.time.notTimed.some(x=>/sealing plugs/.test(x)))throw Error('time wrong: '+s.time.minutes+' vs '+want+' '+JSON.stringify(s.time.notTimed));
+ // With the shop's sealing plug time (15 to 20 s; 17.5 s used) the plug is timed and no longer listed as untimed.
+ const sp=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:ctx.st.bom,rates:{...rates,sealPlug:.2917}});
+ if(Math.abs(sp.time.minutes-(want+.2917))>1e-6||sp.time.notTimed.some(x=>/sealing plugs/.test(x))||!sp.time.lines.some(l=>/sealing plugs/.test(l.label)&&l.count===1))throw Error('sealing plug time wrong: '+sp.time.minutes+' '+JSON.stringify(sp.time.notTimed));
+ if(!/\['sealPlug','[^']*15 to 20 s[^']*',\.25,\.2917,\.3333,'plug'\]/.test(src))throw Error('the sealing plug operation must carry the 15 to 20 s range');
  // An unread wiring sheet: not used is held, not in the kit, and the answer says where to look.
  ctx.st.raw.tableAudits=[{page:3,title:'wire gauge labels',connectors:['P1'],status:'INCOMPLETE',rowsRead:0,counted:true,ruledRows:26,detail:'sheet 3 shows 26 printed wire gauge labels but only 0 wire(s) were read on it',missed:[]}];
  const h=ctx.jobSummary({connectors:[c],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
  const hr=h.connectors[0];
  if(hr.released||hr.state!=='look'||!/sheet 3/.test(hr.look.join(' '))||h.kit.sealingPlugs!==0||h.kit.heldUnused!==1||h.cuts.state!=='look'||h.time.state!=='look')throw Error('held drawing must say look here: '+JSON.stringify(h));
+ // Shop practice: every unused cavity is filled. A held unused cavity is timed (filler and sealing plug) but stays out of the kit.
+ {const hp=ctx.jobSummary({connectors:[c],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates:{...rates,sealPlug:.2917}});
+  const fl=hp.time.lines.find(l=>/Fill unused cavities not yet confirmed/.test(l.label)),pl=hp.time.lines.find(l=>/Sealing plug in each unused cavity not yet confirmed/.test(l.label));
+  if(!fl||fl.count!==.5||Math.abs(fl.minutes-2.5333/2)>1e-6||!pl||pl.count!==1||hp.kit.fillerContacts!==0||hp.kit.sealingPlugs!==0||hp.kit.heldUnused!==1||!hp.time.notTimed.some(x=>/not yet confirmed/.test(x)))throw Error('held unused cavities must be timed as filled and stay out of the kit: '+JSON.stringify(hp.time.lines));
+  if(sp.time.lines.some(l=>/not yet confirmed/.test(l.label)))throw Error('a confirmed connector with a fill note has no estimated fill line')}
+ // Three connectors carry a part the parts list buys once: the two with no wires are repeats, not connectors to build.
+ {const mk=t=>({tag:t,part:'DUP-1',occupied:'',labels:['1','2','3','4'],verified:false});
+  const wiredC={tag:'A-Q1',part:'DUP-1',occupied:'1',labels:['1','2','3','4'],verified:false};
+  const bomD=[{item:'1',part:'DUP-1',qty:1,description:'CONNECTOR'}];
+  const d=ctx.jobSummary({connectors:[wiredC,mk('Q7'),mk('Q8')],cut:{rows:[],counts:{total:0,ok:0}},bom:bomD,rates});
+  if(d.positions!==4||d.connectors.filter(r=>r.repeat).length!==2||d.connectors[0].repeat||d.kit.heldUnused!==3)throw Error('repeats of a connector the parts list buys once must not add positions: '+JSON.stringify(d.connectors));
+  const d3=ctx.jobSummary({connectors:[wiredC,mk('Q7'),mk('Q8')],cut:{rows:[],counts:{total:0,ok:0}},bom:[{item:'1',part:'DUP-1',qty:3,description:'CONNECTOR'}],rates});
+  if(d3.positions!==12||d3.connectors.some(r=>r.repeat))throw Error('when the parts list buys all three, all three are built');
+  const dn=ctx.jobSummary({connectors:[wiredC,mk('Q7')],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+  if(dn.positions!==8||dn.connectors.some(r=>r.repeat))throw Error('no parts list quantity: nothing is called a repeat')}
+ // One connector read as two records (short name with the part and positions, longer name with the wires) is counted once.
+ {const short={tag:'Q5',part:'NINE-1',capacity:9,occupied:'',labels:[],verified:false},long={tag:'W1-Q5',part:'',occupied:'1 2 3',labels:[],verified:false};
+  const j=ctx.jobSummary({connectors:[long,short],cut:{rows:[],counts:{total:0,ok:0}},bom:[{item:'1',part:'NINE-1',qty:2,description:'CONNECTOR'}],rates});
+  const lr=j.connectors[0],sr=j.connectors[1];
+  if(j.positions!==9||lr.positions!==9||lr.wired!==3||lr.unused!==6||lr.part!=='NINE-1'||!sr.repeat||sr.positions!==0||j.kit.heldUnused!==6)throw Error('a connector read as two records must be counted once: '+JSON.stringify(j.connectors));
+  const two=ctx.jobSummary({connectors:[long,{...long,tag:'W2-Q5'},short],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+  if(two.connectors.some(r=>r.repeat)||two.positions!==9)throw Error('two wired connectors ending in the short name: nothing is joined');
+  const own=ctx.jobSummary({connectors:[{...long,part:'OTHER-1'},short],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+  if(own.connectors.some(r=>r.repeat))throw Error('a wired connector with its own part number is not joined')}
+ // Low / likely / high hours come from the range of each operation time; with no range all three are the same.
+ {const base1={connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:ctx.st.bom,rates:{...rates,sealPlug:.2917}};
+  const flat=ctx.jobSummary(base1);
+  if(Math.abs(flat.time.lowHours-flat.time.hours)>1e-9||Math.abs(flat.time.highHours-flat.time.hours)>1e-9)throw Error('no range given: low and high must equal the likely hours');
+  const rg=ctx.jobSummary({...base1,ratesLow:{sealPlug:.25,strip:.1},ratesHigh:{sealPlug:.3333,strip:.3}});
+  if(!(rg.time.lowHours<rg.time.hours&&rg.time.hours<rg.time.highHours)||Math.abs((rg.time.highHours-rg.time.hours)*60-((.3333-.2917)+2*(.3-.1667)))>1e-6)throw Error('range wrong: '+rg.time.lowHours+' '+rg.time.hours+' '+rg.time.highHours);
+  const odd=ctx.jobSummary({...base1,ratesLow:{strip:9,sealPlug:NaN},ratesHigh:{strip:-1,sealPlug:null}});
+  if(odd.time.lowHours>odd.time.hours+1e-9||odd.time.highHours<odd.time.hours-1e-9)throw Error('a low above or a high below the likely time must not invert the range');
+  if(!flat.time.lines.every(l=>typeof l.key==='string'&&l.key))throw Error('every time line carries its operation key');
+  if(sp.confirm.length!==0)throw Error('a fully read drawing has nothing to confirm: '+JSON.stringify(sp.confirm))}
+ // Work per connector and per branch beyond the first two connectors: not timed until the shop enters its times.
+ {const k=n=>({tag:'K'+n,part:'',occupied:'1',labels:['1','2'],verified:false});
+  const four=[k(1),k(2),k(3),k(4)],cut0={rows:[],counts:{total:0,ok:0}};
+  const n0=ctx.jobSummary({connectors:four,cut:cut0,bom:[],rates:{...rates,connAssemble:0,branchLayout:0}});
+  if(n0.time.lines.some(l=>l.key==='connAssemble'||l.key==='branchLayout')||!n0.time.notTimed.some(s=>/^2 connectors beyond the first two: connector assembly .* and branch layout/.test(s)))throw Error('per-connector work must be listed as not timed until a time is entered: '+JSON.stringify(n0.time.notTimed));
+  if(!n0.confirm.some(i=>i.tab==='labor'&&/beyond the first two/.test(i.text)))throw Error('untimed per-connector work belongs on the confirm list');
+  const n1=ctx.jobSummary({connectors:four,cut:cut0,bom:[],rates:{...rates,connAssemble:8,branchLayout:6}});
+  const ca=n1.time.lines.find(l=>l.key==='connAssemble'),bl=n1.time.lines.find(l=>l.key==='branchLayout');
+  if(!ca||ca.count!==2||ca.minutes!==16||!bl||bl.count!==2||bl.minutes!==12||n1.time.notTimed.some(s=>/beyond the first two/.test(s)))throw Error('per-connector lines wrong: '+JSON.stringify(n1.time.lines));
+  const half=ctx.jobSummary({connectors:four,cut:cut0,bom:[],rates:{...rates,connAssemble:8,branchLayout:0}});
+  if(!half.time.lines.some(l=>l.key==='connAssemble')||!half.time.notTimed.some(s=>/beyond the first two: branch layout/.test(s)))throw Error('one time entered: the other stays listed as not timed');
+  const two=ctx.jobSummary({connectors:[k(1),k(2)],cut:cut0,bom:[],rates:{...rates,connAssemble:8,branchLayout:6}});
+  if(two.time.lines.some(l=>l.key==='connAssemble')||two.time.notTimed.some(s=>/beyond the first two/.test(s)))throw Error('two connectors: no extra connector work');
+  // the confirm list groups connectors by reason and points at the tab that fixes each
+  if(!h.confirm.length||!h.confirm.some(i=>i.tab==='alerts'||i.tab==='cutlist')||!h.confirm.some(i=>i.tab==='connectors'&&/^1 connector \(P1\): /.test(i.text)))throw Error('held drawing confirm list: '+JSON.stringify(h.confirm));
+  if(!/To confirm on this drawing/.test(html)||!/id="actualHours"/.test(html)||!/\/api\/job-actual/.test(html))throw Error('the job summary must show the confirm list and the actual-hours entry')}
+ // Learning from finished jobs: a ratio from any job, suggestions only from three or more, and bad records ignored.
+ {const R={strip:.1667,insert:2.5333,braidTrimEnd:2};
+  const job=(s,i,b,actual)=>({actualHours:actual!=null?actual:(s*R.strip+i*R.insert+b*R.braidTrimEnd)/60,lines:[{key:'strip',count:s},{key:'insert',count:i},{key:'braidTrimEnd',count:b}]});
+  const none=ctx.rateSuggestions([],R);if(none.jobs!==0||none.ratio!==null||none.suggestions.length)throw Error('no jobs: nothing to say');
+  const one=ctx.rateSuggestions([job(100,40,10,5)],R);if(one.jobs!==1||!(one.ratio>1)||one.suggestions.length)throw Error('one job gives a ratio and no suggestions: '+JSON.stringify(one));
+  const exact=ctx.rateSuggestions([job(100,40,10),job(60,30,30),job(200,90,5)],R);
+  if(exact.jobs!==3||Math.abs(exact.ratio-1)>1e-9||exact.suggestions.length)throw Error('jobs that match the estimate need no change: '+JSON.stringify(exact));
+  // braid trim really takes 3x: the jobs run over in proportion to their braid count
+  const over=(s,i,b)=>job(s,i,b,(s*R.strip+i*R.insert+b*R.braidTrimEnd*3)/60);
+  const sg=ctx.rateSuggestions([over(100,40,10),over(60,30,60),over(200,90,5),over(80,20,40)],R);
+  if(sg.jobs!==4||!sg.suggestions.length||sg.suggestions[0].key!=='braidTrimEnd'||!(sg.suggestions[0].suggested>R.braidTrimEnd)||sg.suggestions.some(g=>g.suggested>g.current*2+1e-9||g.suggested<g.current*.5-1e-9))throw Error('the operation that explains the overrun must lead the suggestions, within half to double: '+JSON.stringify(sg.suggestions));
+  const bad=ctx.rateSuggestions([{actualHours:NaN,lines:[{key:'strip',count:5}]},{actualHours:4,lines:[]},{actualHours:4},{actualHours:-1,lines:[{key:'strip',count:5}]},{actualHours:3,lines:[{key:'unknownOp',count:5}]},null].filter(Boolean),R);
+  if(bad.jobs!==0)throw Error('unusable job records must be ignored: '+JSON.stringify(bad))}
  // Answer-key comparison counts only.
  vm.runInContext(block('function answerKeyCompare(','function answerKeyHtml('),ctx);
  const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
@@ -1123,6 +1196,23 @@ console.log('PASS: harness length applies only to conductors without their own l
  // Wire ends on a ring terminal are in the kit and the build time.
  const rg=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpOpen:2},wires:[{method:'traced-wire-to-ring'},{method:'paired-schematic'}]});
  if(rg.kit.ringTerminals!==1||!rg.time.lines.some(l=>/ring terminal/.test(l.label)&&l.count===1&&Math.abs(l.minutes-2)<1e-9))throw Error('ring terminals missing from kit or time: '+JSON.stringify(rg.kit)+JSON.stringify(rg.time.lines));
+ // Wire ends on a pin of a connector block with no printed name are real contacts: crimped and inserted, and said so.
+ const un=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates,wires:[{method:'traced-wire-unnamed-block'},{method:'traced-wire-unnamed-block'},{method:'paired-schematic'}]});
+ const base=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates,wires:[{method:'paired-schematic'}]});
+ if(un.kit.unnamedPins!==2||un.kit.crimpContacts!==base.kit.crimpContacts+2||!(un.time.minutes>base.time.minutes)||!un.time.notTimed.some(s=>/no printed name/.test(s)))throw Error('unnamed-block contacts must be in the kit and the time: '+JSON.stringify(un.kit));
+ // Sensor harness practice: shields floated, sensor leads soldered with clear heat shrink. Counted only when the notes say so.
+ const sw=[{method:'traced-wire-one-end'},{method:'traced-wire-one-end'},{method:'traced-wire-one-end'},{method:'paired-schematic'}];
+ const cutS={rows:[{wire:'C1',awg:'22',cut:100,cable:true,conductors:2}],counts:{total:1,ok:1}};
+ const rs={...rates,sensorSolder:1.5,solderSetup:3,jointShrink:1,shieldFloat:1.5};
+ const plain=ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:[]});
+ const sens=ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:['SENSOR_LEADS','SOLDERING','SHIELD_FLOAT']});
+ const line=(s,re)=>s.time.lines.find(l=>re.test(l.label));
+ if(line(plain,/Solder sensor lead/)||line(plain,/Float shield/))throw Error('without the notes nothing is added');
+ if(!line(sens,/Solder sensor lead/)||line(sens,/Solder sensor lead/).count!==3||line(sens,/Clear heat shrink/).count!==3||line(sens,/Float shield/).count!==1||line(sens,/Set up soldering iron/).count!==1)throw Error('sensor operations: '+JSON.stringify(sens.time.lines));
+ if(Math.abs(sens.time.minutes-plain.time.minutes-(3+3*1.5+3*1+1*1.5))>1e-6)throw Error('sensor minutes: '+(sens.time.minutes-plain.time.minutes));
+ {const ops=vm.runInContext('laborOps',labor);const d=n=>ops.find(o=>o[0]===n)[3];if(d('sensorSolder')!==1.5||d('solderSetup')!==3||d('jointShrink')!==1||d('shieldFloat')!==1.5)throw Error('shop times for sensor operations changed')}
+ if(line(plain,/Set up soldering iron/))throw Error('no solder joints, no iron setup');
+ if(line(ctx.jobSummary({connectors:[c],cut:cutS,bom:[],rates:rs,wires:sw,features:['SENSOR_LEADS']}),/Solder sensor lead/))throw Error('sensor leads without a solder note are not counted as solder joints');
  // Cuts are made at the top of the tolerance with no extra excess by default (146: 216 +1 is cut at 217).
  if(!/id="cutAllowance"[^>]*value="0"/.test(html))throw Error('the default excess added to each cut must be 0: the shop cuts at the top of the tolerance');
  // The quote uses the job summary's observed-time estimate when the Labor tab was not used.
@@ -1143,4 +1233,109 @@ console.log('PASS: harness length applies only to conductors without their own l
  if(!h.includes('at least 37 positions')||!h.includes('is not proven'))throw Error('a lower bound must read as a lower bound: '+h.slice(0,600));
  if(/NOT USED \d/.test(h))throw Error('no unused count may be given from a lower bound');
  console.log('PASS: a lower bound from the highest printed pin is shown as "at least N" with no unused count');
+}
+
+// Wires that end at terminals (each far end is its own node) are grouped into cables by gauge and near connector.
+{
+ const net=(i,pin,color,far,awg='22')=>({id:'W'+i,endpoints:'P1:'+pin+', '+far,awg,color});
+ const terminated=[net(1,1,'WHT','@UNRESOLVED_1'),net(2,2,'BLU','@UNRESOLVED_2'),net(3,3,'WHT','@UNRESOLVED_3'),net(4,4,'BLU','@UNRESOLVED_4'),net(5,5,'WHT','@UNRESOLVED_5'),net(6,6,'BLU','@UNRESOLVED_6')];
+ let r=cutCtx.buildCutList(terminated,{cables:{'22':2}});
+ const cables=r.rows.filter(x=>x.cable),singles=r.rows.filter(x=>!x.cable);
+ if(cables.length!==3||singles.length!==0)throw Error('three pairs ending at terminals are three cables, got '+cables.length+' cables and '+singles.length+' singles');
+ if(cables.some(c=>c.conductors!==2||!/WHT/.test(c.color)||!/BLU/.test(c.color)))throw Error('each cable holds one white and one blue conductor');
+ // repeated colours in a chunk are still not paired
+ r=cutCtx.buildCutList([net(1,1,'WHT','@UNRESOLVED_1'),net(2,2,'WHT','@UNRESOLVED_2'),net(3,3,'BLU','@UNRESOLVED_3'),net(4,4,'BLU','@UNRESOLVED_4')],{cables:{'22':2}});
+ if(r.rows.filter(x=>x.cable).length!==0||!r.rows.every(x=>(x.notes||[]).some(n=>/missing or repeated/.test(n))))throw Error('repeated colours must stay unpaired and say why');
+ // an odd conductor left over stays a single and says the cable is incomplete
+ r=cutCtx.buildCutList(terminated.slice(0,5),{cables:{'22':2}});
+ if(r.rows.filter(x=>x.cable).length!==2||r.rows.filter(x=>!x.cable).length!==1||!(r.rows.find(x=>!x.cable).notes||[]).some(n=>/cable incomplete/.test(n)))throw Error('five conductors make two cables and one incomplete single');
+ // different near connectors never share a cable
+ r=cutCtx.buildCutList([net(1,1,'WHT','@UNRESOLVED_1'),{id:'W2',endpoints:'P2:2, @UNRESOLVED_2',awg:'22',color:'BLU'}],{cables:{'22':2}});
+ if(r.rows.some(x=>x.cable))throw Error('wires from different connectors are not one cable');
+ // a real far connector still keeps the pair together, and different far connectors still do not
+ r=cutCtx.buildCutList([{id:'A',endpoints:'P1:1, J1:1',awg:'22',color:'WHT'},{id:'B',endpoints:'P1:2, J1:2',awg:'22',color:'BLU'}],{cables:{'22':2}});
+ if(r.rows.filter(x=>x.cable).length!==1)throw Error('a pair between two connectors is still one cable');
+ r=cutCtx.buildCutList([{id:'A',endpoints:'P1:1, J1:1',awg:'22',color:'WHT'},{id:'B',endpoints:'P1:2, J2:2',awg:'22',color:'BLU'}],{cables:{'22':2}});
+ if(r.rows.some(x=>x.cable))throw Error('two real connectors at the far end keep the conductors apart');
+ console.log('PASS: wires ending at terminals group into cables by gauge and near connector; repeated colours, odd leftovers and different connectors stay apart');
+}
+
+// An odd conductor out is set aside; a pairing that would have to be guessed is not made.
+{
+ const n=(i,c)=>({id:'W'+i,endpoints:'P1:'+i+', @UNRESOLVED_'+i,awg:'22',color:c});
+ let r=cutCtx.buildCutList([n(1,'WHT'),n(2,'WHT'),n(3,'BLU')],{cables:{'22':2}});
+ if(r.counts.cables!==1||r.rows.filter(x=>!x.cable).length!==1)throw Error('A A B: one cable and one conductor set aside');
+ r=cutCtx.buildCutList([n(1,'WHT'),n(2,'BLU'),n(3,'WHT'),n(4,'BLU'),n(5,'WHT')],{cables:{'22':2}});
+ if(r.counts.cables!==2||r.rows.filter(x=>!x.cable).length!==1)throw Error('A B A B A: two cables and the last conductor set aside');
+ r=cutCtx.buildCutList([n(1,'WHT'),n(2,'WHT'),n(3,'BLU'),n(4,'BLU')],{cables:{'22':2}});
+ if(r.counts.cables!==0)throw Error('A A B B could only be paired by guessing');
+ console.log('PASS: an odd conductor out is set aside, and a pairing that would need guessing is left single');
+}
+
+// When no complete pairing exists, conductors are still taken n at a time: good groups are cables, bad ones stay single.
+{
+ const n=(i,c)=>({id:'W'+i,endpoints:'P1:'+i+', @UNRESOLVED_'+i,awg:'22',color:c});
+ // A A | A B | A B | B B : two cables, four singles (the measured regression: this used to give zero cables)
+ const r=cutCtx.buildCutList(['WHT','WHT','WHT','BLU','WHT','BLU','BLU','BLU'].map((c,i)=>n(i+1,c)),{cables:{'22':2}});
+ if(r.counts.cables!==2||r.rows.filter(x=>!x.cable).length!==4)throw Error('partial pairing must keep the groups that are clear: '+r.counts.cables);
+ if(!r.rows.filter(x=>!x.cable).every(x=>x.notes.some(s=>/pairing uncertain/.test(s))))throw Error('unclear groups say so');
+ console.log('PASS: an incomplete pairing keeps the clear groups as cables and leaves the unclear ones single');
+}
+
+// Mixed cable sizes of one gauge with different colour sets: grouped only when exactly one cut into the parts-list sizes exists.
+{
+ const mk=cs=>cs.map((c,i)=>({id:'M'+i,endpoints:'P1:'+(i+1)+', @UNRESOLVED_'+(i+1),awg:'22',color:c}));
+ const opt={allowance:0,cables:{},cableMix:{'22':[2,4]}};
+ let r=cutCtx.buildCutList(mk(['B','C','A','B','A','B','A','B','C','D','A','D','A','B']),opt);
+ const sizes=r.rows.filter(x=>x.cable).map(x=>x.conductors).join(',');
+ if(sizes!=='2,2,2,4,2,2'||r.rows.some(x=>!x.cable))throw Error('unique fit expected 2,2,2,4,2,2 but got '+sizes);
+ if(!r.rows.every(x=>x.notes.some(s=>/only way to cut/.test(s))))throw Error('a fitted grouping must say how it was found');
+ // six different colours can be 2+4 or 4+2: nothing is chosen
+ r=cutCtx.buildCutList(mk(['A','B','C','D','E','F']),opt);
+ if(r.rows.some(x=>x.cable)||!r.rows.every(x=>x.notes.some(s=>/could not be told/.test(s))))throw Error('two possible cuts must stay single');
+ // a conductor with no colour blocks the fit
+ r=cutCtx.buildCutList(mk(['A','B','','B']),opt);
+ if(r.rows.some(x=>x.cable))throw Error('a missing colour must block the fit');
+ console.log('PASS: mixed cable sizes group by a unique fit to the parts-list sizes; two possible cuts or a missing colour stay single');
+}
+
+// A tabulated parts list: the variant column picker appears only when there is a choice, and choosing sets every quantity.
+{
+ const els={bomVerified:{checked:true},bomVariant:{}};
+ const v={st:{bom:[],bomVariant:0},$:id=>els[id]||(els[id]={}),render(){v.rendered=(v.rendered||0)+1},safe:s=>String(s)};
+ vm.createContext(v);vm.runInContext(block('function bomVariantCount(','function renderBOM('),v);
+ v.st.bom=[{item:'1',qty:2,qtyText:'2',qtyVariants:['2','4','-']},{item:'2',qty:1,qtyText:'1',qtyVariants:['1','A/R','3']},{item:'3',qty:5,qtyText:'5',qtyVariants:[]}];
+ if(v.bomVariantCount()!==3)throw Error('three variant columns');
+ const h=v.bomVariantHtml();
+ if(!h.includes('3 quantity columns')||!h.includes('on 2 lines')||(h.match(/<option/g)||[]).length!==3)throw Error('picker: '+h);
+ v.bomVariantSet('1');
+ if(v.st.bom[0].qty!==4||v.st.bom[1].qtyText!=='A/R'||v.st.bom[1].qty!==0||v.st.bom[2].qty!==5||els.bomVerified.checked!==false||!v.rendered)throw Error('column 2 must set 4, A/R and leave the untabulated line: '+JSON.stringify(v.st.bom));
+ v.bomVariantSet('2');
+ if(v.st.bom[0].qty!==0||v.st.bom[0].qtyText!=='0'||v.st.bom[1].qty!==3)throw Error('a dash is zero for that variant');
+ v.st.bom=[{item:'1',qty:2,qtyText:'2',qtyVariants:[]}];
+ if(v.bomVariantHtml()!=='')throw Error('no picker without tabulated quantities');
+ console.log('PASS: a tabulated parts list offers its quantity columns; choosing one sets every tabulated line and clears the verified mark');
+}
+
+// Lengths by branch: cuts are grouped by where they go and one typed length fills every cut of that branch that has none.
+{
+ const els={cutDest:{}};
+ const d={st:{raw:{harnessLengths:[{page:2,label:'DIMENSION',text:'36 IN',tolerance:'±1.0',upper:'37 IN'}]},nets:[]},$:id=>els[id]||null,safe:s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),showReport(){},renderCutList(){d.rerendered=true},lastCut:null};
+ vm.createContext(d);vm.runInContext(block('function harnessCandidates(','function autoHarness(')+block('function destKey(','function cutEdit('),d);
+ const n1={length:''},n2={length:''},n3={length:'12 IN'},n4={length:''};
+ d.lastCut={rows:[
+  {from:'P1:1, P1:2',to:'J2:1, J2:2',status:'NO LENGTH',stated:[],nets:[n1,n2]},
+  {from:'P1:3',to:'J2:3',status:'OK',stated:['12 IN'],nets:[n3]},
+  {from:'P1:4',to:'@UNRESOLVED_4',status:'NO LENGTH',stated:[],nets:[n4]},
+  {from:'P1 (8 pins)',to:'ETH1',status:'NO LENGTH',stated:[],nets:[{length:''}],purchased:true}]};
+ const g=d.destGroups(d.lastCut.rows);
+ if(g.length!==2||g[0].key!=='P1 → J2'||g[0].rows.length!==2||g[0].missing!==1||g[1].key!=='P1 → ends with no connector name')throw Error('groups: '+JSON.stringify(g.map(x=>[x.key,x.rows.length,x.missing])));
+ d.renderDestLengths();
+ const h=els.cutDest.innerHTML;
+ if(!h.includes('goes to 2 places')||!h.includes('37 IN')||!h.includes('top of 36 IN')||(h.match(/<input/g)||[]).length!==2)throw Error('branch table: '+h.slice(0,400));
+ d.destSet('P1 → J2','36 IN');
+ if(n1.length!=='36 IN'||n2.length!=='36 IN'||n3.length!=='12 IN'||n4.length!==''||!d.rerendered)throw Error('a branch length fills only the cuts of that branch with no length');
+ d.lastCut={rows:[{from:'P1:1',to:'J2:1',status:'NO LENGTH',stated:[],nets:[{length:''}]}]};d.renderDestLengths();
+ if(els.cutDest.innerHTML!=='')throw Error('one destination needs no branch table');
+ console.log('PASS: lengths by branch group cuts by destination, list the printed dimensions, and fill only cuts with no length');
 }

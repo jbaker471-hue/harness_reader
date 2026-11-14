@@ -694,12 +694,15 @@ func headerPartFinding(conns []Connector, c Connector, header string, page int) 
 	case h != nil && l != nil:
 		f.Message += fmt.Sprintf(" The inserts differ (%s vs %s), so the cavity layout or contact type is not the same.", h[1], l[1])
 	}
+	if d := partFieldDiff(header, c.Part); d != "" {
+		f.Message += " They differ only in " + d + "."
+	}
 	for _, o := range conns {
 		if o.Tag == c.Tag || normPart(o.Part) != normPart(header) {
 			continue
 		}
 		if o.Tag == "" || o.Tag == "UNASSIGNED" || o.Tag == "UNRESOLVED ENDPOINT" {
-			f.Message += " The parts list also lists the header part, for a connector whose designator was not read: check that this header belongs to " + c.Tag + "."
+			f.Message += " The header part is also on the drawing for a connector whose designator was not read: check that this header belongs to " + c.Tag + "."
 		} else {
 			f.Message += fmt.Sprintf(" The header part is also the parts-list part of %s: check that this header belongs to %s.", o.Tag, c.Tag)
 		}
@@ -707,6 +710,25 @@ func headerPartFinding(conns []Connector, c Connector, header string, page int) 
 	}
 	f.Message += " The parts-list part is kept until engineering resolves it."
 	return f, true
+}
+
+var rePartFields = regexp.MustCompile(`^D38999/(\d{2})([A-Z])([A-Z])(\d{2})([A-Z])([A-Z])`)
+
+// partFieldDiff names the fields in which two D38999 part numbers differ (slash sheet, finish class, shell
+// size, insert arrangement, contact type, keying), or "" when either is not in that form.
+func partFieldDiff(a, b string) string {
+	x, y := rePartFields.FindStringSubmatch(normPart(a)), rePartFields.FindStringSubmatch(normPart(b))
+	if x == nil || y == nil {
+		return ""
+	}
+	names := []string{"", "the slash sheet (connector style)", "the finish class", "the shell size", "the insert arrangement", "the contact type", "the keying letter"}
+	out := []string{}
+	for i := 1; i <= 6; i++ {
+		if x[i] != y[i] {
+			out = append(out, names[i])
+		}
+	}
+	return strings.Join(out, " and ")
 }
 
 func isPinSocketPair(a, b byte) bool {

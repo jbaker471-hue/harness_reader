@@ -58,6 +58,9 @@ var traceHeldHook func(reason string, x, y, dir, em float64, segs []Segment)
 // same connector name. Never set in the app.
 var traceSameHook func(ax, ay, bx, by, em float64)
 
+// traceBareHook, when set (diagnostics only), is told where a kept one-ended wire's unnumbered end is.
+var traceBareHook func(x, y, dir, em float64)
+
 // segGraph joins segments that share an end point.
 type segGraph struct {
 	segs []Segment
@@ -728,6 +731,125 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 		pairs = append(pairs, [2]int{len(ends) - 2, len(ends) - 1})
 		bareOf = append(bareOf, bare)
 	}
+	// A pin label printed a little above or below its line end (more than the 1.4 em the first look allows) is still
+	// that end's pin when it sits in a column of pin labels other wires already use, no other wire end claims it,
+	// and it is the only free label within reach. Ends drawn as a ring terminal or ferrule are left alone.
+	{
+		type slot struct{ x, y float64 }
+		usedPin := map[slot]bool{}
+		var colX []float64
+		for _, e := range ends {
+			if e.pinID != "" {
+				usedPin[slot{e.pin.X, e.pin.Y}] = true
+				colX = append(colX, (e.pin.X+e.pin.right())/2)
+			}
+		}
+		inColumn := func(w Word, em float64) bool {
+			cx := (w.X + w.right()) / 2
+			for _, x := range colX {
+				if math.Abs(x-cx) <= 1.2*em {
+					return true
+				}
+			}
+			return false
+		}
+		type claim struct {
+			end int
+			w   Word
+			id  string
+		}
+		claims := map[slot][]claim{}
+		for k, pr := range pairs {
+			if bareOf[k] == 0 {
+				continue
+			}
+			ei, edir := pr[0], -1.0
+			if bareOf[k] == 2 {
+				ei, edir = pr[1], 1.0
+			}
+			e := ends[ei]
+			em := labels[e.label].em
+			if hasRing(e.x, e.y, edir, em) || hasBox(e.x, e.y, edir, em) || e.lead != "" {
+				continue
+			}
+			var found []claim
+			for _, w := range items {
+				if w.X < edge || w.X > p.Width-edge || isGaugeNum(w) || usedPin[slot{w.X, w.Y}] {
+					continue
+				}
+				id, ok := pinAtEnd(w.Text)
+				if !ok || math.Abs((w.X+w.right())/2-e.x) > 6*em || math.Abs(w.Y-e.y) > 2.6*em || !inColumn(w, em) {
+					continue
+				}
+				found = append(found, claim{ei, w, id})
+			}
+			// Nothing near: the line may carry on at the same height past a break (a symbol or a label drawn over
+			// it). The nearest free pin label further out at that height, up to 80 em, is taken when at least 80%
+			// of the way there is drawn at that height and no other wire's gauge label lies in between.
+			if len(found) == 0 {
+				best, bd := claim{}, math.Inf(1)
+				for _, w := range items {
+					if w.X < edge || w.X > p.Width-edge || isGaugeNum(w) || usedPin[slot{w.X, w.Y}] || math.Abs(w.Y-e.y) > 1.2*em {
+						continue
+					}
+					id, ok := pinAtEnd(w.Text)
+					d := ((w.X+w.right())/2 - e.x) * edir
+					if !ok || d <= 0 || d > 80*em || d >= bd || !inColumn(w, em) {
+						continue
+					}
+					best, bd = claim{ei, w, id}, d
+				}
+				if !math.IsInf(bd, 1) {
+					covered, blocked := 0.0, false
+					for _, s := range p.Segs {
+						if math.Abs(s[1]-s[3]) > 0.2*em || math.Abs((s[1]+s[3])/2-e.y) > 1.0*em {
+							continue
+						}
+						a0, a1 := (s[0]-e.x)*edir, (s[2]-e.x)*edir
+						if a0 > a1 {
+							a0, a1 = a1, a0
+						}
+						a0, a1 = math.Max(a0, 0), math.Min(a1, bd)
+						if a1 > a0 {
+							covered += a1 - a0
+						}
+					}
+					for _, w := range items {
+						if d := ((w.X+w.right())/2 - e.x) * edir; math.Abs(w.Y-e.y) <= 1.0*em && d > 0 && d < bd && (schematicGauge.MatchString(w.Text) || reGaugeLabel.MatchString(w.Text)) {
+							blocked = true
+						}
+					}
+					if !blocked && covered >= 0.8*bd {
+						found = append(found, best)
+					}
+				}
+			}
+			if len(found) == 1 {
+				s := slot{found[0].w.X, found[0].w.Y}
+				claims[s] = append(claims[s], found[0])
+			}
+		}
+		for _, cs := range claims {
+			if len(cs) != 1 {
+				continue
+			}
+			c := cs[0]
+			ends[c.end].pin, ends[c.end].pinID, ends[c.end].note = c.w, c.id, false
+			// the end now sits where the other wires of that pin column end, so it is named with their block
+			cx := (c.w.X + c.w.right()) / 2
+			for _, o := range ends {
+				if o.pinID != "" && !(o.pin.X == c.w.X && o.pin.Y == c.w.Y) && math.Abs((o.pin.X+o.pin.right())/2-cx) <= 1.2*math.Max(c.w.Size, 4) {
+					ends[c.end].x = o.x
+					break
+				}
+			}
+			for k, pr := range pairs {
+				if pr[0] == c.end || pr[1] == c.end {
+					bareOf[k] = 0
+				}
+			}
+		}
+	}
 	// An end with no number that lands where other wires end WITH numbers (the
 	// same block edge, within 40 em up or down) is in a connector's pin column:
 	// its number was not read. That wire is held, never counted as one-ended.
@@ -792,6 +914,13 @@ func traceSheet(p Page, rows []WireRow, partTags map[string]string) (out []WireR
 					traceHeldHook("unnumbered end in a pin column", e.x, e.y, dir, labels[e.label].em, g.segs)
 				}
 				continue
+			}
+			if traceBareHook != nil && bareOf[k] != 0 {
+				e, dir := ends[pr[0]], -1.0
+				if bareOf[k] == 2 {
+					e, dir = ends[pr[1]], 1.0
+				}
+				traceBareHook(e.x, e.y, dir, labels[e.label].em)
 			}
 			keepEnds = append(keepEnds, ends[pr[0]], ends[pr[1]])
 			keepPairs = append(keepPairs, [2]int{len(keepEnds) - 2, len(keepEnds) - 1})

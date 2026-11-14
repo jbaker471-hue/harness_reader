@@ -55,6 +55,8 @@ type BOMRow struct {
 	// Unit is the parts list's unit of measure (U/M) for the quantity, as
 	// printed (EA, FT, IN...), empty when the list has no unit column.
 	Unit string `json:"unit,omitempty"`
+	// QtyVariants holds every quantity on a tabulated line, one per assembly variant column, in printed order.
+	QtyVariants []string `json:"qtyVariants,omitempty"`
 }
 type Finding struct {
 	Severity string `json:"severity"`
@@ -883,7 +885,19 @@ func AnalyzeData(d PDFData) (Analysis, error) {
 					c.Part, c.CavityCount, c.LayoutStatus, c.Family = part, n, st, "MIL-DTL-38999"
 				default:
 					if f, ok := headerPartFinding(a.Connectors, *c, part, p.Number); ok {
-						a.Findings = append(a.Findings, f)
+						// the same header on several sheets is one finding that lists the sheets
+						merged := false
+						for k := range a.Findings {
+							g := &a.Findings[k]
+							if g.Code == f.Code && g.Connector == f.Connector && g.Observed == f.Observed {
+								g.Pages = uniqInts(append(g.Pages, p.Number))
+								merged = true
+								break
+							}
+						}
+						if !merged {
+							a.Findings = append(a.Findings, f)
+						}
 					}
 				}
 			}

@@ -290,3 +290,25 @@ func TestUpperLengthIsNominalPlusThePlusTolerance(t *testing.T) {
 		}
 	}
 }
+
+func TestStandaloneInchLengthIsACandidateButAPartsListQuantityIsNot(t *testing.T) {
+	p := Page{Number: 2, Width: 1500, Height: 1000, PageAccurate: true}
+	add := func(s string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: s, X: x, Y: y, Size: 8, X1: x + 4.4*float64(len(s))})
+	}
+	add(`216"`, 700, 900)                                     // a dimension standing alone
+	add("96", 300, 800); add("IN", 314, 800)                  // number and unit as two words
+	for i, s := range []string{"9", "240", "IN", "HEAT", "SHRINK", "TUBE,", "WHITE", "EX-100"} { // a parts list row
+		add(s, 100+float64(i)*60, 600)
+	}
+	add(`6"`, 700, 500) // too short to be a harness length
+	add(`300"`, 900, 950); add("REF", 930, 950)              // one more word beside it is still a length
+	got := harnessDimensions([]Page{p})
+	have := map[string]bool{}
+	for _, h := range got {
+		have[h.Text] = true
+	}
+	if !have["216 IN"] || !have["96 IN"] || !have["300 IN"] || have["240 IN"] || have["6 IN"] || len(got) != 3 {
+		t.Fatalf("candidates: %+v", got)
+	}
+}

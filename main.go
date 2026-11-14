@@ -568,6 +568,45 @@ func run() error {
 		}
 		jsonAnswer(w, map[string]any{"key": nil})
 	})
+	// The hours a finished harness really took, saved on this PC only. GET returns the open drawing's record and
+	// the numbers of every saved job; POST saves the open drawing's record, or removes it when actualHours is 0.
+	mux.HandleFunc("/api/job-actual", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			if !post(w, r) {
+				return
+			}
+			_, x := current.get()
+			if x == nil {
+				http.Error(w, "Open a drawing first", 409)
+				return
+			}
+			var a JobActual
+			if e := json.NewDecoder(io.LimitReader(r.Body, 262144)).Decode(&a); e != nil {
+				http.Error(w, "Invalid JSON", 400)
+				return
+			}
+			a.SHA256 = x.SHA256
+			if a.ActualHours == 0 {
+				if e := deleteJobActual(x.SHA256); e != nil {
+					http.Error(w, "Could not remove the saved hours: "+e.Error(), 422)
+					return
+				}
+			} else if e := saveJobActual(a); e != nil {
+				http.Error(w, "Could not save the hours: "+e.Error(), 422)
+				return
+			}
+		} else if !secure(w, r) {
+			return
+		}
+		var mine any
+		if _, x := current.get(); x != nil {
+			if a, ok := loadJobActual(x.SHA256); ok {
+				a.SHA256 = ""
+				mine = a
+			}
+		}
+		jsonAnswer(w, map[string]any{"actual": mine, "all": listJobActuals()})
+	})
 	mux.HandleFunc("/api/layouts/forget", func(w http.ResponseWriter, r *http.Request) {
 		if !post(w, r) {
 			return
