@@ -2,6 +2,14 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-14 update: a connector read as two records is counted once (drawing 156)
+
+- Measured by counts only: on 156 one connector was read as two records. A short name carried the part number and 9 positions with no wires; a longer name ending in it carried 7 wires with no part or position count.
+- Rule (job summary): a record with a part and positions but no wires, whose name is the last part of exactly one wired record that has no part and no positions, is the same connector. The wired record takes the part and positions; the short record stays listed, marked "look" with the reason. Two matching wired records, or a wired record with its own part, are not joined.
+- 156: held unused 31 to 24 (9 phantom unused became 2 real ones), 4.71 h to 4.52 h (owner 7.5). No other drawing changed.
+- Finding: position counts are NOT the gap on 156. Its two remaining connectors with no position count have 4 wires each (highest pins 4 and 9), so at most a handful of unused cavities are missing. About three hours of the owner's estimate is work the model does not time at all. No operation is timed per connector or per branch (backshell, labels, lacing, branch layout).
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe.
+
 ## 2026-11-13 update: repeated connectors are not counted twice (drawing 150)
 
 - Measured by counts only: on 150, three connectors carried the same part while the parts list buys one. Two of them had no wires and no parts-list reference, and each added 128 unused cavities (256 in all).

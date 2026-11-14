@@ -823,13 +823,24 @@ function jobSummary(x){
  // The parts list buys a set number of each connector. When more connectors carry a part than the parts list buys,
  // the ones with no wires are repeats of another connector (the same connector named a second way), not extra
  // connectors to build: they add no positions and no unused cavities.
- const repeats=new Set();
+ const repeats=new Set(),joined=new Map(),donors=new Map();
+ // One connector read as two records: a short name (P2) that carries the part number and position count but no
+ // wires, and a longer name ending in it (W1-P2) that carries the wires but no part. When exactly one such wired
+ // connector matches, it takes the part and positions, and the short record is not counted on its own.
+ {const up=s=>String(s||'').trim().toUpperCase(),tail=s=>{const a=up(s).split(/[^A-Z0-9]+/).filter(Boolean);return a.length>1?a[a.length-1]:''};
+  const hasPart=c=>{const p=up(c.part);return !!p&&p!=='NOT RESOLVED'};
+  for(const d of conns){if(!hasPart(d)||!(Number(d.capacity)>0)||eliminationStatus(d).wired>0)continue;
+   const m=conns.filter(c=>c!==d&&tail(c.tag)===up(d.tag)&&eliminationStatus(c).wired>0);
+   if(m.length!==1||hasPart(m[0])||Number(m[0].capacity)>0||joined.has(m[0])||eliminationStatus(m[0]).wired>Number(d.capacity))continue;
+   joined.set(m[0],{...m[0],part:d.part,capacity:d.capacity,labels:(m[0].labels&&m[0].labels.length)?m[0].labels:d.labels,family:m[0].family||d.family,arrangement:m[0].arrangement||d.arrangement});donors.set(d,m[0].tag)}}
  {const byPart=new Map();for(const c of conns){const p=String(c.part||'').trim().toUpperCase();if(!p||p==='NOT RESOLVED')continue;(byPart.get(p)||byPart.set(p,[]).get(p)).push(c)}
-  for(const [p,list] of byPart){let qty=0;for(const b of bom)if(String(b.part||'').trim().toUpperCase()===p){const q=Number(b.qty);if(Number.isFinite(q)&&q>0)qty+=q}
+  for(const [p,list0] of byPart){const list=list0.filter(c=>!donors.has(c));let qty=0;for(const b of bom)if(String(b.part||'').trim().toUpperCase()===p){const q=Number(b.qty);if(Number.isFinite(q)&&q>0)qty+=q}
    if(!qty||list.length<=qty)continue;let extra=list.length-qty;
    for(let i=list.length-1;i>=0&&extra>0;i--)if(!(eliminationStatus(list[i]).wired>0)){repeats.add(list[i]);extra--}}}
- const rows=conns.map(c=>{
-  if(repeats.has(c))return {tag:c.tag,part:c.part||'',positions:0,wired:0,unused:null,released:false,fill:'',plug:'',filler:0,plugs:0,repeat:true,state:'look',look:['the parts list buys fewer of this part than the connectors that carry it, and no wire was read on this one: counted as a repeat of another connector, not built']};
+ const rows=conns.map(c0=>{
+  if(donors.has(c0))return {tag:c0.tag,part:c0.part||'',positions:0,wired:0,unused:null,released:false,fill:'',plug:'',filler:0,plugs:0,repeat:true,state:'look',look:['same connector as '+donors.get(c0)+', which carries its wires: its part number and positions are counted there']};
+  const c=joined.get(c0)||c0;
+  if(repeats.has(c0))return {tag:c.tag,part:c.part||'',positions:0,wired:0,unused:null,released:false,fill:'',plug:'',filler:0,plugs:0,repeat:true,state:'look',look:['the parts list buys fewer of this part than the connectors that carry it, and no wire was read on this one: counted as a repeat of another connector, not built']};
   const e=eliminationStatus(c),f=fillFor(c),total=e.total||Number(c.capacity)||0,wired=e.wired||0;
   positions+=total;wiredTotal+=wired;
   const unused=total?Math.max(0,total-wired):null,released=e.level==='CONFIRMED';

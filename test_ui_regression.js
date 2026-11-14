@@ -1137,6 +1137,15 @@ console.log('PASS: harness length applies only to conductors without their own l
   if(d3.positions!==12||d3.connectors.some(r=>r.repeat))throw Error('when the parts list buys all three, all three are built');
   const dn=ctx.jobSummary({connectors:[wiredC,mk('Q7')],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
   if(dn.positions!==8||dn.connectors.some(r=>r.repeat))throw Error('no parts list quantity: nothing is called a repeat')}
+ // One connector read as two records (short name with the part and positions, longer name with the wires) is counted once.
+ {const short={tag:'Q5',part:'NINE-1',capacity:9,occupied:'',labels:[],verified:false},long={tag:'W1-Q5',part:'',occupied:'1 2 3',labels:[],verified:false};
+  const j=ctx.jobSummary({connectors:[long,short],cut:{rows:[],counts:{total:0,ok:0}},bom:[{item:'1',part:'NINE-1',qty:2,description:'CONNECTOR'}],rates});
+  const lr=j.connectors[0],sr=j.connectors[1];
+  if(j.positions!==9||lr.positions!==9||lr.wired!==3||lr.unused!==6||lr.part!=='NINE-1'||!sr.repeat||sr.positions!==0||j.kit.heldUnused!==6)throw Error('a connector read as two records must be counted once: '+JSON.stringify(j.connectors));
+  const two=ctx.jobSummary({connectors:[long,{...long,tag:'W2-Q5'},short],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+  if(two.connectors.some(r=>r.repeat)||two.positions!==9)throw Error('two wired connectors ending in the short name: nothing is joined');
+  const own=ctx.jobSummary({connectors:[{...long,part:'OTHER-1'},short],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+  if(own.connectors.some(r=>r.repeat))throw Error('a wired connector with its own part number is not joined')}
  // Answer-key comparison counts only.
  vm.runInContext(block('function answerKeyCompare(','function answerKeyHtml('),ctx);
  const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
