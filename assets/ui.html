@@ -819,7 +819,7 @@ function jobSummary(x){
   state:cc.total&&cc.ok===cc.total?'read':'look',
   look:!cc.total?'no conductors were read: see Drawing alerts for the sheets that were not read':cc.ok<cc.total?(cc.total-cc.ok)+' of '+cc.total+' cuts have no usable length: see the Cut list':''};
  // 2.-3. connectors, positions, used and unused
- let wiredTotal=0,fillerTotal=0,plugTotal=0,heldUnused=0,positions=0;const plugParts=new Set();
+ let wiredTotal=0,fillerTotal=0,plugTotal=0,heldUnused=0,noNoteUnused=0,positions=0;const plugParts=new Set();
  const rows=conns.map(c=>{
   const e=eliminationStatus(c),f=fillFor(c),total=e.total||Number(c.capacity)||0,wired=e.wired||0;
   positions+=total;wiredTotal+=wired;
@@ -827,6 +827,7 @@ function jobSummary(x){
   let filler=0,plugs=0;
   if(released&&unused){if(f.policy==='contact+plug'||f.policy==='contact-only')filler=unused;if(f.policy==='contact+plug'||f.policy==='plug-only')plugs=unused;if(plugs&&f.plug)plugParts.add(f.plug)}
   if(!released&&unused)heldUnused+=unused;
+  if(released&&unused&&!f.policy)noNoteUnused+=unused;
   fillerTotal+=filler;plugTotal+=plugs;
   const look=[];
   if(!c.part)look.push('part number not read');
@@ -868,6 +869,11 @@ function jobSummary(x){
  if(feats.has('SHIELD_FLOAT'))add('Float shield: cut back and insulate (1 to 2 min each; 1.5 used)',cables+estCables,'shielded cable','shieldFloat');
  if(bands!=null)add('Install bands',bands,'band','band');else notTimed.push('bands (count not found in the parts list)');
  if(plugTotal)add('Insert sealing plugs (15 to 20 s each; 17.5 s used)',plugTotal,'plug','sealPlug');
+ // Shop practice: every unused cavity gets a filler contact and a sealing plug. Unused cavities that are not yet
+ // confirmed, or that no drawing note covers, are timed that way (they stay out of the kit until confirmed).
+ const estFill=heldUnused+noNoteUnused;
+ if(estFill){add('Fill unused cavities not yet confirmed: filler contact in each (shop practice; 2:32 per 2 cavities)',estFill/2,'wire (2 cavities)','insert');add('Sealing plug in each unused cavity not yet confirmed (shop practice; 17.5 s used)',estFill,'plug','sealPlug');
+  notTimed.push('note: '+estFill+' unused cavit'+(estFill===1?'y is':'ies are')+' not yet confirmed; the time counts a filler contact and a sealing plug in each (your shop practice), and it changes if the position counts or wire reads change')}
  if(unnamedPins)notTimed.push('note: '+unnamedPins+' contact(s) are on a connector block with no printed name; they are counted for crimping and insertion but that connector has no position count, so its inspection and unused cavities are not');
  if(cuts.ungrouped)notTimed.push('cable count estimated: '+cuts.ungrouped+' conductor(s) of shielded cables the cut list could not group were counted as about '+estCables+' cable(s)');
  const minutes=lines.reduce((s,l)=>s+l.minutes,0);

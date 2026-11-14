@@ -2,6 +2,14 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: unused cavities not yet confirmed are timed as filled
+
+- Shop rule (owner, 2026-11-13): every unused cavity always gets a filler contact and a sealing plug. Until now only confirmed unused cavities were timed, so the eight drawings whose connectors are still "look" had no filler time at all (the same line is 324 minutes on each of 146 to 148).
+- The time estimate now counts a filler contact and a sealing plug in every unused cavity that is not yet confirmed or that no drawing note covers. They stay out of the kit until confirmed, and the estimate carries a note saying so.
+- Hours now (owner's estimate): 146 11.46 (11.5), 147 9.94 (9.5), 148 10.41 (10), 149 11.90 (11), 150 17.32 (11.5), 151 8.56 (7), 152 9.85 (10), 153 9.28 (10), 154 9.39 (10.5), 155 4.90 (5.5), 156 4.71 (7.5).
+- Open: 150 overshoots by almost six hours (447 unused cavities across 17 connectors is probably too many: connectors that are not built as part of this harness, or position counts that are too high). 156 is still short (three of five connectors have no position count). 151 is over, mostly 74 ferrules at the 1.5 minute placeholder.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe; only time, quote and note lines changed against the previous run.
+
 ## 2026-11-13 update: owner's times for sensor operations (supersedes the starting estimates below)
 
 - Owner's estimates, now the defaults: float one shield 1 to 2 min (1.5 used); solder one sensor lead 1 to 2 min (1.5 used) plus soldering iron setup once per harness (3 min, confirmed by the owner); cut, slide and shrink clear tubing over one joint up to 1 min (1 used).

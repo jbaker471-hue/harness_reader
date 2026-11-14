@@ -1122,6 +1122,11 @@ console.log('PASS: harness length applies only to conductors without their own l
  const h=ctx.jobSummary({connectors:[c],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
  const hr=h.connectors[0];
  if(hr.released||hr.state!=='look'||!/sheet 3/.test(hr.look.join(' '))||h.kit.sealingPlugs!==0||h.kit.heldUnused!==1||h.cuts.state!=='look'||h.time.state!=='look')throw Error('held drawing must say look here: '+JSON.stringify(h));
+ // Shop practice: every unused cavity is filled. A held unused cavity is timed (filler and sealing plug) but stays out of the kit.
+ {const hp=ctx.jobSummary({connectors:[c],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates:{...rates,sealPlug:.2917}});
+  const fl=hp.time.lines.find(l=>/Fill unused cavities not yet confirmed/.test(l.label)),pl=hp.time.lines.find(l=>/Sealing plug in each unused cavity not yet confirmed/.test(l.label));
+  if(!fl||fl.count!==.5||Math.abs(fl.minutes-2.5333/2)>1e-6||!pl||pl.count!==1||hp.kit.fillerContacts!==0||hp.kit.sealingPlugs!==0||hp.kit.heldUnused!==1||!hp.time.notTimed.some(x=>/not yet confirmed/.test(x)))throw Error('held unused cavities must be timed as filled and stay out of the kit: '+JSON.stringify(hp.time.lines));
+  if(sp.time.lines.some(l=>/not yet confirmed/.test(l.label)))throw Error('a confirmed connector with a fill note has no estimated fill line')}
  // Answer-key comparison counts only.
  vm.runInContext(block('function answerKeyCompare(','function answerKeyHtml('),ctx);
  const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
