@@ -2,6 +2,14 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-13 update: repeated connectors are not counted twice (drawing 150)
+
+- Measured by counts only: on 150, three connectors carried the same part while the parts list buys one. Two of them had no wires and no parts-list reference, and each added 128 unused cavities (256 in all).
+- Rule: when more connectors carry a part than the parts list buys, the ones with no wires are repeats of another connector and add no positions or unused cavities. They stay listed, marked "look" with the reason. With no parts-list quantity nothing is called a repeat.
+- 150 went from 17.32 h to 10.56 h (owner 11.5); held unused 447 to 191. No other drawing changed.
+- Still open on 150: six wired connectors with no part number and no position count, and one connector with positions and no wires read. On 156: three wired connectors with no part number or position count, and one connector with positions, parts-list quantity 2 and no wires read.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok, end-to-end run on the built exe.
+
 ## 2026-11-13 update: unused cavities not yet confirmed are timed as filled
 
 - Shop rule (owner, 2026-11-13): every unused cavity always gets a filler contact and a sealing plug. Until now only confirmed unused cavities were timed, so the eight drawings whose connectors are still "look" had no filler time at all (the same line is 324 minutes on each of 146 to 148).

@@ -820,7 +820,16 @@ function jobSummary(x){
   look:!cc.total?'no conductors were read: see Drawing alerts for the sheets that were not read':cc.ok<cc.total?(cc.total-cc.ok)+' of '+cc.total+' cuts have no usable length: see the Cut list':''};
  // 2.-3. connectors, positions, used and unused
  let wiredTotal=0,fillerTotal=0,plugTotal=0,heldUnused=0,noNoteUnused=0,positions=0;const plugParts=new Set();
+ // The parts list buys a set number of each connector. When more connectors carry a part than the parts list buys,
+ // the ones with no wires are repeats of another connector (the same connector named a second way), not extra
+ // connectors to build: they add no positions and no unused cavities.
+ const repeats=new Set();
+ {const byPart=new Map();for(const c of conns){const p=String(c.part||'').trim().toUpperCase();if(!p||p==='NOT RESOLVED')continue;(byPart.get(p)||byPart.set(p,[]).get(p)).push(c)}
+  for(const [p,list] of byPart){let qty=0;for(const b of bom)if(String(b.part||'').trim().toUpperCase()===p){const q=Number(b.qty);if(Number.isFinite(q)&&q>0)qty+=q}
+   if(!qty||list.length<=qty)continue;let extra=list.length-qty;
+   for(let i=list.length-1;i>=0&&extra>0;i--)if(!(eliminationStatus(list[i]).wired>0)){repeats.add(list[i]);extra--}}}
  const rows=conns.map(c=>{
+  if(repeats.has(c))return {tag:c.tag,part:c.part||'',positions:0,wired:0,unused:null,released:false,fill:'',plug:'',filler:0,plugs:0,repeat:true,state:'look',look:['the parts list buys fewer of this part than the connectors that carry it, and no wire was read on this one: counted as a repeat of another connector, not built']};
   const e=eliminationStatus(c),f=fillFor(c),total=e.total||Number(c.capacity)||0,wired=e.wired||0;
   positions+=total;wiredTotal+=wired;
   const unused=total?Math.max(0,total-wired):null,released=e.level==='CONFIRMED';

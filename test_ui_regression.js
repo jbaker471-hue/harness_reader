@@ -1127,6 +1127,16 @@ console.log('PASS: harness length applies only to conductors without their own l
   const fl=hp.time.lines.find(l=>/Fill unused cavities not yet confirmed/.test(l.label)),pl=hp.time.lines.find(l=>/Sealing plug in each unused cavity not yet confirmed/.test(l.label));
   if(!fl||fl.count!==.5||Math.abs(fl.minutes-2.5333/2)>1e-6||!pl||pl.count!==1||hp.kit.fillerContacts!==0||hp.kit.sealingPlugs!==0||hp.kit.heldUnused!==1||!hp.time.notTimed.some(x=>/not yet confirmed/.test(x)))throw Error('held unused cavities must be timed as filled and stay out of the kit: '+JSON.stringify(hp.time.lines));
   if(sp.time.lines.some(l=>/not yet confirmed/.test(l.label)))throw Error('a confirmed connector with a fill note has no estimated fill line')}
+ // Three connectors carry a part the parts list buys once: the two with no wires are repeats, not connectors to build.
+ {const mk=t=>({tag:t,part:'DUP-1',occupied:'',labels:['1','2','3','4'],verified:false});
+  const wiredC={tag:'A-Q1',part:'DUP-1',occupied:'1',labels:['1','2','3','4'],verified:false};
+  const bomD=[{item:'1',part:'DUP-1',qty:1,description:'CONNECTOR'}];
+  const d=ctx.jobSummary({connectors:[wiredC,mk('Q7'),mk('Q8')],cut:{rows:[],counts:{total:0,ok:0}},bom:bomD,rates});
+  if(d.positions!==4||d.connectors.filter(r=>r.repeat).length!==2||d.connectors[0].repeat||d.kit.heldUnused!==3)throw Error('repeats of a connector the parts list buys once must not add positions: '+JSON.stringify(d.connectors));
+  const d3=ctx.jobSummary({connectors:[wiredC,mk('Q7'),mk('Q8')],cut:{rows:[],counts:{total:0,ok:0}},bom:[{item:'1',part:'DUP-1',qty:3,description:'CONNECTOR'}],rates});
+  if(d3.positions!==12||d3.connectors.some(r=>r.repeat))throw Error('when the parts list buys all three, all three are built');
+  const dn=ctx.jobSummary({connectors:[wiredC,mk('Q7')],cut:{rows:[],counts:{total:0,ok:0}},bom:[],rates});
+  if(dn.positions!==8||dn.connectors.some(r=>r.repeat))throw Error('no parts list quantity: nothing is called a repeat')}
  // Answer-key comparison counts only.
  vm.runInContext(block('function answerKeyCompare(','function answerKeyHtml('),ctx);
  const cmp=ctx.answerKeyCompare(s,{conductors:1,connectors:[{tag:'P1',positions:2,wired:1,unused:1}]});
