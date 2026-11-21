@@ -296,6 +296,19 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 						pf("NCSEEN: connector %d: sheets with its wires %d, NC words on them %d, pin-list words on them %d", ci+1, len(wirePages), ncw, lists)
 					}
 					pf("POSCHK: connector %d: positions %d, source %s, parts-list count %s", ci+1, a.Positions, class, statedText)
+					if len(stated) == 1 && statedText != fmt.Sprintf("%d", a.Positions) && a.Positions > 0 {
+						hi := 0
+						for _, m := range v.CavityModels {
+							if strings.EqualFold(m.Tag, k) {
+								for _, id := range m.Wired {
+									if n, err := strconv.Atoi(id); err == nil && n > hi {
+										hi = n
+									}
+								}
+							}
+						}
+						pf("POSCONF: connector %d: positions %d, parts-list count %s, wired pins %d, highest wired pin %d", ci+1, a.Positions, statedText, a.Wired, hi)
+					}
 				}
 				if a.Positions == 0 {
 					// Why no position count: counts and yes/no only, never a designator or a part number.
@@ -455,6 +468,196 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 					pf("NOPOS: connector %d: pin-number checks %d, passing %d, NC pins %d, wired pins numeric %d, wired pins not numeric %d, highest wired pin %d, gaps below it %d, part number present %s, family recognised %s, gap-held %s", ci+1, checks, pass, nc, len(numeric), other, maxPin, maxPin-len(numeric), yn(partKnown), yn(famKnown), yn(unknownWhy))
 				}
 			}
+			for _, is := range v.Issues {
+				if is.Code != "CONNECTOR_PART_MISMATCH" {
+					continue
+				}
+				class := "other"
+				switch {
+				case strings.Contains(is.Message, "Both have insert"):
+					class = "same insert, different connector part"
+				case strings.Contains(is.Message, "mating halves"):
+					class = "mating halves"
+				case strings.Contains(is.Message, "The inserts differ"):
+					class = "different inserts"
+				}
+				other := "no"
+				if strings.Contains(is.Message, "is also the parts-list part of") {
+					other = "yes"
+				} else if strings.Contains(is.Message, "designator was not read") {
+					other = "yes, designator not read"
+				}
+				ci := 0
+				for i, k := range keys {
+					if strings.EqualFold(k, is.Connector) {
+						ci = i + 1
+					}
+				}
+				sheet := 0
+				if len(is.Pages) > 0 {
+					sheet = is.Pages[0]
+				}
+				pf("PARTMIS: connector %d on sheet %d: %s; header part belongs to another connector in the parts list: %s", ci, sheet, class, other)
+				{
+					// where the two part numbers differ, as positions after the slash and character classes only
+					ex := normPart(strings.TrimPrefix(is.Expected, "Parts list: "))
+					ob := normPart(strings.TrimPrefix(is.Observed, "Wiring sheet header: "))
+					cut := func(s string) string {
+						if i := strings.Index(s, "/"); i >= 0 {
+							return s[i+1:]
+						}
+						return s
+					}
+					cls := func(b byte) string {
+						switch {
+						case b >= '0' && b <= '9':
+							return "digit"
+						case b >= 'A' && b <= 'Z':
+							return "letter"
+						}
+						return "symbol"
+					}
+					e2, o2 := cut(ex), cut(ob)
+					diffs := []string{}
+					for i := 0; i < len(e2) && i < len(o2); i++ {
+						if e2[i] != o2[i] {
+							diffs = append(diffs, fmt.Sprintf("%d:%s/%s", i+1, cls(e2[i]), cls(o2[i])))
+						}
+					}
+					pf("PARTDIFF: connector %d on sheet %d: lengths after the slash %d and %d, differing positions [%s]", ci, sheet, len(e2), len(o2), strings.Join(diffs, " "))
+				}
+			}
+			{
+				// per sheet and reader: how many wire rows, and how many of their ends carry a single-letter or numeric label
+				type mk struct {
+					page   int
+					method string
+				}
+				cnt, lab := map[mk]int{}, map[mk]int{}
+				for _, w := range v.Wires {
+					k := mk{w.Page, w.Method}
+					cnt[k]++
+					if i := strings.LastIndex(w.EndSignal, ": "); i >= 0 {
+						if _, ok := pinAtEnd(strings.TrimSpace(w.EndSignal[i+2:])); ok {
+							lab[k]++
+						}
+					}
+				}
+				ks := make([]mk, 0, len(cnt))
+				for k := range cnt {
+					ks = append(ks, k)
+				}
+				sort.Slice(ks, func(i, j int) bool {
+					if ks[i].page != ks[j].page {
+						return ks[i].page < ks[j].page
+					}
+					return ks[i].method < ks[j].method
+				})
+				for _, k := range ks {
+					pf("METHODS: sheet %d: %s rows %d, far-end label is pin-shaped %d", k.page, strings.ReplaceAll(k.method, "-", " "), cnt[k], lab[k])
+				}
+			}
+			// every number printed with a length unit on the first three sheets: unit class, size class and what shares its line
+			{
+				reNU := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*(INCHES|INCH|IN\.?|"|FT\.?|FEET|'|MM|CM)$`)
+				reNum := regexp.MustCompile(`^\d+(?:\.\d+)?$`)
+				for _, pg := range x.Data.Pages {
+					if pg.Number > 3 {
+						continue
+					}
+					lineWords := map[float64]int{}
+					for _, l := range pageLines(pg) {
+						lineWords[l.Y] = len(strings.Fields(l.Text))
+					}
+					for _, s := range noteSegments(pg) {
+						txt := strings.ToUpper(strings.Join(strings.Fields(s.text()), " "))
+						toks := strings.Fields(txt)
+						for i, tk := range toks {
+							cand := tk
+							if i+1 < len(toks) && reNum.MatchString(tk) {
+								cand = tk + " " + toks[i+1]
+							}
+							m := reNU.FindStringSubmatch(cand)
+							if m == nil {
+								continue
+							}
+							v, _ := strconv.ParseFloat(m[1], 64)
+							unit := "inch"
+							switch {
+							case strings.HasPrefix(m[2], "F"), m[2] == "'":
+								unit = "foot"
+							case m[2] == "MM", m[2] == "CM":
+								unit = "metric"
+							}
+							size := "under 12"
+							if v >= 12 {
+								size = "12 or more"
+							}
+							n := 0
+							for y, c := range lineWords {
+								if math.Abs(y-s.y) < 3.6 {
+									n = c
+								}
+							}
+							pf("NUMUNIT: sheet %d: unit %s, value %s, words in its text group %d, words on its whole line %d, excluded word in group %v, height on sheet %.1f", pg.Number, unit, size, len(toks), n, reLengthExclude.MatchString(txt), s.y/pg.Height)
+						}
+					}
+				}
+			}
+			// parts-list rows that are connector parts: which read connector (by index) their reference names, never the text
+			for bi, bm := range v.Boms {
+				if !rePN.MatchString(strings.ToUpper(bm.Part)) {
+					continue
+				}
+				ref := strings.ToUpper(strings.TrimSpace(bm.Reference))
+				who := "none"
+				if ref != "" {
+					who = "a designator that is not a read connector"
+					for i, k := range keys {
+						if strings.EqualFold(k, ref) {
+							who = fmt.Sprintf("connector %d", i+1)
+						}
+					}
+				}
+				hdr := "no"
+				for _, is := range v.Issues {
+					if is.Code == "CONNECTOR_PART_MISMATCH" && normPart(strings.TrimPrefix(is.Observed, "Wiring sheet header: ")) == normPart(bm.Part) {
+						hdr = "yes"
+					}
+				}
+				own := "none"
+				for i, k := range keys {
+					for _, c := range v.Connectors {
+						if strings.EqualFold(c.Name, k) && normPart(c.Part) == normPart(bm.Part) {
+							own = fmt.Sprintf("connector %d", i+1)
+						}
+					}
+				}
+				pf("BOMCONN: parts-list row %d: reference names %s; part is held by %s; part is the mismatching header part: %s; reference words %d", bi+1, who, own, hdr, len(strings.Fields(ref)))
+			}
+			// every part-number header on the wiring sheets: how many designators sit near it, and where (em, relative)
+			for _, pg := range x.Data.Pages {
+				for _, h := range pg.Words {
+					ht := strings.TrimSpace(strings.ToUpper(h.Text))
+					if !reSplitPNHead.MatchString(ht) {
+						continue
+					}
+					em := math.Max(h.Size, 4)
+					near := []string{}
+					for _, w := range pg.Words {
+						tx := strings.ToUpper(strings.TrimSpace(w.Text))
+						if reRefDesignator.FindString(tx) != tx || tx == "" {
+							continue
+						}
+						dx, dy := (w.X-h.X)/em, (w.Y-h.Y)/em
+						if math.Abs(dx) <= 30 && math.Abs(dy) <= 8 {
+							near = append(near, fmt.Sprintf("%+.0f,%+.0f", dx, dy))
+						}
+					}
+					sort.Strings(near)
+					pf("HDRNEAR: sheet %d: header at %.2f,%.2f: designators within 30 em across and 8 em up or down: %d [%s]", pg.Number, h.X/pg.Width, h.Y/pg.Height, len(near), strings.Join(near, " "))
+				}
+			}
 			done, total := 0, 0
 			for _, t := range v.TableAudits {
 				if t.Title == "wire gauge labels" {
@@ -518,6 +721,36 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 							}
 						}
 						pf("PINCHECK: problem number: %s; nearest NC at dx %.1f em, dy %.1f em", m.Reason, bdx, bdy)
+						{
+							// what is drawn and printed at this pin: counts only
+							em := math.Max(w.Size, 4)
+							cx := (w.X + w.right()) / 2
+							hNear, hLong, gauge, others := 0, 0, 0, 0
+							for _, s := range pg.Segs {
+								if math.Abs(s[1]-s[3]) > 0.3*em || math.Abs((s[1]+s[3])/2-w.Y) > 1.2*em {
+									continue
+								}
+								x0, x1 := math.Min(s[0], s[2]), math.Max(s[0], s[2])
+								if x1 < cx-8*em || x0 > cx+8*em {
+									continue
+								}
+								hNear++
+								if x1-x0 > 10*em {
+									hLong++
+								}
+							}
+							for _, n := range its {
+								if math.Abs(n.Y-w.Y) > 1.0*em || (n.X == w.X && n.Y == w.Y) {
+									continue
+								}
+								if reGaugeLabel.MatchString(n.Text) || strings.EqualFold(n.Text, "AWG") {
+									gauge++
+								} else {
+									others++
+								}
+							}
+							pf("PINDRAWN: horizontal lines at the pin %d (longer than 10 em: %d), gauge labels on its line %d, other items on its line %d, pin item shape [%s]", hNear, hLong, gauge, others, tokenShape(w.Text))
+						}
 					}
 				}
 			}
@@ -682,6 +915,9 @@ func TestLocalStructureDiagnostic(t *testing.T) {
 				}
 				for _, d := range heldEndShapes(p) {
 					pf("    held end: %s", d)
+				}
+				for _, d := range bareEndShapes(p) {
+					pf("    bare end: %s", d)
 				}
 				for _, d := range sameNameShapes(p) {
 					pf("    same-name pair: %s", d)
@@ -1100,6 +1336,76 @@ func heldEndShapes(p Page) []string {
 		cnt[fmt.Sprintf("%s: short h%d v%d slant%d, long %d (h%d v%d), extent %s, nearest number %s, on the line %s", reason, h, v, sl, long, longH, longV, ext, near, along)]++
 	}
 	defer func() { traceHeldHook = nil }()
+	traceSheet(p, nil, nil)
+	out := []string{}
+	for k, n := range cnt {
+		out = append(out, fmt.Sprintf("%dx %s", n, k))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// bareEndShapes says, for each kept one-ended wire, where the nearest pin-shaped item is from its unnumbered end
+// (em across, outward positive, and em up), and how many drawn strokes touch the end. Counts and offsets only.
+func bareEndShapes(p Page) []string {
+	cnt := map[string]int{}
+	traceBareHook = func(x, y, dir, em float64) {
+		near, bd := "none within 40 em", math.Inf(1)
+		for _, w := range p.Words {
+			if _, ok := pinAtEnd(w.Text); !ok || w.Rotated {
+				continue
+			}
+			dx, dy := ((w.X+w.right())/2-x)*dir/em, (w.Y-y)/em
+			if math.Abs(dx) > 40 || math.Abs(dy) > 6 {
+				continue
+			}
+			if d := math.Abs(dx) + 3*math.Abs(dy); d < bd {
+				bd, near = d, fmt.Sprintf("dx %+.0f dy %+.0f, %s", dx, dy, tokenShape(w.Text))
+			}
+		}
+		touch := 0
+		for _, s := range p.Segs {
+			if math.Hypot(s[0]-x, s[1]-y) <= 0.5*em || math.Hypot(s[2]-x, s[3]-y) <= 0.5*em {
+				touch++
+			}
+		}
+		// further along the same height, outward: the nearest pin-shaped item up to 400 em, and how much of the gap is drawn
+		far, fd := "none", math.Inf(1)
+		for _, w := range p.Words {
+			if _, ok := pinAtEnd(w.Text); !ok || w.Rotated || math.Abs(w.Y-y) > 1.2*em {
+				continue
+			}
+			dx := ((w.X+w.right())/2 - x) * dir
+			if dx > 0 && dx < 400*em && dx < fd {
+				fd = dx
+			}
+		}
+		if !math.IsInf(fd, 1) {
+			covered := 0.0
+			for _, s := range p.Segs {
+				if math.Abs(s[1]-s[3]) > 0.2*em || math.Abs((s[1]+s[3])/2-y) > 0.6*em {
+					continue
+				}
+				a0, a1 := (math.Min(s[0], s[2])-x)*dir, (math.Max(s[0], s[2])-x)*dir
+				if a0 > a1 {
+					a0, a1 = a1, a0
+				}
+				a0, a1 = math.Max(a0, 0), math.Min(a1, fd)
+				if a1 > a0 {
+					covered += a1 - a0
+				}
+			}
+			far = fmt.Sprintf("%.0f em outward, %.0f%% of the gap drawn at that height", math.Round(fd/em/10)*10, math.Round(100*math.Min(covered/fd, 1)/10)*10)
+		}
+		vert := 0
+		for _, s := range p.Segs {
+			if (math.Hypot(s[0]-x, s[1]-y) <= 0.5*em || math.Hypot(s[2]-x, s[3]-y) <= 0.5*em) && math.Abs(s[0]-s[2]) <= 0.2*em {
+				vert++
+			}
+		}
+		cnt[fmt.Sprintf("nearest pin-shaped item %s; strokes touching the end %d (vertical %d); same height further out: %s", near, touch, vert, far)]++
+	}
+	defer func() { traceBareHook = nil }()
 	traceSheet(p, nil, nil)
 	out := []string{}
 	for k, n := range cnt {

@@ -86,3 +86,36 @@ func TestPartsListPositionCountReachesTheConnector(t *testing.T) {
 		t.Fatalf("stated counts did not reach the connectors: %+v", got)
 	}
 }
+
+func TestDescriptionCountThatTheWiringContradicts(t *testing.T) {
+	// decoded 128, description says 61, pin 128 wired: 61 cannot be right
+	a := Analysis{Connectors: []Connector{{Tag: "TEST-J1", Part: "D38999/26FJ35SN", CavityCount: 128, LayoutStatus: "GUIDE INVENTORY: J35"}},
+		BOM: []BOMRow{{Item: "1", Part: "D38999/26FJ35SN", Description: "CONNECTOR, PLUG, 61 POS", Page: 1}}}
+	for _, p := range []string{"1", "2", "128"} {
+		a.Wires = append(a.Wires, WireRow{Connector: "TEST-J1", Cavity: p, End: "OTHER-P1", EndCavity: p})
+	}
+	is := positionCountIssues(&a)
+	if len(is) != 1 || is[0].Code != "POSITION_COUNT_DISAGREES" || !strings.Contains(is[0].Message, "61 cannot be the position count") {
+		t.Fatalf("issues: %+v", is)
+	}
+	// wiring fits both counts: said so, nothing decided
+	a.Wires = a.Wires[:2]
+	if is = positionCountIssues(&a); len(is) != 1 || !strings.Contains(is[0].Message, "fits either count") {
+		t.Fatalf("issues: %+v", is)
+	}
+	// agreement: no issue
+	a.BOM[0].Description = "CONNECTOR, PLUG, 128 POS"
+	if is = positionCountIssues(&a); len(is) != 0 {
+		t.Fatalf("agreeing counts raised an issue: %+v", is)
+	}
+	// a count taken from the description is dropped when a higher pin is wired
+	b := Analysis{Connectors: []Connector{{Tag: "TEST-J2", Part: "EX-9000", CavityCount: 9, LayoutStatus: descCountLayout(9)}}}
+	for _, p := range []string{"1", "2", "15"} {
+		b.Wires = append(b.Wires, WireRow{Connector: "TEST-J2", Cavity: p, End: "OTHER-P1", EndCavity: p})
+	}
+	for _, m := range buildCavityModels(&b, nil) {
+		if m.Tag == "TEST-J2" && (len(m.All) != 0 || m.AtLeast != 15 || !strings.Contains(m.AllSource, "not used")) {
+			t.Fatalf("a stated count below a wired pin must not be used: %+v", m)
+		}
+	}
+}

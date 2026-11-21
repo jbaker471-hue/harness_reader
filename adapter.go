@@ -44,6 +44,7 @@ type ViewBOM struct {
 	Reference     string `json:"reference"`
 	Page          int    `json:"Page"`
 	Unit          string `json:"unit,omitempty"`
+	QtyVariants   []string `json:"qtyVariants,omitempty"`
 }
 type ViewIssue struct {
 	Severity  string
@@ -112,6 +113,8 @@ type ViewAnalysis struct {
 	CaptureChecks    []CaptureCheck    `json:"captureChecks"`
 }
 
+var reSensorLead = regexp.MustCompile(`\bRTDS?\b|\bTHERMISTORS?\b|\bTHERMOCOUPLES?\b`)
+
 func viewAnalysis(b []byte) (ViewAnalysis, error) {
 	x, err := ExtractDocument(b)
 	if err != nil {
@@ -125,6 +128,9 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	if err != nil {
 		return ViewAnalysis{}, err
 	}
+	// One connector read as two records (short name with the part, longer name with the wires) becomes one before
+	// anything is derived from the connector list, so every view counts its positions once.
+	joinedConnectors := joinSplitConnectors(&a)
 	v := ViewAnalysis{AppVersion: AppVersion, Engine: x.Engine, EngineError: x.EngineError, Pages: a.Pages, Words: a.Words, Sha256: x.SHA256, Connectors: []ViewConnector{}, Candidates: []ViewCandidate{}, Wires: a.Wires, Branches: []string{}, Boms: []ViewBOM{}, Issues: []ViewIssue{}, Warnings: []string{}, PageWords: []int{}, PageInfo: []PageInfo{}, Endpoints: endpoints, InsertViews: diagrams, AssemblyFeatures: []string{}, PageSummary: []struct {
 		Page       int
 		Words      int
@@ -217,7 +223,7 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	sort.Strings(v.Branches)
 	for _, bom := range a.BOM {
-		v.Boms = append(v.Boms, ViewBOM{Item: bom.Item, Qty: bom.Qty, Part: bom.Part, Description: bom.Description, Vendor: bom.Vendor, Reference: bom.Reference, Page: bom.Page, PartReference: bom.PartReference, Unit: bom.Unit})
+		v.Boms = append(v.Boms, ViewBOM{Item: bom.Item, Qty: bom.Qty, Part: bom.Part, Description: bom.Description, Vendor: bom.Vendor, Reference: bom.Reference, Page: bom.Page, PartReference: bom.PartReference, Unit: bom.Unit, QtyVariants: bom.QtyVariants})
 	}
 	for _, f := range a.Findings {
 		x := ViewIssue{Severity: f.Severity, Category: f.Category, Code: f.Code, Message: f.Message, Pages: f.Pages, Connector: f.Connector, Part: f.Part, Expected: f.Expected, Observed: f.Observed, Action: "Review original source sheet and obtain approved engineering resolution before production release.", Cavities: []string{}}
@@ -258,6 +264,10 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 	}
 	v.Issues = append(v.Issues, offInsertIssues(&a, v.CavityModels)...)
 	v.Issues = append(v.Issues, drawingWeaknessIssues(&a)...)
+	v.Issues = append(v.Issues, positionCountIssues(&a)...)
+	for _, j := range joinedConnectors {
+		v.Issues = append(v.Issues, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "CONNECTOR_RECORDS_JOINED", Connector: j[1], Pages: []int{}, Cavities: []string{}, Message: j[0] + " and " + j[1] + " were read as two connectors and are shown as one: " + j[0] + " carried the part number and position count with no wires, and " + j[1] + " is the only wired connector whose name ends in it.", Action: "Confirm on the sheet that these are the same connector. If they are separate connectors, enter the part and positions for each on the Connectors tab."})
+	}
 	// ALL drawing-derived records are preliminary and must not bypass source verification.
 	v.Warnings = append(v.Warnings, "Engine: "+x.Engine)
 	v.Warnings = append(v.Warnings, "Interpretation: "+v.Interpretation)
@@ -314,12 +324,17 @@ func viewFromExtraction(x *DocExtraction) (ViewAnalysis, error) {
 				"WIRE_STRIPPING":     {"STRIP", "JACKET"},
 				"HEAT_SHRINK":        {"SHRINK", "SLEEVING", "BOOT"},
 				"TERMINAL_CRIMPING":  {"CRIMP", "RING TONGUE"},
+				"SHIELD_FLOAT":       {"FLOAT"},
 			} {
 				for _, hint := range hints {
 					if strings.Contains(s, hint) {
 						terms[k] = true
 					}
 				}
+			}
+			// temperature sensor leads (RTD, thermistor, thermocouple) are joined to the harness wires, not crimped into a connector
+			if reSensorLead.MatchString(s) {
+				terms["SENSOR_LEADS"] = true
 			}
 			if rePhysicalLabelRequirement.MatchString(strings.TrimSpace(s)) {
 				terms["LABELING"] = true

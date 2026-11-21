@@ -708,6 +708,7 @@ func (t genericTable) bomRows() []BOMRow {
 		// A tabulated parts list has a quantity column per assembly variant (dash
 		// number): several separate numbers in the quantity cells are never joined.
 		variants := 0
+		var variantQty []string
 		if toks := strings.Fields(r["qty"]); len(toks) > 1 {
 			all := true
 			for _, t := range toks {
@@ -718,6 +719,13 @@ func (t genericTable) bomRows() []BOMRow {
 			}
 			if all {
 				variants = len(toks)
+				for _, t := range toks {
+					u := strings.ToUpper(t)
+					if u == "AR" {
+						u = "A/R"
+					}
+					variantQty = append(variantQty, u)
+				}
 				r["qty"] = toks[0]
 			}
 		}
@@ -728,7 +736,7 @@ func (t genericTable) bomRows() []BOMRow {
 		if qty == "" {
 			qty = "UNRESOLVED"
 		}
-		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Unit: normUnit(r["um"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE" + variantNote(variants)})
+		out = append(out, BOMRow{Item: strings.TrimSpace(r["item"]), Qty: qty, Part: strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(r["part"]), " ", "")), Vendor: vendor, Description: r["desc"], Reference: r["ref"], Page: t.Page, PartReference: strings.TrimSpace(r["partref"]), Unit: normUnit(r["um"]), Status: "DRAFT — TABLE READER (" + order + "); CHECK SOURCE" + variantNote(variants), QtyVariants: variantQty})
 	}
 	return out
 }

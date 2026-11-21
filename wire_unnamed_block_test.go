@@ -101,3 +101,107 @@ func TestJumperBetweenTwoPinsOfOneConnectorIsRead(t *testing.T) {
 		t.Fatal("the jumper between pins 7 and 8 was not read")
 	}
 }
+
+// Pin letters printed about two text heights above their line ends, in a column other wires already use.
+func TestOffsetPinLabelInAPinColumnIsThatEndsPin(t *testing.T) {
+	p := Page{Number: 3, Width: 1200, Height: 1000, PageAccurate: true}
+	add := func(s string, x, y float64) {
+		p.Words = append(p.Words, Word{Text: s, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(s))})
+	}
+	add("NEAR-P1", 120, 960)
+	add("FAR-J2", 890, 960)
+	for i := 0; i < 6; i++ {
+		y := 920 - 30*float64(i)
+		add(fmt.Sprint(i+1), 150, y)
+		add("20", 400, y)
+		add("AWG", 412, y)
+		p.Segs = append(p.Segs, Segment{160, y - 2, 900, y - 2})
+		off := 0.0
+		if i >= 3 {
+			off = 11 // printed about 1.8 em above the line: beyond the first look
+		}
+		add(string(rune('A'+i)), 906, y+off)
+	}
+	rows, _ := tracedWireRows(p, nil, nil)
+	got := []string{}
+	for _, r := range rows {
+		got = append(got, r.Connector+":"+r.Cavity+">"+r.End+":"+r.EndCavity)
+	}
+	want := "NEAR-P1:1>FAR-J2:A NEAR-P1:2>FAR-J2:B NEAR-P1:3>FAR-J2:C NEAR-P1:4>FAR-J2:D NEAR-P1:5>FAR-J2:E NEAR-P1:6>FAR-J2:F"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("got  %v\nwant %s", got, want)
+	}
+	// a label that two bare ends could both claim is given to neither
+	q := Page{Number: 3, Width: 1200, Height: 1000, PageAccurate: true}
+	addq := func(s string, x, y float64) {
+		q.Words = append(q.Words, Word{Text: s, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(s))})
+	}
+	addq("NEAR-P1", 120, 960)
+	addq("FAR-J2", 890, 960)
+	for i := 0; i < 5; i++ {
+		y := 920 - 30*float64(i)
+		if i >= 3 {
+			y = 920 - 30*3 - 10*float64(i-3) // two lines 10 apart sharing one label between them
+		}
+		addq(fmt.Sprint(i+1), 150, y)
+		addq("20", 400, y)
+		addq("AWG", 412, y)
+		q.Segs = append(q.Segs, Segment{160, y - 2, 900, y - 2})
+		if i < 3 {
+			addq(string(rune('A'+i)), 906, y)
+		}
+	}
+	addq("D", 906, 920-30*3+9)
+	rows, _ = tracedWireRows(q, nil, nil)
+	for _, r := range rows {
+		if r.EndCavity == "D" && r.Cavity == "5" {
+			t.Fatalf("a label two ends could claim must not be assigned by guess: %+v", r)
+		}
+	}
+}
+
+// A wire whose line is broken by a symbol part-way and carries on at the same height to its pin.
+func TestLineBrokenBySymbolStillReachesItsPin(t *testing.T) {
+	build := func(gapFrom, gapTo float64, labelInGap bool) []WireRow {
+		p := Page{Number: 3, Width: 1400, Height: 1000, PageAccurate: true}
+		add := func(s string, x, y float64) {
+			p.Words = append(p.Words, Word{Text: s, X: x, Y: y, Size: 6, X1: x + 3.6*float64(len(s))})
+		}
+		add("NEAR-P1", 120, 960)
+		add("FAR-J2", 1090, 960)
+		for i := 0; i < 5; i++ {
+			y := 920 - 30*float64(i)
+			add(fmt.Sprint(i+1), 150, y)
+			add("20", 400, y)
+			add("AWG", 412, y)
+			add(string(rune('A'+i)), 1106, y)
+			if i < 3 {
+				p.Segs = append(p.Segs, Segment{160, y - 2, 1100, y - 2})
+				continue
+			}
+			// broken line: drawn up to the gap, then on to the pin; two slanted strokes mark the break
+			p.Segs = append(p.Segs, Segment{160, y - 2, gapFrom, y - 2}, Segment{gapTo, y - 2, 1100, y - 2},
+				Segment{gapFrom, y - 2, gapFrom + 4, y + 3}, Segment{gapFrom, y - 2, gapFrom + 4, y - 7})
+			if labelInGap {
+				add("22", gapFrom+40, y)
+				add("AWG", gapFrom+52, y)
+			}
+		}
+		rows, _ := tracedWireRows(p, nil, nil)
+		return rows
+	}
+	ends := func(rows []WireRow) string {
+		got := []string{}
+		for _, r := range rows {
+			got = append(got, r.Cavity+">"+r.EndCavity)
+		}
+		return strings.Join(got, " ")
+	}
+	if got := ends(build(800, 830, false)); got != "1>A 2>B 3>C 4>D 5>E" {
+		t.Fatalf("a short break must not stop the wire: %s", got)
+	}
+	// most of the way is not drawn: not the same wire
+	if got := ends(build(500, 1000, false)); strings.Contains(got, "4>D") || strings.Contains(got, "5>E") {
+		t.Fatalf("a long undrawn stretch must not be bridged: %s", got)
+	}
+}

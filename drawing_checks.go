@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -140,6 +141,53 @@ func drawingWeaknessIssues(a *Analysis) []ViewIssue {
 		sort.Strings(to)
 		add("PIN_USED_TWICE", fmt.Sprintf("%s pin %s goes to more than one place: %s. Two wires in one contact are sometimes intended, but it is also a common drawing mistake.", p.conn, p.cav, strings.Join(to, ", ")),
 			"Confirm against the sheet that this pin is meant to carry more than one wire.", p.conn, pinPages[p])
+	}
+	return out
+}
+
+// positionCountIssues reports a parts-list description that states a different position count than the
+// connector's part number decodes to, and says which of the two the wiring allows.
+func positionCountIssues(a *Analysis) []ViewIssue {
+	out := []ViewIssue{}
+	high, wired := map[string]int{}, map[string]map[string]bool{}
+	note := func(tag, pin string) {
+		if tag == "" || pin == "" {
+			return
+		}
+		if wired[tag] == nil {
+			wired[tag] = map[string]bool{}
+		}
+		wired[tag][pin] = true
+		if n, err := strconv.Atoi(pin); err == nil && n > high[tag] {
+			high[tag] = n
+		}
+	}
+	for _, w := range a.Wires {
+		note(w.Connector, w.Cavity)
+		note(w.End, w.EndCavity)
+	}
+	for _, c := range a.Connectors {
+		if c.CavityCount == 0 || c.Tag == "" || c.Tag == "UNASSIGNED" || strings.HasPrefix(c.LayoutStatus, descCountStatus) {
+			continue
+		}
+		for _, b := range a.BOM {
+			if normPart(b.Part) != normPart(c.Part) || c.Part == "" {
+				continue
+			}
+			d, ok := positionsFromDescription(b.Description)
+			if !ok || d == c.CavityCount {
+				continue
+			}
+			msg := fmt.Sprintf("%s: the part number decodes to %d positions but the parts list description says %d.", c.Tag, c.CavityCount, d)
+			switch {
+			case high[c.Tag] > d || len(wired[c.Tag]) > d:
+				msg += fmt.Sprintf(" The wiring uses %d pins up to pin %d, so %d cannot be the position count; %d is kept.", len(wired[c.Tag]), high[c.Tag], d, c.CavityCount)
+			default:
+				msg += fmt.Sprintf(" The wiring (%d pins up to pin %d) fits either count; %d is kept until engineering resolves it.", len(wired[c.Tag]), high[c.Tag], c.CavityCount)
+			}
+			out = append(out, ViewIssue{Severity: "REVIEW", Category: CatReview, Code: "POSITION_COUNT_DISAGREES", Message: msg, Connector: c.Tag, Pages: []int{b.Page}, Cavities: []string{}, Action: "Check the description against the connector part number on the parts list."})
+			break
+		}
 	}
 	return out
 }

@@ -8,7 +8,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'trivex-smoke-'));
  const info=path.join(dir,'session.txt');
- const child=spawn(path.resolve(process.argv[2]),[],{stdio:'ignore',env:{...process.env,TRIVEX_NO_WINDOW:'1',TRIVEX_TEST_HEARTBEAT:'1',TRIVEX_URL_FILE:info}});
+ const child=spawn(path.resolve(process.argv[2]),[],{stdio:'ignore',env:{...process.env,TRIVEX_NO_WINDOW:'1',TRIVEX_TEST_HEARTBEAT:'1',TRIVEX_URL_FILE:info,TRIVEX_ACTUALS_DIR:path.join(dir,'actuals')}});
  let ended=false;let spawnError;
  child.on('exit',()=>ended=true);child.on('error',e=>{spawnError=e;ended=true});
  try{
@@ -36,6 +36,24 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
    if(name==='SYNTHETIC_V24_TABLE_NETLIST.pdf'){assert.equal(parsed.wires.length,4);assert.equal(parsed.boms.length,3);}
    await api('api/heartbeat');
   }
+  // actual hours for the open (synthetic) drawing: token required, bad records rejected, save, replace and remove
+  assert.equal((await fetch(url+'api/job-actual')).status,403);
+  assert.equal((await fetch(url+'api/job-actual',{method:'POST',body:'{}'})).status,403);
+  const actualPost=b=>fetch(url+'api/job-actual',{method:'POST',headers:{'X-Trivex-Token':token,'Content-Type':'application/json'},body:typeof b==='string'?b:JSON.stringify(b)});
+  const actualLines=[{key:'strip',count:8,minutes:1.3},{key:'insert',count:4,minutes:10.1}];
+  assert.equal((await api('api/job-actual',undefined,'GET')).all.length,0);
+  assert.equal((await actualPost('not json')).status,400);
+  assert.equal((await actualPost({actualHours:-1,estimateHours:1,lines:actualLines})).status,422);
+  assert.equal((await actualPost({actualHours:5,estimateHours:1,lines:[]})).status,422);
+  assert.equal((await actualPost({actualHours:5,estimateHours:1,lines:[{key:'../x',count:1,minutes:1}]})).status,422);
+  assert.equal((await api('api/job-actual',undefined,'GET')).all.length,0,'a rejected record must not be saved');
+  let act=await (await actualPost({actualHours:5.5,estimateHours:4.75,lines:actualLines})).json();
+  assert(act.actual&&act.actual.actualHours===5.5&&act.all.length===1&&!act.all[0].sha256&&!act.actual.sha256,'saved hours missing or carry a checksum');
+  act=await (await actualPost({actualHours:6,estimateHours:4.75,lines:actualLines})).json();
+  assert(act.actual.actualHours===6&&act.all.length===1,'a second save must replace the first');
+  act=await (await actualPost({actualHours:0})).json();
+  assert(act.actual===null&&act.all.length===0,'removing the saved hours failed');
+  act=await (await actualPost({actualHours:0})).json();assert(act.all.length===0,'removing twice must be harmless');
   const guide=await api('api/resolve',{part:'D38999/26WB35PN'});
   assert.equal(guide.status,'verified-layout');assert.equal(guide.labels.length,13);assert.equal(guide.labels[12],'13');assert(guide.source.includes('Glenair'));
   const unknown=await api('api/resolve',{part:'D38999/26WB99PN'});assert.equal(unknown.labels.length,0);

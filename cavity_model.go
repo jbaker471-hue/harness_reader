@@ -317,12 +317,23 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 	}
 	sort.Strings(tags)
 	lettered := map[string]bool{}
+	highPin := map[string]int{}
 	for _, w := range a.Wires {
-		if _, err := strconv.Atoi(w.Cavity); err != nil && w.Cavity != "" {
+		if n, err := strconv.Atoi(w.Cavity); err != nil && w.Cavity != "" {
 			lettered[w.Connector] = true
+		} else if n > highPin[w.Connector] {
+			highPin[w.Connector] = n
 		}
-		if _, err := strconv.Atoi(w.EndCavity); err != nil && w.EndCavity != "" {
+		if n, err := strconv.Atoi(w.EndCavity); err != nil && w.EndCavity != "" {
 			lettered[w.End] = true
+		} else if n > highPin[w.End] {
+			highPin[w.End] = n
+		}
+	}
+	fromDesc := map[string]bool{}
+	for _, c := range a.Connectors {
+		if strings.HasPrefix(c.LayoutStatus, descCountStatus) {
+			fromDesc[c.Tag] = true
 		}
 	}
 	for _, tag := range tags {
@@ -365,6 +376,10 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 			m.All = append([]string{}, guide.IDs...)
 			m.AllSource = guide.Source
 			m.AllVerified = true
+		} else if counts[tag] > 0 && fromDesc[tag] && highPin[tag] > counts[tag] {
+			// a count read from the parts-list wording cannot be right when a higher pin is wired
+			m.AllSource = fmt.Sprintf("unknown: the parts list wording gives %d positions for %s but pin %d is wired, so that count is not used", counts[tag], parts[tag], highPin[tag])
+			m.AtLeast = highPin[tag]
 		} else if counts[tag] > 0 && lettered[tag] {
 			// the parts list gives the count but the pins are lettered: numbering 1..N would be invented
 			m.AllSource = fmt.Sprintf("%d positions stated for %s; the wired pins are lettered, so no cavity list is assumed", counts[tag], parts[tag])

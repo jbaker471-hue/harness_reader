@@ -262,4 +262,12 @@ func TestTabulatedQuantitiesAreNotJoined(t *testing.T) {
 	if b.Qty != "3" || b.Unit != "FT" || !strings.Contains(b.Status, "TABULATED: 2 quantities") {
 		t.Fatalf("tabulated quantity: %+v", b)
 	}
+	// every column is kept, in printed order, so the variant being built can be chosen
+	if strings.Join(b.QtyVariants, ",") != "3,12" {
+		t.Fatalf("variant quantities: %+v", b.QtyVariants)
+	}
+	one := genericTable{Kind: "bom", Rows: []map[string]string{{"item": "6", "qty": "4", "part": "EX-1", "desc": "PART"}}}
+	if v := one.bomRows()[0].QtyVariants; len(v) != 0 {
+		t.Fatalf("a single quantity is not tabulated: %+v", v)
+	}
 }
