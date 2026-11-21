@@ -167,7 +167,7 @@ const laborOps=[
  ['crimpClosedHand','Crimp — closed-barrel contact, hand tool — local observed time (15 s, stripping excluded)',.25,.25,.25,'termination'],
  ['crimpPowered','Crimp — powered/bench applicator',.3,.7,1.5,'termination'],
  ['crimpOpen','Crimp — open-barrel contact/terminal',1,2,4,'termination'],
- ['crimpFerrule','Crimp — ferrule or splice',.7,1.5,3,'termination'],
+ ['crimpFerrule','Crimp — ferrule or splice — shop estimate (about 30 s)',.4,.5,.6,'termination'],
  ['crimpLarge','Crimp — large lug/hydraulic',2,5,12,'termination'],
  ['coax','Coax/twinax/triax multi-step termination',6,12,25,'termination'],
  ['solder','Solder termination',2,5,12,'termination'],
@@ -894,7 +894,7 @@ function jobSummary(x){
  // 2:32 is per wire: identify, verify and insert at both of its cavities (1:16 per cavity, fillers included).
  // Calibrated against the shop's own estimates for 146, 147 and 148 (11.5, 9.5 and 10 h).
  add('Identify cavities, verify and insert contacts (2:32 per wire = 2 cavities)',(wiredTotal+unnamedPins+fillerTotal)/2,'wire (2 cavities)','insert');
- if(ferrules){add('Crimp ferrule (starting estimate, not your observed time)',ferrules,'ferrule','crimpFerrule')}
+ if(ferrules){add('Crimp ferrule (about 30 s each)',ferrules,'ferrule','crimpFerrule')}
  if(rings){add('Crimp ring terminal (starting estimate, not your observed time)',rings,'ring terminal','crimpOpen')}
  // Shop practice on sensor harnesses: every shield is floated, and each sensor lead (RTD, thermistor, thermocouple) is
  // soldered to its wire with clear heat shrink slid over the joint. Counted only when the drawing's notes mention them.

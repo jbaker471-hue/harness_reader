@@ -2,6 +2,12 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-20 update: ferrule crimp time from the owner
+
+- Owner's estimate: a crimp ferrule takes about 30 s (was a 1.5 minute placeholder). Default is now 0.5 min with a 0.4 to 0.6 range.
+- NOT re-measured on the 11-drawing set: the end-to-end runner follows the most recently opened PDF, and that is no longer one of the 11 drawings. Expected hours by arithmetic from the last measured ferrule counts (1 minute less per ferrule): 149 11.90 to 11.47 (26 ferrules), 151 8.56 to 7.33 (74), 153 9.28 to 8.95 (20), 156 4.52 to 4.19 (20). Other drawings have no ferrules.
+- Verified: build_windows.ps1 exit 0 (69 PASS lines), shuffled x5 suite ok. To re-measure, open one of the 11 drawings in a PDF viewer first.
+
 ## 2026-11-14 update: smarter job summary (owner asked for ideas 1 to 6; no build traveler)
 
 Done and verified:

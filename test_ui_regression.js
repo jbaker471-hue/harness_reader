@@ -1193,6 +1193,7 @@ console.log('PASS: harness length applies only to conductors without their own l
  // Wire ends crimped into a ferrule are in the kit and the build time.
  const f=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'24',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpFerrule:1.5},wires:[{method:'traced-wire-to-ferrule'},{method:'traced-wire-to-ferrule'},{method:'paired-schematic'}]});
  if(f.kit.ferrules!==2||!f.time.lines.some(l=>/ferrule/.test(l.label)&&l.count===2&&Math.abs(l.minutes-3)<1e-9))throw Error('ferrules missing from kit or time: '+JSON.stringify(f.kit)+JSON.stringify(f.time.lines));
+ if(vm.runInContext('laborOps',labor).find(o=>o[0]==='crimpFerrule')[3]!==.5)throw Error('the ferrule crimp time is the shop estimate of about 30 s');
  // Wire ends on a ring terminal are in the kit and the build time.
  const rg=ctx.jobSummary({connectors:[c],cut:{rows:[{wire:'W1',awg:'20',cut:150}],counts:{total:1,ok:1}},bom:[],rates:{...rates,crimpOpen:2},wires:[{method:'traced-wire-to-ring'},{method:'paired-schematic'}]});
  if(rg.kit.ringTerminals!==1||!rg.time.lines.some(l=>/ring terminal/.test(l.label)&&l.count===1&&Math.abs(l.minutes-2)<1e-9))throw Error('ring terminals missing from kit or time: '+JSON.stringify(rg.kit)+JSON.stringify(rg.time.lines));
