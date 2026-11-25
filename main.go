@@ -183,6 +183,7 @@ func (w *appWindow) shutdown() {
 }
 
 func main() {
+	facts.load(factsPath())
 	logPath := filepath.Join(os.TempDir(), "Trivex_Harness_Auditor_startup.log")
 	if f, e := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600); e == nil {
 		defer f.Close()
@@ -606,6 +607,55 @@ func run() error {
 			}
 		}
 		jsonAnswer(w, map[string]any{"actual": mine, "all": listJobActuals()})
+	})
+	// Facts the owner confirmed once (stored on this PC only, see facts.go).
+	mux.HandleFunc("/api/facts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			if !post(w, r) {
+				return
+			}
+			var req struct {
+				Kind  string `json:"kind"`
+				Part  string `json:"part"`
+				Value int    `json:"value"`
+			}
+			if e := json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&req); e != nil {
+				http.Error(w, "Invalid JSON", 400)
+				return
+			}
+			if req.Kind != factPositions {
+				http.Error(w, "Unknown kind of fact", 400)
+				return
+			}
+			if e := facts.setPositions(req.Part, req.Value); e != nil {
+				http.Error(w, "Could not remember this: "+e.Error(), 422)
+				return
+			}
+		} else if !secure(w, r) {
+			return
+		}
+		facts.mu.RLock()
+		lerr := facts.loadErr
+		facts.mu.RUnlock()
+		jsonAnswer(w, map[string]any{"facts": facts.list(), "error": lerr})
+	})
+	mux.HandleFunc("/api/facts/forget", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		var req struct {
+			Kind string `json:"kind"`
+			Part string `json:"part"`
+		}
+		if e := json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&req); e != nil || req.Kind != factPositions {
+			http.Error(w, "Invalid request", 400)
+			return
+		}
+		if e := facts.forgetPositions(req.Part); e != nil {
+			http.Error(w, "Could not forget this: "+e.Error(), 422)
+			return
+		}
+		jsonAnswer(w, map[string]any{"facts": facts.list()})
 	})
 	mux.HandleFunc("/api/layouts/forget", func(w http.ResponseWriter, r *http.Request) {
 		if !post(w, r) {

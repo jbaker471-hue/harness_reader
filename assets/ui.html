@@ -584,6 +584,7 @@ async function scan(reuse){
  if(!reuse&&st.raw&&!confirm('Replace the current unsaved project?'))return;
  $('scanStatus').textContent='Analyzing all drawing sheets locally...';
  try{
+  await loadFacts();
   const d=reuse?await (async()=>{const r=await fetch('/api/reanalyze',{method:'POST',headers:{'X-Trivex-Token':TOKEN}});if(!r.ok)throw Error(await r.text());return r.json()})():await apiParse(f);
   const sourceSHA=await checksum(f);
   $('laborCoverage').checked=false;
@@ -1130,6 +1131,7 @@ function pinUsageHtml(c,i){
  if(held&&!prov.length)parts.push('<p class="callout bad">Which pins are NOT used is held back: '+safe(held)+'.</p>');
  if(g.conflict.length)parts.push('<p class="callout bad"><b>Conflict (${g.conflict.length}):</b> '.replace('${g.conflict.length}',g.conflict.length)+safe(compressRanges(g.conflict))+' are both wired and marked not used.</p>');
  if(g.unresolved.length&&hasInventory&&!prov.length)parts.push('<p class="small"><b>Undetermined (${n}):</b> '.replace('${n}',g.unresolved.length)+safe(compressRanges(g.unresolved))+'. Used or not used cannot be decided yet.</p>');
+ if(c.part&&(!hasInventory||factFor(c.part)))parts.push(factControl(c,i));
  return `<div class="pinusage">${head}${parts.join('')}</div>`;
 }
 // Confidence is split deliberately: extracting a wire-to-pin mapping, deciding the exact unused-pin list,
@@ -2113,6 +2115,19 @@ function akAdd(){const b=document.querySelector('#akTable tbody');if(b)b.insertA
 function akCollect(){const rows=[...document.querySelectorAll('#akTable tbody tr')].map(tr=>({tag:tr.querySelector('.akTag').value.trim(),positions:Number(tr.querySelector('.akPos').value),wired:Number(tr.querySelector('.akWired').value),unused:Number(tr.querySelector('.akUnused').value)})).filter(r=>r.tag);return {conductors:Number($('akConductors').value)||0,connectors:rows}}
 async function akSave(){const out=$('akStatus');try{const r=await fetch('/api/answer-key',{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(akCollect())});if(!r.ok)throw Error(await r.text());st.answerKey=(await r.json()).key;renderJobSummary();const s2=$('akStatus');if(s2)s2.textContent='Saved on this PC.'}catch(e){if(out)out.textContent=String(e.message||e)}}
 async function akLoad(){if(!st.raw?.sha256||st.answerKeyFor===st.raw.sha256)return;st.answerKeyFor=st.raw.sha256;try{const r=await fetch('/api/answer-key',{headers:{'X-Trivex-Token':TOKEN}});if(r.ok){st.answerKey=(await r.json()).key||null;renderJobSummary()}}catch(e){}}
+// Remembered facts: counts the owner confirmed once, stored only on this PC (see facts.go).
+function factKey(p){return String(p||'').toUpperCase().replace(/\s+/g,'')}
+async function loadFacts(){try{const r=await fetch('/api/facts',{headers:{'X-Trivex-Token':TOKEN}});if(r.ok)st.facts=(await r.json()).facts||[]}catch(e){}}
+function factFor(part){if(!part)return null;const k=factKey(part);return (st.facts||[]).find(f=>f.key===k)||null}
+function factControl(c,i){
+ if(!c||!c.part)return '';
+ const f=factFor(c.part);
+ if(f)return `<p class="small">Positions <b>${f.value}</b> confirmed by you for this part and remembered on this PC (used on every drawing with this part). <a href="#" onclick="forgetPositions(${i});return false">Forget</a></p>`;
+ return `<p class="small">Know the positions of this part? <input id="factpos-${i}" type="number" min="2" max="500" style="width:80px" aria-label="Positions for ${safe(c.part)}"> <button type="button" onclick="rememberPositions(${i})">Confirm and remember for this part</button><span class="muted"> Stored only on this PC. It is your statement, not read from the drawing.</span></p>`;
+}
+async function factPost(route,body){const r=await fetch(route,{method:'POST',headers:{'X-Trivex-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error(await r.text());return r.json()}
+async function rememberPositions(i){const c=st.connectors[i],el=$('factpos-'+i);if(!c||!el)return;const n=Number(el.value);try{await factPost('/api/facts',{kind:'positions',part:c.part,value:n});await loadFacts();await scan(true)}catch(e){alert(String(e.message||e))}}
+async function forgetPositions(i){const c=st.connectors[i];if(!c)return;try{await factPost('/api/facts/forget',{kind:'positions',part:c.part});await loadFacts();await scan(true)}catch(e){alert(String(e.message||e))}}
 function renderJobStatus(){
  const el=$('jobStatus');if(!el)return;
  if(!st.raw){el.innerHTML='<div class="step warn"><b>No drawing loaded</b>Choose a PDF above and press Read PDF.</div>';return}

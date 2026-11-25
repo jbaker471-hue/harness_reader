@@ -8,7 +8,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'trivex-smoke-'));
  const info=path.join(dir,'session.txt');
- const child=spawn(path.resolve(process.argv[2]),[],{stdio:'ignore',env:{...process.env,TRIVEX_NO_WINDOW:'1',TRIVEX_TEST_HEARTBEAT:'1',TRIVEX_URL_FILE:info,TRIVEX_ACTUALS_DIR:path.join(dir,'actuals')}});
+ const child=spawn(path.resolve(process.argv[2]),[],{stdio:'ignore',env:{...process.env,TRIVEX_NO_WINDOW:'1',TRIVEX_TEST_HEARTBEAT:'1',TRIVEX_URL_FILE:info,TRIVEX_ACTUALS_DIR:path.join(dir,'actuals'),TRIVEX_FACTS_DIR:path.join(dir,'facts')}});
  let ended=false;let spawnError;
  child.on('exit',()=>ended=true);child.on('error',e=>{spawnError=e;ended=true});
  try{
@@ -54,6 +54,24 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
   act=await (await actualPost({actualHours:0})).json();
   assert(act.actual===null&&act.all.length===0,'removing the saved hours failed');
   act=await (await actualPost({actualHours:0})).json();assert(act.all.length===0,'removing twice must be harmless');
+  // remembered facts: token required, bad values rejected, save, replace, forget, and a reviewed guide still wins
+  assert.equal((await fetch(url+'api/facts')).status,403);
+  assert.equal((await fetch(url+'api/facts',{method:'POST',body:'{}'})).status,403);
+  const factPost=(route,b)=>fetch(url+route,{method:'POST',headers:{'X-Trivex-Token':token,'Content-Type':'application/json'},body:typeof b==='string'?b:JSON.stringify(b)});
+  assert.equal((await api('api/facts',undefined,'GET')).facts.length,0);
+  assert.equal((await factPost('api/facts','not json')).status,400);
+  assert.equal((await factPost('api/facts',{kind:'positions',part:'ACME-9000-37',value:1})).status,422);
+  assert.equal((await factPost('api/facts',{kind:'positions',part:'ACME-9000-37',value:501})).status,422);
+  assert.equal((await factPost('api/facts',{kind:'colour',part:'ACME-9000-37',value:5})).status,400);
+  assert.equal((await api('api/facts',undefined,'GET')).facts.length,0,'a rejected fact must not be saved');
+  let fa=await (await factPost('api/facts',{kind:'positions',part:'acme-9000-37',value:37})).json();
+  assert(fa.facts.length===1&&fa.facts[0].value===37&&fa.facts[0].key==='ACME-9000-37','saved fact missing or key not normalized');
+  fa=await (await factPost('api/facts',{kind:'positions',part:'ACME-9000-37',value:41})).json();
+  assert(fa.facts.length===1&&fa.facts[0].value===41,'a second save must replace the first');
+  assert.equal((await api('api/resolve',{part:'D38999/26WB35PN'})).labels.length,13,'a remembered fact must never override a reviewed guide');
+  fa=await (await factPost('api/facts/forget',{kind:'positions',part:'ACME-9000-37'})).json();
+  assert.equal(fa.facts.length,0);
+  fa=await (await factPost('api/facts/forget',{kind:'positions',part:'ACME-9000-37'})).json();assert.equal(fa.facts.length,0,'forgetting twice must be harmless');
   const guide=await api('api/resolve',{part:'D38999/26WB35PN'});
   assert.equal(guide.status,'verified-layout');assert.equal(guide.labels.length,13);assert.equal(guide.labels[12],'13');assert(guide.source.includes('Glenair'));
   const unknown=await api('api/resolve',{part:'D38999/26WB99PN'});assert.equal(unknown.labels.length,0);

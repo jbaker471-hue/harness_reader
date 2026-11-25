@@ -2,6 +2,13 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-25 update: local ratchet and remembered position counts
+
+- Ratchet (`ratchet.go`, `local_ratchet_test.go`): a numbers-only regression gate over the owner's drawings. Metrics have a direction (up, down or watch); the run fails if a good metric drops or a bad one rises, and prints counts only, never text from a drawing. The baseline lives in the user config folder, never in the repo. Use `run_local.ps1 -DrawingsDir <folder> -SaveBaseline` the first time, then `-AcceptRegression` only after a change you intended. Tested on synthetic fixtures only; `run_local.ps1` itself is untested on Windows.
+- Remembered facts (`facts.go`, `/api/facts`, `/api/facts/forget`): when a connector's position count is unknown, the owner can confirm it once ("Confirm and remember for this part") and every later drawing with that part uses it. Stored only on this PC in `<config>/Trivex Harness Auditor/facts/facts.json`. It is labelled as the owner's statement, not read from the drawing, and is treated as a stated count downstream (`isStatedCount`). A reviewed guide inventory always wins over a remembered count. Matching is exact except case and whitespace.
+- Verified here: go vet, go test, UI regression (70 PASS), Windows cross-build, headless smoke test including the facts endpoints. NOT verified: the end-to-end "remembered count changes a real reading" test skips because no synthetic fixture has a part outside the reviewed guide; not run on the 11 drawings.
+- Note: the catalog-decode fallback in `getLayout` is unreachable for D38999 Series III parts because the reviewed guide covers every arrangement; the remembered count mainly serves other parts.
+
 ## 2026-11-25 update: quote errs high (owner preference: better over than under)
 
 - The quote has a visible "Buffer on estimated hours (%)" input, default 10. It raises hours that come from the job summary or the Labor tab; hours typed on the quote are used as typed. The quote row reads "X h = Y h estimate + 10% buffer". A negative or unreadable entry falls back to 10; 0 turns it off.

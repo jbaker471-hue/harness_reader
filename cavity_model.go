@@ -332,7 +332,7 @@ func buildCavityModels(a *Analysis, diagrams []InsertDiagram) []CavityModel {
 	}
 	fromDesc := map[string]bool{}
 	for _, c := range a.Connectors {
-		if strings.HasPrefix(c.LayoutStatus, descCountStatus) {
+		if isStatedCount(c.LayoutStatus) {
 			fromDesc[c.Tag] = true
 		}
 	}
