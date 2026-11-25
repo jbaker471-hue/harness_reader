@@ -315,7 +315,7 @@ near(qr.total,(16.5+2.4+300)*1.2,'total with markup');equal(qr.blockers,[]);equa
 const miss=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{laborOnly:false}),drawingErrors:2,cut:cl}));
 for(const re of [/no length/,/conflicting/,/unreadable/,/\$\/ft/,/unit cost/,/Labor hours/,/Labor rate/,/2 drawing error/])if(!miss.blockers.some(b=>re.test(b)))throw Error('missing quote blocker '+re);
 if(miss.complete)throw Error('quote with blockers must not be complete');
-const usesLabor=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{laborOnly:false,rate:'10',wireCost:{'22 · RED':'1'},bomCost:{'1|M39029/58-360|0':'1'}}),laborUnitHours:1.5}));
+const usesLabor=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{laborOnly:false,buffer:'0',rate:'10',wireCost:{'22 · RED':'1'},bomCost:{'1|M39029/58-360|0':'1'}}),laborUnitHours:1.5}));
 near(usesLabor.hours,1.5,'labor tab hours used when field blank');
 const nonNum=cutCtx.computeQuote(Object.assign({},quoteBase,{bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
 if(!nonNum.blockers.some(b=>/not a plain number/.test(b)))throw Error('A/R BOM quantity must be a blocker, not priced');
@@ -406,10 +406,18 @@ if(!consHtml.includes('CONFLICT</span>')||consHtml.includes('<x>'))throw Error('
  const qi=qc.quoteInput();if(qi.shieldOpen!==0||qi.shieldsUnderBand!==5)throw Error('shields under a band must not block a labor quote: '+JSON.stringify(qi));
  qc.st.summary.time.lines=[];const q2=qc.quoteInput();if(q2.shieldOpen!==5)throw Error('with no band, open shields still hold the quote')}
 // The shop quotes labor only (the default): hours x rate; wire, parts and lengths neither count nor block.
-{const lo=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60'}),laborUnitHours:2.5,cut:{rows:[],groups:[{label:'22 · RED',count:2,inches:0,unmeasured:2}],counts:{total:2,missing:2,conflict:0,invalid:0}},bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
+{const lo=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60',buffer:'0'}),laborUnitHours:2.5,cut:{rows:[],groups:[{label:'22 · RED',count:2,inches:0,unmeasured:2}],counts:{total:2,missing:2,conflict:0,invalid:0}},bom:[{item:'1',part:'X',description:'CAP',qty:'A/R'}]}));
  if(!lo.laborOnly||lo.wireTotal!==0||lo.partsTotal!==0||Math.abs(lo.labor-2.5*60*3)>1e-9||lo.blockers.length)throw Error('labor-only quote wrong: '+JSON.stringify({labor:lo.labor,blockers:lo.blockers}));
+{ // Shop preference: better over than under. Estimated hours carry a visible buffer; typed hours never do.
+ const mk=(qo,lu)=>cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60'},qo),laborUnitHours:lu,qty:1}));
+ const d=mk({},10);near(d.hours,11,'default buffer is 10%');near(d.baseHours,10,'base hours kept');near(d.labor,660,'labor uses buffered hours');
+ near(mk({buffer:'25'},10).hours,12.5,'custom buffer');near(mk({buffer:'0'},10).hours,10,'zero buffer allowed');
+ near(mk({buffer:'-5'},10).hours,11,'negative buffer is rejected, falls back to 10%, never lowers the estimate');near(mk({buffer:'abc'},10).hours,11,'unreadable buffer falls back to 10%');
+ near(mk({laborHours:'8'},10).hours,8,'typed hours are used as typed, no buffer');
+ if(mk({},null).hours!==null)throw Error('no estimate means no hours, not a buffered zero');
+ console.log('PASS: quote buffer raises estimated hours (default 10%), never lowers, and is not applied to typed hours')}
  if(!cutCtx.quoteLaborOnly(cutCtx.freshQuote())||cutCtx.quoteLaborOnly({laborOnly:false}))throw Error('labor only must be the default');
- const lo2=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60'}),laborUnitHours:2.5,shieldOpen:3}));
+ const lo2=cutCtx.computeQuote(Object.assign({},quoteBase,{quote:Object.assign(cutCtx.freshQuote(),{rate:'60',buffer:'0'}),laborUnitHours:2.5,shieldOpen:3}));
  if(!lo2.blockers.some(b=>/shield termination labor is not covered/.test(b)))throw Error('open shields must still hold a labor quote')}
 const shieldBlock=cutCtx.computeQuote(Object.assign({},quoteBase,{shieldOpen:2}));
 if(!shieldBlock.blockers.some(b=>/2 shielded cable\(s\) have no shield termination/.test(b)))throw Error('open shield terminations must block the quote');
