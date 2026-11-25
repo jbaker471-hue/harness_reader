@@ -2,6 +2,12 @@
 
 Last verified: 2026-10-29 on Windows 11 x64, Go 1.24.7 (portable toolchain), synthetic fixtures only.
 
+## 2026-11-25 update: quote errs high (owner preference: better over than under)
+
+- The quote has a visible "Buffer on estimated hours (%)" input, default 10. It raises hours that come from the job summary or the Labor tab; hours typed on the quote are used as typed. The quote row reads "X h = Y h estimate + 10% buffer". A negative or unreadable entry falls back to 10; 0 turns it off.
+- The build-time estimate itself is unchanged, so the observed times, ranges and the comparison with the owner's hours stay honest. The buffer is not a fix for untimed work (156 is about 3 h under: connector assembly, backshell, labels, lacing, branch layout have no times yet).
+- Verified: UI regression (69 PASS), go vet, go test. Not measured on the 11 drawings.
+
 ## 2026-11-20 update: ferrule crimp time from the owner
 
 - Owner's estimate: a crimp ferrule takes about 30 s (was a 1.5 minute placeholder). Default is now 0.5 min with a 0.4 to 0.6 range.
