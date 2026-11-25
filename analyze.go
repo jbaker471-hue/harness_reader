@@ -156,6 +156,10 @@ func getLayout(part string) (int, string) {
 	if g, ok := guideInventory(part); ok {
 		return len(g.IDs), "GUIDE INVENTORY: " + g.Arrangement
 	}
+	// A count the owner confirmed outranks the unreviewed catalog decode and a parts-list description.
+	if n, ok := facts.positions(part); ok {
+		return n, confirmedCountLayout(n)
+	}
 	s := strings.ToUpper(part)
 	m := reLayoutCode.FindStringSubmatch(s)
 	if len(m) == 0 {

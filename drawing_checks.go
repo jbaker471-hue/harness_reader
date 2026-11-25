@@ -167,7 +167,7 @@ func positionCountIssues(a *Analysis) []ViewIssue {
 		note(w.End, w.EndCavity)
 	}
 	for _, c := range a.Connectors {
-		if c.CavityCount == 0 || c.Tag == "" || c.Tag == "UNASSIGNED" || strings.HasPrefix(c.LayoutStatus, descCountStatus) {
+		if c.CavityCount == 0 || c.Tag == "" || c.Tag == "UNASSIGNED" || isStatedCount(c.LayoutStatus) {
 			continue
 		}
 		for _, b := range a.BOM {

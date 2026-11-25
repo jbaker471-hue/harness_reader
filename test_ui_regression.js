@@ -732,9 +732,26 @@ console.log('PASS: harness length applies only to conductors without their own l
  console.log('PASS: logo mark and tab icon are inline, labeled, and load nothing external');
 }
 
+// Remembered facts: the control asks once, shows what was confirmed, and never presents it as read from the drawing.
+{
+ const grab=n=>{const i0=src.indexOf('function '+n+'(');const eol=src.indexOf('\n',i0);return src.slice(i0,src.slice(i0,eol).trimEnd().endsWith('{')?src.indexOf('\n}\n',i0)+2:eol)};
+ const fc={st:{facts:[{kind:'positions',key:'ABC12-3',part:'ABC12-3',value:61}]},safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))};
+ vm.createContext(fc);vm.runInContext([grab('factKey'),grab('factFor'),grab('factControl')].join('\n'),fc);
+ if(fc.factKey(' abc12 -3 ')!=='ABC12-3')throw Error('fact key must drop whitespace only and keep every other character');
+ if(!fc.factFor('abc12-3')||fc.factFor('ABC123'))throw Error('a part must match exactly (dashes are part of the identifier)');
+ if(fc.factFor('')||fc.factFor(null))throw Error('no part, no fact');
+ const asks=fc.factControl({part:'XYZ9'},2);
+ if(!asks.includes('id="factpos-2"')||!asks.includes('rememberPositions(2)')||!/not read from the drawing/.test(asks))throw Error('ask control must collect a number and say it is the owner\'s statement');
+ const told=fc.factControl({part:'abc12-3'},0);
+ if(!told.includes('<b>61</b>')||!told.includes('forgetPositions(0)')||told.includes('factpos-'))throw Error('a confirmed count is shown with a Forget link and no input');
+ if(fc.factControl({part:''},0)!==''||fc.factControl(null,0)!=='')throw Error('no part number, no control');
+ const xss=fc.factControl({part:'<img onerror=1>'},1);if(xss.includes('<img'))throw Error('part text must be escaped');
+ console.log('PASS: remembered-fact control asks once, shows the confirmed count with Forget, escapes text, and labels it as the owner\'s statement');
+}
+
 // Each connector states plainly which pins are used and which are not, with the reason, and says so when it cannot tell.
 {
- const ctx={st:{raw:{},nets:[{wire:'W1',endpoints:'P1:1,J2:A',awg:'22',color:'WHT',signal:'PWR'}]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),conductorFacts:()=>({errors:['held']})};
+ const ctx={factFor:()=>null,factControl:()=>'',st:{raw:{},nets:[{wire:'W1',endpoints:'P1:1,J2:A',awg:'22',color:'WHT',signal:'PWR'}]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),conductorFacts:()=>({errors:['held']})};
  vm.createContext(ctx);
  vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const eq=(a,b,m)=>{if(a!==b)throw Error(m+': '+JSON.stringify(a)+' != '+JSON.stringify(b))};
@@ -870,7 +887,7 @@ console.log('PASS: harness length applies only to conductors without their own l
 
 // Two wired cavities that are not on the insert are called out, and the rest are offered as provisional, not confirmed.
 {
- const ctx={st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:[],unusedProvisional:['4','5','6'],unusedStatus:'HELD — resolve source and inventory conflicts',explicitUnused:[],conflicts:['Cavity 9 is wired but does not exist in the sourced cavity inventory.'],wired:['1','2','3','9']}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),conductorFacts:()=>({errors:['held']})};
+ const ctx={factFor:()=>null,factControl:()=>'',st:{raw:{cavityModels:[{tag:'P1',part:'X',all:['1','2','3','4','5','6'],allVerified:true,unused:[],unusedProvisional:['4','5','6'],unusedStatus:'HELD — resolve source and inventory conflicts',explicitUnused:[],conflicts:['Cavity 9 is wired but does not exist in the sourced cavity inventory.'],wired:['1','2','3','9']}]},nets:[]},sourceCavityModel:isolate.sourceCavityModel,splitCavs:isolate.splitCavs,sortCav:isolate.sortCav,connFamily:()=>null,safe:s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])),conductorFacts:()=>({errors:['held']})};
  vm.createContext(ctx);
  vm.runInContext(block('const faceSides=','function renderFaceView(').replace(/^const faceSides=/,'var faceSides='),ctx);
  const c={id:'a',tag:'P1',part:'X',occupied:'1, 2, 3, 9',labels:['1','2','3','4','5','6'],capacity:6};
