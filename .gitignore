@@ -3,3 +3,9 @@
 *.tmp
 .cache/
 .DS_Store
+
+# Local working folders: customer drawings, diagnostics and release staging must never be committed
+tmp/
+output/
+release/
+ratchet_report.log
